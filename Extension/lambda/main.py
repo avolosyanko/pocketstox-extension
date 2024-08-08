@@ -1,7 +1,7 @@
 import logging
 import DataHandler, Embedding
 
-def main():
+def lambda_handler():
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
@@ -9,4 +9,4 @@ def main():
     embedding = Embedding()
 
 if __name__ == "__main__":
-    main()
+    lambda_handler()
