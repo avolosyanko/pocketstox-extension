@@ -10,14 +10,13 @@ log = logging.log()
 
 class ManualEmbed:
     """
-    Responsible for creating and upserting embeddings to Pinecone index.
+    Responsible for the manual process of embedding stock data and upserting into Pinecone index.
     """
-    def __init__(self):
-        self.PINECONE_API_KEY = os.environ.get('PINECONE_API_KEY')
-        self.index_name = "stock-data-index"
-        self.namespace = "ns1"
-
-        self.model_name = "ProsusAI/finbert"
+    def __init__(self, model_name: str, api_key: str, index_name: str, namespace: str):
+        self.model_name = model_name
+        self.api_key = api_key
+        self.index_name = index_name
+        self.namespace = namespace
 
     def pinecone_upsert(self) -> None:
         ticker = None
@@ -36,11 +35,10 @@ class ManualEmbed:
         tokenizer = BertTokenizer.from_pretrained(self.model_name)
         model = BertModel.from_pretrained(self.model_name)
 
-        def preprocess_text(text):
-            inputs = tokenizer(text, return_tensors="pt", max_length=512, truncation=True, padding="max_length")
-            return inputs
-
-        inputs = preprocess_text(sample_text)
+        def _preprocess_text(self, text: str) -> dict:
+            return self.tokenizer(text, return_tensors="pt", max_length=512, truncation=True, padding="max_length")
+        
+        inputs = _preprocess_text(sample_text)
         with torch.no_grad():
             outputs = model(**inputs)
             hidden_states = outputs.last_hidden_state
@@ -54,4 +52,5 @@ class ManualEmbed:
 
 
 if __name__ == "__main__":
-    ManualEmbed().pinecone_upsert()
+    PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY")
+    ManualEmbed("ProsusAI/finbert", PINECONE_API_KEY, "stock-data-index", "ns1")
