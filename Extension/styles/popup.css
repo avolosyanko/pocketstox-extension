@@ -2,7 +2,7 @@
     --black: rgba(10, 10, 10, 1);
     --blue: rgba(12, 103, 237, 1);
     --white: rgba(255, 255, 255, 1);
-    --light-bg: rgba(245, 246, 249, 1);
+    --transparent: rgba(135, 135, 135, 0.3);
 }
 
 @font-face {
@@ -13,16 +13,25 @@
 * {
     margin: 0;
     padding: 0;
+    color: var(--white);
     font-family: "Inter", Arial;
     font-weight: 400;
     font-style: normal;
+    font-size: 11px;
     text-decoration: none;
     box-sizing: border-box;
 }
 
+header, .header-btns, button {
+    display: flex; 
+    flex-direction: row; 
+    justify-content: space-between;
+}
+
 body {
-    background-color: rgb(10,10,10);
+    background-color: var(--black);
     width: 450px;
+    height: 100%;
     padding: 10px;
 }
 
@@ -32,99 +41,97 @@ img {
 }
 
 button {
-    margin: 3px 0;
-    padding: 12px;
-    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 38px;
     border: none;
-    border-radius: 2px;
-    font-size: 12px;
+    border-radius: 3px;
+    padding: 0 10px;
+    gap: 2px;
 }
 
-a:hover, button:hover {
+button:hover, .custom-checkbox {
     cursor: pointer;
 }
 
-.generate-stocks-btn {
-    font-size: 12px;
-    color: rgb(249, 249, 249);
-    background-color: rgb(12, 103, 237);
+.header-btns > button {
+    background-color: var(--transparent);
+    margin-left: 6px;
 }
 
-.report-issue-btn {
-    color: rgba(200, 200, 200, 1.0);
-    background-color: rgb(10,10,10);
-}
-
-.line-break {
-    height: 2px;
+body > button {
+    font-size: 13px;
     width: 100%;
-    background-color: rgba(100, 100, 100, 0.2);
-    margin: 10px 0;
+    margin: 4px 0;
+    background-color: var(--blue);
 }
 
-a, p {
-    text-align: center;
-    color: rgba(100, 100, 100, 0.8);
+.icon {
+    width: 13px;
+    height: 13px;
+    fill: currentColor;
 }
 
-p {
-    margin: 0;
-    font-size: 12px;
-}
-
-.generated-field{
-    margin: 10px 0;
-    display: flex;
-    height: 200px;
+.table-container {
+    margin: 6px 0;
     width: 100%;
-    background-color: rgba(100, 100, 100, 0.2);
-    border-radius: 2px;
-    padding: 10px;
-}
-
-th:nth-child(1), td:nth-child(1) { width: 10%; }  /* Score */
-th:nth-child(2), td:nth-child(2) { width: 12%; }  /* Ticker */
-th:nth-child(3), td:nth-child(3) { width: 40%; }  /* Name */
-th:nth-child(4), td:nth-child(4) { width: 15%; }  /* Last */
-th:nth-child(5), td:nth-child(5) { width: 12%; }  /* Change */
-th:nth-child(6), td:nth-child(6) { width: 12%; }  /* RelVolume */
-
-h1 {
-    color: rgb(249, 249, 249);
-    font-size: 14px;
-    font-weight: 600;
-}
-
-h2 {
-    color: rgb(12, 103, 237);
-    font-size: 12px;
-    font-weight: 400;
-}
-
-.headers {
-    display: flex;
-    justify-content: space-between;
-    padding: 0 10px;
+    border-radius: 3px;
+    padding: 2px;
 }
 
 table {
     table-layout: fixed;
     width: 100%;
-    text-align: left;
-    border-collapse: collapse;
-}
-
-th, td {
-    color: rgba(100, 100, 100, 0.8);
-    white-space: nowrap; 
-    overflow: hidden;
-    text-overflow: ellipsis
+    border-collapse: separate;
+    border-spacing: 0 5px;
 }
 
 th {
-    padding-bottom: 5px;
+    background-color: none;
+    font-size: 9px;
 }
 
-::selection{
-    color: white;
+th:nth-child(1), td:nth-child(1) { width: 10%; }  /* Select */
+th:nth-child(2), td:nth-child(2) { width: 11%; }  /* Score */
+th:nth-child(3), td:nth-child(3) { width: 11%; }  /* Ticker */
+th:nth-child(4), td:nth-child(4) { width: 29%; }  /* Name */
+th:nth-child(5), td:nth-child(5) { width: 15%; }  /* Last */
+th:nth-child(6), td:nth-child(6) { width: 12%; }  /* Change */
+th:nth-child(6), td:nth-child(6) { width: 12%; }  /* RelVolume */
+
+tbody tr {
+    background-color: var(--transparent);
+}
+
+tbody td{
+    padding: 5px 0;
+}
+
+.custom-checkbox {
+    position: relative;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    width: 14px;
+    height: 14px;
+    background-color: black;
+    border-radius: 2px;
+    margin-left: 10px;
+}
+  
+.custom-checkbox:checked {
+    background-color: var(--blue);
+}
+
+.custom-checkbox:checked::after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 1px;
+    width: 3px;
+    height: 7px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
 }
