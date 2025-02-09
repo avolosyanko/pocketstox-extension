@@ -11,12 +11,6 @@
     <img src="../images/logo.png" alt="Pocketstox logo">
     <div class="header-btns">
       <button>
-        Actions
-        <svg viewBox="0 0 13 13" class="icon">
-          <path d="M3 5l3.5 3.5L10 5z" />
-        </svg>
-      </button>
-      <button>
         <svg viewBox="0 0 180 130" class="icon">
           <circle cx="35" cy="65" r="15" />
           <circle cx="90" cy="65" r="15" />
@@ -25,11 +19,14 @@
       </button>
     </div>
   </header>
+  <div class="nav-bar" style="display: flex; flex-direction: row;">
+    <div style="font-size: 14px;">Discover</div>
+    <div style="font-size: 14px;">Watchlist</div>
+  </div>
   
   <div class="table-container">
     <table>
       <thead>
-        <th>Select</th>
         <th>Score</th>
         <th>Ticker</th>
         <th>Name</th>
@@ -40,7 +37,6 @@
       <!-- PLACEHOLDER NUMBERS START -->
       <tbody>
         <tr>
-          <td><input type="checkbox" class="custom-checkbox"></td>
           <td>0.923</td>
           <td>MSFT</td>
           <td>Microsoft Corp</td>
@@ -49,7 +45,6 @@
           <td>2.12</td>
         </tr>
         <tr>
-          <td><input type="checkbox" class="custom-checkbox"></td>
           <td>0.908</td>
           <td>GOOG</td>
           <td>Alphabet Inc</td>
@@ -58,7 +53,6 @@
           <td>1.02</td>
         </tr>
         <tr>
-          <td><input type="checkbox" class="custom-checkbox"></td>
           <td>0.844</td>
           <td>MSFT</td>
           <td>Microsoft Corp</td>
@@ -67,7 +61,6 @@
           <td>0.92</td>
         </tr>
         <tr>
-          <td><input type="checkbox" class="custom-checkbox"></td>
           <td>0.792</td>
           <td>PL</td>
           <td>Planet Labs</td>
@@ -76,7 +69,6 @@
           <td>1.00</td>
         </tr>
         <tr>
-          <td><input type="checkbox" class="custom-checkbox"></td>
           <td>0.908</td>
           <td>GOOG</td>
           <td>Alphabet Inc</td>
@@ -89,6 +81,19 @@
     </table>
   </div>
 
-  <button>Generate Companies</button>
+  <button style="color: white">
+    <svg viewBox="0 0 32 32" width="32" height="32">
+      <!-- Larger star -->
+      <path d="M0,-6 L1.6,-1.6 6,0 1.6,1.6 0,6 -1.6,1.6 -6,0 -1.6,-1.6Z" 
+            fill="white" 
+            transform="translate(20,16)"/>
+      
+      <!-- Smaller star -->
+      <path d="M0,-4 L1.1,-1.1 4,0 1.1,1.1 0,4 -1.1,1.1 -4,0 -1.1,-1.1Z" 
+            fill="white" 
+            transform="translate(12,11)"/>
+    </svg>
+    Generate Companies</button>
+  <p style="color: gray">You have 2 free credits remaining.</p>
 </body>
 </html>
