@@ -1,5 +1,5 @@
 import logging
-import DataHandler, Embedding
+import DataHandler, lambda.Embedding as Embedding
 
 def lambda_handler():
     logging.basicConfig(level=logging.INFO)

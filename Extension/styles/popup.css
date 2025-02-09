@@ -2,7 +2,7 @@
     --black: rgba(10, 10, 10, 1);
     --blue: rgba(12, 103, 237, 1);
     --white: rgba(255, 255, 255, 1);
-    --transparent: rgba(135, 135, 135, 0.3);
+    --transparent: rgba(10, 10, 10, 1);
 }
 
 @font-face {
@@ -13,7 +13,7 @@
 * {
     margin: 0;
     padding: 0;
-    color: var(--white);
+    color: var(--black);
     font-family: "Inter", Arial;
     font-weight: 400;
     font-style: normal;
@@ -28,11 +28,15 @@ header, .header-btns, button {
     justify-content: space-between;
 }
 
-body {
+header{
     background-color: var(--black);
+}
+
+body {
+    background-color: var(--white);
     width: 450px;
     height: 100%;
-    padding: 10px;
+    padding: 0px;
 }
 
 img {
@@ -49,6 +53,7 @@ button {
     border-radius: 3px;
     padding: 0 10px;
     gap: 2px;
+    margin: 0 10px 0 10px;
 }
 
 button:hover, .custom-checkbox {
@@ -65,6 +70,7 @@ body > button {
     width: 100%;
     margin: 4px 0;
     background-color: var(--blue);
+    padding: 20px;
 }
 
 .icon {
@@ -92,16 +98,15 @@ th {
     font-size: 9px;
 }
 
-th:nth-child(1), td:nth-child(1) { width: 10%; }  /* Select */
-th:nth-child(2), td:nth-child(2) { width: 11%; }  /* Score */
-th:nth-child(3), td:nth-child(3) { width: 11%; }  /* Ticker */
-th:nth-child(4), td:nth-child(4) { width: 29%; }  /* Name */
-th:nth-child(5), td:nth-child(5) { width: 15%; }  /* Last */
-th:nth-child(6), td:nth-child(6) { width: 12%; }  /* Change */
-th:nth-child(6), td:nth-child(6) { width: 12%; }  /* RelVolume */
+th:nth-child(1), td:nth-child(1) { width: 13%; }  /* Score */
+th:nth-child(2), td:nth-child(2) { width: 13%; }  /* Ticker */
+th:nth-child(3), td:nth-child(3) { width: 30%; }  /* Name */
+th:nth-child(4), td:nth-child(4) { width: 16%; }  /* Last */
+th:nth-child(5), td:nth-child(5) { width: 14%; }  /* Change */
+th:nth-child(6), td:nth-child(6) { width: 14%; }  /* RelVolume */
 
 tbody tr {
-    background-color: var(--transparent);
+
 }
 
 tbody td{
