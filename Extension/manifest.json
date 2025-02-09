@@ -4,7 +4,7 @@
     "description": "Extension reads articles for you and uses algorithms to determine stocks most affected.",
     "version": "1.0",
     "action": {
-        "default_popup": "popup/popup.html"
+        "default_popup": "./popup.html"
     },
     "permissions": ["activeTab"],
     "icons": {
