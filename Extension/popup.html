@@ -6,94 +6,94 @@
   <title>Pocketstox Extension</title>
   <link rel="stylesheet" type="text/css" href="../styles/popup.css">
 </head>
-<body>
-  <header>
-    <img src="../images/logo.png" alt="Pocketstox logo">
-    <div class="header-btns">
-      <button>
-        <svg viewBox="0 0 180 130" class="icon">
-          <circle cx="35" cy="65" r="15" />
-          <circle cx="90" cy="65" r="15" />
-          <circle cx="145" cy="65" r="15" />
-        </svg>
-      </button>
-    </div>
-  </header>
-  <div class="nav-bar" style="display: flex; flex-direction: row;">
-    <div style="font-size: 14px;">Discover</div>
-    <div style="font-size: 14px;">Watchlist</div>
+<header>
+  <img src="../images/logo.png" alt="Pocketstox logo" id="logo1">
+  <div class="display: flex; flex-direction: row;">
+    <div class="profile-icon">AV</div>
   </div>
-  
+</header>
+<body>
+
+  <div class="nav-bar" style="display: flex; flex-direction: row; padding-top: 6px; padding-bottom: 0px; background-color: #eff0f2; border-bottom: 0.5px solid #cfcfcf">
+    <div style="font-size: 12px; margin-left: 20px; color: var(--blue); border-bottom: 1.5px solid var(--blue); padding-bottom: 4px;">Discover</div>
+
+  </div>
+  <div class="nav-bar" style="display: flex; flex-direction: row; padding-top: 8px; padding-bottom: 1px; background-color: #eff0f2; border-bottom: 0.5px solid #cfcfcf">
+    <div style="font-size: 10px; margin-left: 16px; padding-bottom: 6px;">Score</div>
+    <div style="font-size: 10px; margin-left: 29px;">Asset</div>
+    <div style="font-size: 10px; margin-left: 125px;">Last</div>
+    <div style="font-size: 10px; margin-left: 40px;">Change</div>
+    <div style="font-size: 10px; margin-left: 15px;">Volume</div>
+  </div>
   <div class="table-container">
     <table>
-      <thead>
-        <th>Score</th>
-        <th>Ticker</th>
-        <th>Name</th>
-        <th>Last</th>
-        <th>Change</th>
-        <th>rVolume</th>
-      </thead>
       <!-- PLACEHOLDER NUMBERS START -->
       <tbody>
         <tr>
-          <td>0.923</td>
-          <td>MSFT</td>
-          <td>Microsoft Corp</td>
+          <td><p style="color: green; background-color: #edf6e7; border-radius: 20px; width: fit-content; padding: 3px 6px; margin: 0 10px">0.923</p></td>
+          <td>Microsoft Corp (MSFT)</td>
           <td>$459.55</td>
           <td>1.44%</td>
           <td>2.12</td>
         </tr>
         <tr>
-          <td>0.908</td>
-          <td>GOOG</td>
-          <td>Alphabet Inc</td>
+          <td><p style="color: green; background-color: #edf6e7; border-radius: 20px; width: fit-content; padding: 3px 6px; margin: 0 10px;">0.908</p></td>
+          <td>Alphabet Inc (GOOG)</td>
           <td>$190.41</td>
           <td>0.05%</td>
           <td>1.02</td>
         </tr>
         <tr>
-          <td>0.844</td>
-          <td>MSFT</td>
-          <td>Microsoft Corp</td>
+          <td><p style="color: rgb(247, 42, 42); background-color: #f6e7e7; border-radius: 20px; width: fit-content; padding: 3px 6px; margin: 0 10px;">0.844</p></td>
+          <td>Microsoft Corp (MSFT)</td>
           <td>$459.55</td>
           <td>1.44%</td>
           <td>0.92</td>
         </tr>
         <tr>
-          <td>0.792</td>
-          <td>PL</td>
-          <td>Planet Labs</td>
+          <td><p style="color: rgb(247, 42, 42); background-color: #f6e7e7; border-radius: 20px; width: fit-content; padding: 3px 6px; margin: 0 10px;">0.792</p></td>
+          <td>Planet Labs (PL)</td>
           <td>$1.77</td>
           <td>2.48%</td>
           <td>1.00</td>
         </tr>
         <tr>
-          <td>0.908</td>
-          <td>GOOG</td>
-          <td>Alphabet Inc</td>
+          <td><p style="color: rgb(247, 42, 42); background-color: #f6e7e7; border-radius: 20px; width: fit-content; padding: 3px 6px; margin: 0 10px;">0.908</p></td>
+          <td>Alphabet Inc (GOOG)</td>
           <td>$190.41</td>
           <td>0.04%</td>
           <td>1.02</td>
+        </tr>
+        <tr>
+          <td><p style="color: rgb(247, 42, 42); background-color: #f6e7e7; border-radius: 20px; width: fit-content; padding: 3px 6px; margin: 0 10px;">0.844</p></td>
+          <td>Microsoft Corp (MSFT)</td>
+          <td>$459.55</td>
+          <td>1.44%</td>
+          <td>0.92</td>
         </tr>
       </tbody>
       <!-- PLACEHOLDER NUMBERS END -->
     </table>
   </div>
 
-  <button style="color: white">
-    <svg viewBox="0 0 32 32" width="32" height="32">
-      <!-- Larger star -->
-      <path d="M0,-6 L1.6,-1.6 6,0 1.6,1.6 0,6 -1.6,1.6 -6,0 -1.6,-1.6Z" 
-            fill="white" 
-            transform="translate(20,16)"/>
-      
-      <!-- Smaller star -->
-      <path d="M0,-4 L1.1,-1.1 4,0 1.1,1.1 0,4 -1.1,1.1 -4,0 -1.1,-1.1Z" 
-            fill="white" 
-            transform="translate(12,11)"/>
-    </svg>
-    Generate Companies</button>
-  <p style="color: gray">You have 2 free credits remaining.</p>
+    <button style="color: white;">
+      <svg viewBox="0 0 32 32" width="32" height="32">
+        <!-- Larger star -->
+        <path d="M0,-6 L1.6,-1.6 6,0 1.6,1.6 0,6 -1.6,1.6 -6,0 -1.6,-1.6Z" 
+              fill="white" 
+              transform="translate(20,16)"/>
+        
+        <!-- Smaller star -->
+        <path d="M0,-4 L1.1,-1.1 4,0 1.1,1.1 0,4 -1.1,1.1 -4,0 -1.1,-1.1Z" 
+              fill="white" 
+              transform="translate(12,11)"/>
+      </svg>
+      Generate Companies</button>
+
+
+  <div style="display: flex; flex-direction: row; border-top: .5px solid #cfcfcf; background-color: #eff0f2; margin-top: 12px;">
+    <p style="color: gray; margin-left: 10px; margin-top: 20px; font-size: 10px;">Pocketstox aims to help you independently source investment <br>ideas using advance neural net models. It does not aim to offer financial advice - you should always conduct your own research before investing.</p>
+    <img src="../images/warning.png" id="warning">
+  </div>
 </body>
 </html>
