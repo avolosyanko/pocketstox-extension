@@ -29,19 +29,27 @@ header, .header-btns, button {
 }
 
 header{
+    height: 65px;
     background-color: var(--black);
 }
 
 body {
     background-color: var(--white);
-    width: 450px;
-    height: 100%;
+    width: 400px;
+    height: 400px;
     padding: 0px;
 }
 
-img {
+#logo1 {
+    margin-left: 16px;
+    margin-top: 15px;
     height: 30px;
+}
+
+#warning {
+    height: 80px;
     width: auto;
+    margin-left: 20px;
 }
 
 button {
@@ -50,10 +58,11 @@ button {
     justify-content: center;
     height: 38px;
     border: none;
-    border-radius: 3px;
+    border-radius: 5px;
     padding: 0 10px;
     gap: 2px;
-    margin: 0 10px 0 10px;
+    margin: 20px;
+    width: 200px;
 }
 
 button:hover, .custom-checkbox {
@@ -67,8 +76,9 @@ button:hover, .custom-checkbox {
 
 body > button {
     font-size: 13px;
-    width: 100%;
-    margin: 4px 0;
+    width: 92%;
+    margin: 8px 0;
+    margin-left: 14px;
     background-color: var(--blue);
     padding: 20px;
 }
@@ -80,63 +90,44 @@ body > button {
 }
 
 .table-container {
-    margin: 6px 0;
-    width: 100%;
+    margin: 6px 0px;
+    width: 90%;
     border-radius: 3px;
     padding: 2px;
+
 }
+
 
 table {
     table-layout: fixed;
-    width: 100%;
+    width: 400px;
     border-collapse: separate;
-    border-spacing: 0 5px;
+    border-spacing: 0 3px;
+    margin-left: -2px;
 }
 
-th {
-    background-color: none;
-    font-size: 9px;
+td{
+    border-bottom: 0.5px solid #cfcfcf;
 }
 
-th:nth-child(1), td:nth-child(1) { width: 13%; }  /* Score */
-th:nth-child(2), td:nth-child(2) { width: 13%; }  /* Ticker */
-th:nth-child(3), td:nth-child(3) { width: 30%; }  /* Name */
-th:nth-child(4), td:nth-child(4) { width: 16%; }  /* Last */
-th:nth-child(5), td:nth-child(5) { width: 14%; }  /* Change */
-th:nth-child(6), td:nth-child(6) { width: 14%; }  /* RelVolume */
 
-tbody tr {
+th:nth-child(1), td:nth-child(1) { width: 18%; padding-left: 4px; }  /* Score */
+th:nth-child(2), td:nth-child(2) { width: 38%; }  /* Asset */
+th:nth-child(3), td:nth-child(3) { width: 16%; }  /* Last */
+th:nth-child(4), td:nth-child(4) { width: 13%; }  /* Change */
+th:nth-child(5), td:nth-child(5) { width: 16%; }  /* Volume */
 
-}
 
 tbody td{
-    padding: 5px 0;
+    padding: 6px 0;
 }
 
-.custom-checkbox {
-    position: relative;
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    width: 14px;
-    height: 14px;
-    background-color: black;
-    border-radius: 2px;
-    margin-left: 10px;
-}
-  
-.custom-checkbox:checked {
-    background-color: var(--blue);
-}
-
-.custom-checkbox:checked::after {
-    content: '';
-    position: absolute;
-    left: 5px;
-    top: 1px;
-    width: 3px;
-    height: 7px;
-    border: solid white;
-    border-width: 0 2px 2px 0;
-    transform: rotate(45deg);
+.profile-icon {
+    background-color: var(--blue); 
+    border-radius: 25px; 
+    width: fit-content; 
+    padding: 8px; 
+    margin-top: 18px; 
+    margin-right: 20px; 
+    color: white;
 }
