@@ -1,43 +1,72 @@
 import voyageai
 import logging, os
+import uuid, datetime
 
 from pathlib import Path
 from pinecone import Pinecone
 from dotenv import load_dotenv
 
 class Vectorstore:
-    def __init__(self, VOYAGE_API_KEY, PINECONE_API_KEY):
+    def __init__(self, VOYAGE_API_KEY, PINECONE_API_KEY, PINECONE_INDEX_HOST):
         self.voyage_api_key = VOYAGE_API_KEY
-        self.pinecone_key = PINECONE_API_KEY
+        self.pc = Pinecone(api_key=PINECONE_API_KEY)
+        self.pinecone_index = self.pc.Index(host=PINECONE_INDEX_HOST)
+        self.pinecone_namespace = "voyage-ai-embeddings"
     
     def vectorise_content(self, content):
-        vo = voyageai.Client(api_key='pa--a_Og3sUuEzu8bwYaddrWNR9zNVTTOz4FPJnj5vghXc')
+        vo = voyageai.Client(api_key=self.voyage_api_key)
         result = vo.embed(content, model="voyage-finance-2", input_type="document")
         return result.embeddings
     
     # Run Embeddings
-    '''
-    def upload_content(self):
-        ticker = 'PL'
-        metadata = None
-        with open(f'{self.input_text}.txt', 'r', encoding='utf-8') as file:
-            sample_text = file.read()
-        embeddings = self.create_embeddings(sample_text)
-        pc = Pinecone(api_key=self.PINECONE_API_KEY)
-        index = pc.Index(self.index_name)
-        index.upsert(
-            vectors=[{"id": ticker, "values": embeddings, "metadata": metadata}],
-            namespace= self.namespace
+    def upload_content(self, vector):
+        document_id = str(uuid.uuid4())
+        current_time = datetime.datetime.now().isoformat()
+        ticker = "WMT"
+        name = "Walmart Inc"
+        exchange = "NYSE"
+        document_type = "Earnings Call"
+        filing_type = "Transcript"
+        fiscal_period = "Q2"
+        fiscal_year = "2025"
+        publication_date = "2024-08-15"
+
+        self.pinecone_index.upsert(
+            vectors=[
+                {
+                    "id": document_id, 
+                    "values": vector, 
+                    "metadata": {
+                        "insert_timestamp": current_time,
+                        "modified_timestamp": current_time,
+                        "ticker": ticker,
+                        "name": name,
+                        "exchange": exchange,
+                        "document_type": document_type,
+                        "filing_type": filing_type,
+                        "fiscal_period": fiscal_period,
+                        "fiscal_year": fiscal_year,
+                        "publication_timestamp": publication_date
+                    }
+                }
+            ],
+            namespace=self.pinecone_namespace
         )
-        '''
     
 if __name__ == "__main__":
-    #log = logging.log()
-    file_path = Path('./manual/earnings_samples/azn_earnings.txt')
+    logging.basicConfig(level=logging.INFO)
+    log = logging.getLogger(__name__)
+
+    current_time = datetime.datetime.now().isoformat()
+    file_path = Path('Extension/manual/earnings_samples/wmt_earnings.txt')
     load_dotenv()
 
-    vectorstore = Vectorstore(os.environ.get("PINECONE_API_KEY"), os.environ.get("VOYAGE_API_KEY"))
+    vectorstore = Vectorstore(
+        os.environ.get("VOYAGE_API_KEY"),
+        os.environ.get("PINECONE_API_KEY"), 
+        os.environ.get("PINECONE_INDEX_HOST")
+    )
     azn_earnings = file_path.read_text()
-    vector = vectorstore.vectorise_content(azn_earnings)
-    print(vector)
-    #vectorstore.upload_content()
+    vector = vectorstore.vectorise_content(azn_earnings)[0]
+    vectorstore.upload_content(vector)
+    log.info('Vector upserted into Pinecone instance.')
