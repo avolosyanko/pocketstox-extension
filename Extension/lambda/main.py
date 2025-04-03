@@ -17,8 +17,8 @@ except Exception as e:
 
 def lambda_handler(event, context):
     try:
-        if not all([voyage_client, pinecone, pinecone_index]):
-            raise Exception("API clients failed to initialize. Check environment variables.")
+        if not all([vo, pc, pc_index]):
+            raise Exception("API clients failed to initialize.")
         
         if isinstance(event.get('body'), str):
             body = json.loads(event['body'])
@@ -88,7 +88,7 @@ def format_response(status_code, body_dict):
 if __name__ == "__main__":
     test_event = {
         'body': json.dumps({
-            'title': 'Test Article',
+            'title': 'EU ready to retaliate against Donald Trump’s tariffs, says Ursula von der Leyen',
             'content': 'This is a test article about retail innovation and supply chain optimization.'
         })
     }

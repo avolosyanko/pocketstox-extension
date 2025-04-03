@@ -1,13 +1,11 @@
-// Extracts article contents
-const script = document.createElement('script');
-script.src = 'https://cdnjs.cloudflare.com/ajax/libs/readability/0.4.4/Readability.min.js';
-script.onload = function () {
-    document.addEventListener('DOMContentLoaded', function() {
-    const article = new Readability(document).parse();
+console.log('content.js being run!');
+
+try {
+    const documentClone = document.cloneNode(true);
+    const reader = new Readability(documentClone);
+    const article = reader.parse();
+    
     if (article) {
-        console.log('Title:', article.title);
-        console.log('Content:', article.textContent);
-        // Send article contents to embeddings.js
         chrome.runtime.sendMessage({
             action: 'contentExtracted',
             title: article.title,
@@ -16,6 +14,6 @@ script.onload = function () {
     } else {
         console.error('Failed to parse the document with Readability');
     }
-    })
-};
-document.head.appendChild(script);
+} catch (error) {
+    console.error('Error parsing with Readability:', error);
+}
