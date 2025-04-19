@@ -64,19 +64,3 @@ TRUMP_TARIFF_EVENT = {
         }
     )
 }
-
-SUPPLY_CHAIN_EVENT = {
-    "body": json.dumps(
-        {
-            "title": "Supply Chain Innovations Changing Retail",
-            "content": (
-                "Major retailers are investing heavily in modernizing their supply chains to meet growing "
-                "consumer demands for faster delivery times. Companies are implementing robotics automation "
-                "in warehouses and distribution centers, which has shown to reduce processing times by up to 30%. "
-                "Advanced inventory management systems powered by AI are helping predict stock requirements more "
-                "accurately, reducing both stockouts and overstock situations. Several industry leaders have "
-                "reported significant improvements in operational efficiency after implementing these technologies."
-            ),
-        }
-    )
-}
