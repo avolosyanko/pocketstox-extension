@@ -1,3 +1,4 @@
+scripts/config.js
 .venv
 .env
 .DS_Store

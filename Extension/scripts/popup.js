@@ -1,7 +1,6 @@
 console.log('popup.js loaded');
 
 document.addEventListener('DOMContentLoaded', function() {
-
     const scrapeButton = document.getElementById('scrape');
     if (scrapeButton) {
         scrapeButton.addEventListener('click', () => {
@@ -28,7 +27,29 @@ document.addEventListener('DOMContentLoaded', function() {
             const content = message.content;
             
             console.log('Title:', title);
-            console.log('Content:', content); 
+            console.log('Content:', content);
+            
+            fetch(CONFIG.apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': CONFIG.apiKey
+                },
+                body: JSON.stringify({
+                    title: title,
+                    content: content
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Results:', data);
+                if (data.matches && data.matches.length > 0) {
+                    updateTableWithMatches(data.matches);
+                }
+            })
+            .catch(error => {
+                console.error('Error calling API:', error);
+            });
         }
     });
 });
