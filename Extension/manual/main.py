@@ -12,7 +12,7 @@ class Vectorstore:
         self.voyage_api_key = VOYAGE_API_KEY
         self.pc = Pinecone(api_key=PINECONE_API_KEY)
         self.pinecone_index = self.pc.Index(host=PINECONE_INDEX_HOST)
-        self.pinecone_namespace = "voyage-ai-embeddings"
+        self.pinecone_namespace = "pocketstox-embeddings-db"
 
     def vectorise_content(self, content):
         vo = voyageai.Client(api_key=self.voyage_api_key)
@@ -23,14 +23,14 @@ class Vectorstore:
     def upload_content(self, vector):
         document_id = str(uuid.uuid4())
         current_time = datetime.datetime.now().isoformat()
-        ticker = "WMT"
-        name = "Walmart Inc"
-        exchange = "NYSE"
+        ticker = "AZN"
+        name = "AstraZeneca PLC"
+        exchange = "NASDAQ"
         document_type = "Earnings Call"
         filing_type = "Transcript"
         fiscal_period = "Q2"
-        fiscal_year = "2025"
-        publication_date = "2024-08-15"
+        fiscal_year = "2024"
+        publication_date = "2024-07-25"
 
         self.pinecone_index.upsert(
             vectors=[
@@ -60,7 +60,7 @@ if __name__ == "__main__":
     log = logging.getLogger(__name__)
 
     current_time = datetime.datetime.now().isoformat()
-    file_path = Path("Extension/manual/earnings_samples/wmt_earnings.txt")
+    file_path = Path("/Users/andres/Documents/Projects/Pocketstox/Extension/manual/samples/azn_earnings.txt")
     load_dotenv()
 
     vectorstore = Vectorstore(
@@ -72,3 +72,4 @@ if __name__ == "__main__":
     vector = vectorstore.vectorise_content(azn_earnings)
     vectorstore.upload_content(vector)
     log.info("Vector upserted into Pinecone instance.")
+
