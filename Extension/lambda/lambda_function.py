@@ -1,26 +1,42 @@
 import json
-import os, logging
+import os
+import logging
 import voyageai
 from pinecone import Pinecone
+from dotenv import load_dotenv
+from functools import lru_cache
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# Global initialisation of API clients
-try:
-    vo = voyageai.Client(api_key=os.environ.get("VOYAGE_API_KEY"))
-    pc = Pinecone(api_key=os.environ.get("PINECONE_API_KEY"))
-    pc_index = pc.Index(host=os.environ.get("PINECONE_INDEX_HOST"))
-    pc_namespace = "voyage-ai-embeddings"
-except Exception as e:
-    logger.error(f"Error initializing clients: {str(e)}")
+@lru_cache(maxsize=1)
+def initialise_clients():
+    """
+    API clients initialization with caching for lambda warm starts.
+    
+    Returns:
+        tuple: (voyage_client, pinecone_client, pinecone_index)
+    """
+    try:
+        vo_api_key = os.environ.get("VOYAGE_API_KEY")
+        pc_api_key = os.environ.get("PINECONE_API_KEY")
+        pc_index_host = os.environ.get("PINECONE_INDEX_HOST")
 
+        vo = voyageai.Client(api_key=vo_api_key)
+        pc = Pinecone(api_key=pc_api_key)
+        pc_index = pc.Index(host=pc_index_host)
+
+        logger.info("API clients initialized successfully")
+        return vo, pc_index
+
+    except Exception as e:
+        logger.error(f"Failed to initialize clients: {str(e)}")
+        raise
 
 def lambda_handler(event, context):
     try:
-        if not all([vo, pc, pc_index]):
-            raise Exception("API clients failed to initialize.")
-
+        vo, pc_index = initialise_clients()
+        
         if isinstance(event.get("body"), str):
             body = json.loads(event["body"])
         else:
@@ -41,7 +57,7 @@ def lambda_handler(event, context):
         article_vector = result.embeddings[0]
 
         query_response = pc_index.query(
-            namespace=pc_namespace,
+            namespace="pocketstox-embeddings-db",
             vector=article_vector,
             top_k=5,
             include_metadata=True,
@@ -49,14 +65,12 @@ def lambda_handler(event, context):
 
         matches = []
         for match in query_response["matches"]:
-            matches.append(
-                {
-                    "score": round(match["score"], 4),
-                    "ticker": match["metadata"].get("ticker", ""),
-                    "company": match["metadata"].get("name", ""),
-                    "exchange": match["metadata"].get("exchange", ""),
-                }
-            )
+            matches.append({
+                "score": round(match["score"], 4),
+                "ticker": match["metadata"].get("ticker", ""),
+                "company": match["metadata"].get("name", ""),
+                "exchange": match["metadata"].get("exchange", ""),
+            })
 
         logger.info(f"Found {len(matches)} matches for article")
         return format_response(200, {"title": title, "matches": matches})
@@ -64,7 +78,6 @@ def lambda_handler(event, context):
     except Exception as e:
         logger.error(f"Error processing request: {str(e)}")
         return format_response(500, {"error": f"Internal server error: {str(e)}"})
-
 
 def format_response(status_code, body_dict):
     """Helper function to format the API response"""
@@ -79,11 +92,12 @@ def format_response(status_code, body_dict):
         "body": json.dumps(body_dict),
     }
 
-
 # For local testing
 if __name__ == "__main__":
     from test_events import *
-
+    
+    logging.basicConfig(level=logging.INFO)
+    load_dotenv()
     test_event = TRUMP_TARIFF_EVENT
 
     response = lambda_handler(test_event, None)
