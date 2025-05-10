@@ -1,101 +1,70 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pocketstox Extension</title>
-  <link rel="stylesheet" type="text/css" href="../styles/popup.css">
-  <script src="scripts/popup.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pocketstox Extension</title>
+    <link rel="stylesheet" type="text/css" href="../styles/popup.css">
+    <script src="scripts/popup.js"></script>
 </head>
-
 <body>
-  
-  <header>
-    <img src="../images/logo.png" alt="Pocketstox logo" id="logo1">
-    <div class="display: flex; flex-direction: row;">
-      <div class="profile-icon">AV</div>
+    <div class="extension-container">
+
+        <div class="header">
+            <div class="logo-section">
+                <div class="logo-text">Pocketstox</div>
+            </div>
+            <div class="profile-avatar">AV</div>
+        </div>
+
+        <div class="main-content">
+            <div class="hero-card">
+                <h2 class="hero-title">Analyse This Article</h2>
+                <p class="hero-description">
+                    Discover stocks mentioned or affected by this article
+                </p>
+                <button class="generate-button" id="scrape">
+                    <svg viewBox="0 0 32 32" width="16" height="16">
+                      <path d="M0,-10 L2.7,-2.7 10,0 2.7,2.7 0,10 -2.7,2.7 -10,0 -2.7,-2.7Z" 
+                            fill="white" 
+                            transform="translate(20,16)"/>
+                      <path d="M0,-7 L1.9,-1.9 7,0 1.9,1.9 0,7 -1.9,1.9 -7,0 -1.9,-1.9Z" 
+                            fill="white" 
+                            transform="translate(12,11)"/>
+                    </svg>
+                    Generate Companies
+                </button>
+            </div>
+
+            <div class="recent-section">
+                <div class="section-header">
+                    <h3 class="section-title">Recent Analyses</h3>
+                </div>
+                <!-- Empty State -->
+                <div class="empty-state">
+                    <div class="empty-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 6v6m0 0v6m0-6h6m-6 0H6" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <h3 class="empty-title">No analyses yet</h3>
+                    <p class="empty-description">
+                        Click "Generate Companies" above to analyse your first article and discover affected stocks
+                    </p>
+                </div>
+                <!-- Populated State -->
+            </div>
+        </div>
+
+        <div class="footer">
+            <div class="footer-text">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="footer-icon">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Not financial advice. Always do your own research.
+            </div>
+        </div>
     </div>
-  </header>
-  <div class="nav-bar" style="display: flex; flex-direction: row; padding-top: 6px; padding-bottom: 0px; background-color: #eff0f2; border-bottom: 0.5px solid #cfcfcf">
-    <div style="font-size: 12px; margin-left: 20px; color: var(--blue); border-bottom: 1.5px solid var(--blue); padding-bottom: 4px;">Discover</div>
-
-  </div>
-  <div class="nav-bar" style="display: flex; flex-direction: row; padding-top: 8px; padding-bottom: 1px; background-color: #eff0f2; border-bottom: 0.5px solid #cfcfcf">
-    <div style="font-size: 10px; margin-left: 16px; padding-bottom: 6px;">Score</div>
-    <div style="font-size: 10px; margin-left: 29px;">Asset</div>
-    <div style="font-size: 10px; margin-left: 125px;">Last</div>
-    <div style="font-size: 10px; margin-left: 40px;">Change</div>
-    <div style="font-size: 10px; margin-left: 15px;">Volume</div>
-  </div>
-  <div class="table-container">
-    <table>
-      <!-- PLACEHOLDER NUMBERS START -->
-      <tbody>
-        <tr>
-          <td><p style="color: green; background-color: #edf6e7; border-radius: 20px; width: fit-content; padding: 3px 6px; margin: 0 10px">0.923</p></td>
-          <td>Microsoft Corp (MSFT)</td>
-          <td>$459.55</td>
-          <td>1.44%</td>
-          <td>2.12</td>
-        </tr>
-        <tr>
-          <td><p style="color: green; background-color: #edf6e7; border-radius: 20px; width: fit-content; padding: 3px 6px; margin: 0 10px;">0.908</p></td>
-          <td>Alphabet Inc (GOOG)</td>
-          <td>$190.41</td>
-          <td>0.05%</td>
-          <td>1.02</td>
-        </tr>
-        <tr>
-          <td><p style="color: rgb(247, 42, 42); background-color: #f6e7e7; border-radius: 20px; width: fit-content; padding: 3px 6px; margin: 0 10px;">0.844</p></td>
-          <td>Microsoft Corp (MSFT)</td>
-          <td>$459.55</td>
-          <td>1.44%</td>
-          <td>0.92</td>
-        </tr>
-        <tr>
-          <td><p style="color: rgb(247, 42, 42); background-color: #f6e7e7; border-radius: 20px; width: fit-content; padding: 3px 6px; margin: 0 10px;">0.792</p></td>
-          <td>Planet Labs (PL)</td>
-          <td>$1.77</td>
-          <td>2.48%</td>
-          <td>1.00</td>
-        </tr>
-        <tr>
-          <td><p style="color: rgb(247, 42, 42); background-color: #f6e7e7; border-radius: 20px; width: fit-content; padding: 3px 6px; margin: 0 10px;">0.908</p></td>
-          <td>Alphabet Inc (GOOG)</td>
-          <td>$190.41</td>
-          <td>0.04%</td>
-          <td>1.02</td>
-        </tr>
-        <tr>
-          <td><p style="color: rgb(247, 42, 42); background-color: #f6e7e7; border-radius: 20px; width: fit-content; padding: 3px 6px; margin: 0 10px;">0.844</p></td>
-          <td>Microsoft Corp (MSFT)</td>
-          <td>$459.55</td>
-          <td>1.44%</td>
-          <td>0.92</td>
-        </tr>
-      </tbody>
-      <!-- PLACEHOLDER NUMBERS END -->
-    </table>
-  </div>
-
-    <button style="color: white;" id="scrape">
-      <svg viewBox="0 0 32 32" width="32" height="32">
-        <!-- Larger star -->
-        <path d="M0,-6 L1.6,-1.6 6,0 1.6,1.6 0,6 -1.6,1.6 -6,0 -1.6,-1.6Z" 
-              fill="white" 
-              transform="translate(20,16)"/>
-        
-        <!-- Smaller star -->
-        <path d="M0,-4 L1.1,-1.1 4,0 1.1,1.1 0,4 -1.1,1.1 -4,0 -1.1,-1.1Z" 
-              fill="white" 
-              transform="translate(12,11)"/>
-      </svg>
-      Generate Companies</button>
-
-
-  <div style="display: flex; flex-direction: row; border-top: .5px solid #cfcfcf; background-color: #eff0f2; margin-top: 12px;">
-    <p style="color: gray; margin-left: 10px; margin-top: 20px; font-size: 10px;">Pocketstox aims to help you independently source investment <br>ideas using advance neural net models. It does not aim to offer financial advice - you should always conduct your own research before investing.</p>
-    <img src="../images/warning.png" id="warning">
-  </div>
 </body>
 </html>
