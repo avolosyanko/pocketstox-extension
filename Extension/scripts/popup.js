@@ -29,12 +29,20 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Title:', title);
             console.log('Content:', content);
             
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            if (CONFIG.apiKey) {
+                headers['X-Api-Key'] = CONFIG.apiKey;
+            }
+
+            console.log('CONFIG:', CONFIG);
+            console.log('Headers being sent:', headers);
+            
             fetch(CONFIG.apiUrl, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-api-key': CONFIG.apiKey
-                },
+                headers: headers,
                 body: JSON.stringify({
                     title: title,
                     content: content
@@ -42,10 +50,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(response => response.json())
             .then(data => {
-                console.log('Results:', data);
-                if (data.matches && data.matches.length > 0) {
-                    updateTableWithMatches(data.matches);
-                }
+                console.log('Results:', data); // Just log to console for now
             })
             .catch(error => {
                 console.error('Error calling API:', error);

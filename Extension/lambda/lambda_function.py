@@ -3,31 +3,40 @@ import os
 import logging
 import voyageai
 from pinecone import Pinecone
-from dotenv import load_dotenv
-from functools import lru_cache
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-@lru_cache(maxsize=1)
+vo_client = None
+pc_index = None
+
 def initialise_clients():
     """
     API clients initialization with caching for lambda warm starts.
     
     Returns:
-        tuple: (voyage_client, pinecone_client, pinecone_index)
+        tuple: (voyage_client, pinecone_index)
     """
+    global vo_client, pc_index
+    
+    if vo_client is not None and pc_index is not None:
+        logger.info("Using cached API clients")
+        return vo_client, pc_index
+    
     try:
         vo_api_key = os.environ.get("VOYAGE_API_KEY")
         pc_api_key = os.environ.get("PINECONE_API_KEY")
         pc_index_host = os.environ.get("PINECONE_INDEX_HOST")
+        
+        if not all([vo_api_key, pc_api_key, pc_index_host]):
+            raise ValueError("Missing required environment variables")
 
-        vo = voyageai.Client(api_key=vo_api_key)
+        vo_client = voyageai.Client(api_key=vo_api_key)
         pc = Pinecone(api_key=pc_api_key)
         pc_index = pc.Index(host=pc_index_host)
 
         logger.info("API clients initialized successfully")
-        return vo, pc_index
+        return vo_client, pc_index
 
     except Exception as e:
         logger.error(f"Failed to initialize clients: {str(e)}")
@@ -76,7 +85,7 @@ def lambda_handler(event, context):
         return format_response(200, {"title": title, "matches": matches})
 
     except Exception as e:
-        logger.error(f"Error processing request: {str(e)}")
+        logger.error(f"Error processing request: {str(e)}", exc_info=True)
         return format_response(500, {"error": f"Internal server error: {str(e)}"})
 
 def format_response(status_code, body_dict):
@@ -97,6 +106,7 @@ if __name__ == "__main__":
     from test_events import *
     
     logging.basicConfig(level=logging.INFO)
+    from dotenv import load_dotenv
     load_dotenv()
     test_event = TRUMP_TARIFF_EVENT
 
