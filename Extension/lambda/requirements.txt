@@ -1,2 +1,2 @@
 voyageai
-pinecone-client
+pinecone
