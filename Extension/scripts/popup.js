@@ -13,6 +13,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const trendingEmpty = document.getElementById('trending-empty');
     const trendingCount = document.getElementById('trending-count');
     const timeFilter = document.getElementById('time-filter');
+    const marketCapFilter = document.getElementById('market-cap-filter');
+    const sectorFilter = document.getElementById('sector-filter');
     const modal = document.getElementById('article-modal');
     const modalClose = document.getElementById('modal-close');
     
@@ -64,6 +66,18 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (timeFilter) {
             timeFilter.addEventListener('change', () => {
+                loadTrending();
+            });
+        }
+        
+        if (marketCapFilter) {
+            marketCapFilter.addEventListener('change', () => {
+                loadTrending();
+            });
+        }
+        
+        if (sectorFilter) {
+            sectorFilter.addEventListener('change', () => {
                 loadTrending();
             });
         }
@@ -256,18 +270,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const date = new Date(analysis.timestamp);
         const formattedDate = formatDate(date);
         
-        const topStocks = analysis.matches.slice(0, 3);
-        const hasMore = analysis.matches.length > 3;
-        
         card.innerHTML = `
             <div class="article-title">${escapeHtml(analysis.title)}</div>
             <div class="article-date">${formattedDate}</div>
-            <div class="article-stocks">
-                ${topStocks.map(stock => 
-                    `<span class="stock-tag">${stock.ticker}</span>`
-                ).join('')}
-                ${hasMore ? `<span class="more-stocks">+${analysis.matches.length - 3} more</span>` : ''}
-            </div>
         `;
         
         card.addEventListener('click', () => {
@@ -279,7 +284,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function loadTrending() {
         const timeRange = timeFilter ? timeFilter.value : '7';
-        const trendingStocks = getTrendingStocks(timeRange);
+        const marketCap = marketCapFilter ? marketCapFilter.value : 'all';
+        const sector = sectorFilter ? sectorFilter.value : 'all';
+        
+        const trendingStocks = getTrendingStocks(timeRange, marketCap, sector);
         
         const uniqueStocks = trendingStocks.filter(stock => stock.count > 1);
         if (uniqueStocks.length > 0 && trendingCount) {
@@ -308,7 +316,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    function getTrendingStocks(timeRange) {
+    function getTrendingStocks(timeRange, marketCap = 'all', sector = 'all') {
         const stockFrequency = {};
         const now = new Date();
         const cutoffDate = new Date();
@@ -324,12 +332,20 @@ document.addEventListener('DOMContentLoaded', function() {
             if (analysisDate < cutoffDate) return;
             
             analysis.matches.forEach(match => {
+                // Apply market cap filter
+                if (marketCap !== 'all' && match.market_cap !== marketCap) return;
+                
+                // Apply sector filter
+                if (sector !== 'all' && match.sector !== sector) return;
+                
                 const key = match.ticker;
                 if (!stockFrequency[key]) {
                     stockFrequency[key] = {
                         ticker: match.ticker,
                         company: match.company,
                         exchange: match.exchange,
+                        market_cap: match.market_cap,
+                        sector: match.sector,
                         count: 0,
                         avgScore: 0,
                         scores: []
@@ -353,31 +369,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const card = document.createElement('div');
         card.className = 'trending-card';
         
-        const avgScorePercent = (stock.avgScore * 100).toFixed(1);
-        const frequencyWidth = (stock.count / maxCount) * 100;
+        const mentionText = stock.count === 1 ? '1 mention' : `${stock.count} mentions`;
         
         card.innerHTML = `
-            <div class="trending-header">
-                <div class="trending-ticker">${stock.ticker}</div>
-                <div class="trending-count">
-                    <span class="frequency-badge">${stock.count}</span>
-                    <span class="frequency-label">mentions</span>
-                </div>
-            </div>
-            <div class="trending-company">${escapeHtml(stock.company)}</div>
-            <div class="trending-stats">
-                <div class="stat-item">
-                    <span>Avg Score:</span>
-                    <span class="stat-value">${avgScorePercent}%</span>
-                </div>
-                <div class="stat-item">
-                    <span>Exchange:</span>
-                    <span class="stat-value">${stock.exchange}</span>
-                </div>
-            </div>
-            <div class="frequency-bar">
-                <div class="frequency-fill" style="width: ${frequencyWidth}%"></div>
-            </div>
+            <div class="trending-ticker">${stock.ticker}</div>
+            <div class="trending-count">${mentionText}</div>
         `;
         
         card.addEventListener('click', () => {

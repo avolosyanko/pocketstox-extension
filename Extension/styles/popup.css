@@ -23,7 +23,7 @@ body {
 }
 
 .extension-container {
-    width: 380px;
+    width: 420px;
     height: 600px;
     background-color: white;
     display: flex;
@@ -368,21 +368,44 @@ body {
     flex-direction: column;
 }
 
-.time-filter-container {
+.filters-section {
     margin-bottom: 12px;
     display: flex;
-    justify-content: flex-end;
+    gap: 8px;
 }
 
-.time-filter {
+.filter-row {
+    display: flex;
+    gap: 8px;
+    flex: 1;
+}
+
+.time-filter,
+.market-cap-filter,
+.sector-filter {
+    flex: 1;
     font-size: 12px;
     font-weight: 400;
-    padding: 4px 8px;
+    padding: 6px 8px;
     border: 1px solid #e5e7eb;
     border-radius: 6px;
     background-color: white;
     color: #4b5563;
     cursor: pointer;
+    transition: border-color 0.2s ease;
+}
+
+.time-filter:focus,
+.market-cap-filter:focus,
+.sector-filter:focus {
+    outline: none;
+    border-color: #9333ea;
+}
+
+.time-filter:hover,
+.market-cap-filter:hover,
+.sector-filter:hover {
+    border-color: #d1d5db;
 }
 
 .articles-container {
@@ -394,7 +417,7 @@ body {
 }
 
 .article-card {
-    background-color: white;
+    background-color: transparent;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
     padding: 12px;
@@ -403,55 +426,26 @@ body {
 }
 
 .article-card:hover {
-    border-color: #9333ea;
-    box-shadow: 0 2px 4px rgba(147, 51, 234, 0.1);
+    border-color: #d1d5db;
+    background-color: #f9fafb;
 }
 
 .article-title {
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 500;
     color: #111827;
     margin-bottom: 4px;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 .article-date {
     font-size: 11px;
     font-weight: 400;
     color: #6b7280;
-    margin-bottom: 8px;
-}
-
-.article-stocks {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-
-.stock-tag {
-    font-size: 11px;
-    font-weight: 500;
-    color: #4B5563;
-    background-color: #f3f4f6;
-    padding: 3px 8px;
-    border-radius: 12px;
-    border: 1px solid #e5e7eb;
-    transition: all 0.2s ease;
-}
-
-.stock-tag:hover {
-    color: #9333ea;
-    background-color: #f3e8ff;
-    border-color: #9333ea;
-}
-
-.more-stocks {
-    font-size: 11px;
-    color: #9333ea;
-    font-weight: 500;
-    align-self: center;
 }
 
 .trending-container {
@@ -463,7 +457,7 @@ body {
 }
 
 .trending-card {
-    background-color: white;
+    background-color: transparent;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
     padding: 12px;
@@ -472,83 +466,21 @@ body {
 }
 
 .trending-card:hover {
-    border-color: #9333ea;
-    box-shadow: 0 2px 8px rgba(147, 51, 234, 0.1);
-}
-
-.trending-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
+    border-color: #d1d5db;
+    background-color: #f9fafb;
 }
 
 .trending-ticker {
-    font-size: 14px;
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 500;
     color: #111827;
+    margin-bottom: 4px;
 }
 
 .trending-count {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.frequency-badge {
-    font-size: 13px;
-    font-weight: 600;
-    color: #9333ea;
-}
-
-.frequency-label {
-    font-size: 11px;
-    font-weight: 400;
-    color: #6b7280;
-}
-
-.trending-company {
-    font-size: 12px;
-    font-weight: 400;
-    color: #4b5563;
-    margin-bottom: 8px;
-    overflow: hidden; 
-    text-overflow: ellipsis; 
-    white-space: nowrap; 
-}
-
-.trending-stats {
-    display: flex;
-    justify-content: space-between; 
     font-size: 11px;
     color: #6b7280;
     font-weight: 400;
-}
-
-.stat-item {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.stat-value {
-    font-weight: 500;
-    color: #4b5563;
-}
-
-.frequency-bar {
-    height: 4px;
-    background-color: #f3f4f6;
-    border-radius: 2px;
-    margin-top: 8px;
-    overflow: hidden;
-}
-
-.frequency-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #a855f7, #7c3aed); 
-    border-radius: 2px;
-    transition: width 0.3s ease;
 }
 
 .modal {
