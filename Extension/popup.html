@@ -88,12 +88,36 @@
                         </div>
                 </div>
 
-                <div class="tab-panel" id="trending-panel"> <div class="time-filter-container">
-                        <select class="time-filter" id="time-filter">
-                            <option value="7">Last 7 days</option>
-                            <option value="30">Last 30 days</option>
-                            <option value="all">All time</option>
-                        </select>
+                <div class="tab-panel" id="trending-panel"> 
+                    <div class="filters-section">
+                        <div class="filter-row">
+                            <select class="time-filter" id="time-filter">
+                                <option value="7">Last 7 days</option>
+                                <option value="30">Last 30 days</option>
+                                <option value="all">All time</option>
+                            </select>
+                        </div>
+                        <div class="filter-row">
+                            <select class="market-cap-filter" id="market-cap-filter">
+                                <option value="all">All Market Caps</option>
+                                <option value="large">Large Cap</option>
+                                <option value="mid">Mid Cap</option>
+                                <option value="small">Small Cap</option>
+                            </select>
+                            <select class="sector-filter" id="sector-filter">
+                                <option value="all">All Sectors</option>
+                                <option value="technology">Technology</option>
+                                <option value="healthcare">Healthcare</option>
+                                <option value="finance">Finance</option>
+                                <option value="energy">Energy</option>
+                                <option value="consumer">Consumer</option>
+                                <option value="industrials">Industrials</option>
+                                <option value="materials">Materials</option>
+                                <option value="utilities">Utilities</option>
+                                <option value="real-estate">Real Estate</option>
+                                <option value="communication">Communication</option>
+                            </select>
+                        </div>
                     </div>
                     
                     <div class="empty-state" id="trending-empty" style="display: none;"> <div class="empty-icon">

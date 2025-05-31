@@ -1,7 +1,7 @@
 class StorageManager {
     constructor() {
         this.STORAGE_KEY = 'pocketstox_analyses';
-        this.MAX_ANALYSES = 100;
+        this.MAX_ANALYSES = 0;
     }
 
     async getAllAnalyses() {
