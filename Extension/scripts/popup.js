@@ -1,6 +1,233 @@
 console.log('popup.js loaded');
 
 let analyses = [];
+let expandedCardId = null;
+
+class StockTreemap {
+    constructor(container, data, options = {}) {
+        this.container = container;
+        this.data = data;
+        this.options = {
+            maxItems: options.maxItems || 12,
+            minArea: options.minArea || 400,
+            colors: options.colors || [
+                '#9333ea', '#7c3aed', '#a855f7', '#c084fc', 
+                '#ddd6fe', '#e9d5ff', '#f3e8ff', '#8b5cf6'
+            ],
+            ...options
+        };
+        this.init();
+    }
+
+    init() {
+        this.container.innerHTML = '';
+        this.container.style.position = 'relative';
+        this.container.style.width = '100%';
+        this.container.style.height = '300px';
+        this.container.style.border = '1px solid #e5e7eb';
+        this.container.style.borderRadius = '8px';
+        this.container.style.overflow = 'hidden';
+        this.container.style.backgroundColor = '#f9fafb';
+
+        this.processData();
+        this.render();
+    }
+
+    processData() {
+        let sortedData = [...this.data].sort((a, b) => b.count - a.count);
+        
+        if (sortedData.length > this.options.maxItems) {
+            const topItems = sortedData.slice(0, this.options.maxItems - 1);
+            const otherItems = sortedData.slice(this.options.maxItems - 1);
+            const otherCount = otherItems.reduce((sum, item) => sum + item.count, 0);
+            
+            if (otherCount > 0) {
+                topItems.push({
+                    ticker: 'OTHER',
+                    company: `${otherItems.length} other companies`,
+                    count: otherCount,
+                    avgScore: otherItems.reduce((sum, item) => sum + item.avgScore, 0) / otherItems.length,
+                    isOther: true
+                });
+            }
+            
+            sortedData = topItems;
+        }
+
+        this.processedData = sortedData;
+        this.totalValue = sortedData.reduce((sum, item) => sum + item.count, 0);
+    }
+
+    render() {
+        const containerRect = this.container.getBoundingClientRect();
+        const width = 348;
+        const height = 300;
+
+        const tiles = this.calculateTiles(width, height);
+        
+        tiles.forEach((tile, index) => {
+            this.createTile(tile, index);
+        });
+    }
+
+    calculateTiles(containerWidth, containerHeight) {
+        const tiles = [];
+        const totalArea = containerWidth * containerHeight;
+        
+        let currentY = 0;
+        let currentRowHeight = 0;
+        let currentRowWidth = 0;
+        let currentRowItems = [];
+        
+        this.processedData.forEach((item, index) => {
+            const area = (item.count / this.totalValue) * totalArea;
+            const aspectRatio = containerWidth / containerHeight;
+            
+            let width = Math.sqrt(area * aspectRatio);
+            let height = area / width;
+            
+            const minDimension = 40;
+            if (width < minDimension) {
+                width = minDimension;
+                height = area / width;
+            }
+            if (height < minDimension) {
+                height = minDimension;
+                width = area / height;
+            }
+
+            currentRowItems.push({
+                ...item,
+                width: Math.floor(width),
+                height: Math.floor(height),
+                area: area
+            });
+
+            currentRowWidth += width;
+            currentRowHeight = Math.max(currentRowHeight, height);
+
+            if (currentRowWidth >= containerWidth * 0.9 || index === this.processedData.length - 1) {
+                const scaleFactor = containerWidth / currentRowWidth;
+                let currentX = 0;
+
+                currentRowItems.forEach(rowItem => {
+                    const scaledWidth = Math.floor(rowItem.width * scaleFactor);
+                    const scaledHeight = Math.floor(currentRowHeight);
+
+                    tiles.push({
+                        ...rowItem,
+                        x: currentX,
+                        y: currentY,
+                        width: scaledWidth,
+                        height: scaledHeight
+                    });
+
+                    currentX += scaledWidth;
+                });
+
+                currentY += currentRowHeight;
+                currentRowHeight = 0;
+                currentRowWidth = 0;
+                currentRowItems = [];
+            }
+        });
+
+        return tiles;
+    }
+
+    createTile(tile, index) {
+        const tileElement = document.createElement('div');
+        tileElement.className = 'treemap-tile';
+        
+        const area = tile.width * tile.height;
+        const fontSize = Math.min(14, Math.max(10, Math.sqrt(area) / 8));
+        const tickerFontSize = Math.min(16, fontSize + 2);
+        
+        const colorIndex = index % this.options.colors.length;
+        const backgroundColor = this.options.colors[colorIndex];
+        
+        tileElement.style.cssText = `
+            position: absolute;
+            left: ${tile.x}px;
+            top: ${tile.y}px;
+            width: ${tile.width}px;
+            height: ${tile.height}px;
+            background-color: ${backgroundColor};
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 4px;
+            box-sizing: border-box;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: white;
+            font-weight: 500;
+            overflow: hidden;
+        `;
+
+        tileElement.addEventListener('mouseenter', () => {
+            tileElement.style.transform = 'scale(1.02)';
+            tileElement.style.zIndex = '10';
+            tileElement.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+        });
+
+        tileElement.addEventListener('mouseleave', () => {
+            tileElement.style.transform = 'scale(1)';
+            tileElement.style.zIndex = '1';
+            tileElement.style.boxShadow = 'none';
+        });
+
+        let content = '';
+        if (area > 1000) {
+            content = `
+                <div style="font-size: ${tickerFontSize}px; font-weight: 600; line-height: 1.1; margin-bottom: 2px;">
+                    ${tile.ticker}
+                </div>
+                <div style="font-size: ${fontSize - 1}px; font-weight: 400; line-height: 1.1; margin-bottom: 2px; opacity: 0.9;">
+                    ${tile.count} mention${tile.count > 1 ? 's' : ''}
+                </div>
+                <div style="font-size: ${fontSize - 2}px; font-weight: 400; line-height: 1.1; opacity: 0.8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;">
+                    ${tile.company.length > 20 ? tile.company.substring(0, 20) + '...' : tile.company}
+                </div>
+            `;
+        } else if (area > 600) {
+            content = `
+                <div style="font-size: ${tickerFontSize}px; font-weight: 600; line-height: 1.1; margin-bottom: 1px;">
+                    ${tile.ticker}
+                </div>
+                <div style="font-size: ${fontSize - 1}px; font-weight: 400; line-height: 1.1; opacity: 0.9;">
+                    ${tile.count}
+                </div>
+            `;
+        } else {
+            content = `
+                <div style="font-size: ${Math.min(tickerFontSize, 12)}px; font-weight: 600; line-height: 1.1;">
+                    ${tile.ticker}
+                </div>
+            `;
+        }
+
+        tileElement.innerHTML = content;
+
+        if (!tile.isOther) {
+            tileElement.addEventListener('click', () => {
+                chrome.tabs.create({
+                    url: `https://finance.yahoo.com/quote/${tile.ticker}`
+                });
+            });
+        } else {
+            tileElement.style.cursor = 'default';
+            tileElement.addEventListener('click', (e) => {
+                e.preventDefault();
+            });
+        }
+
+        this.container.appendChild(tileElement);
+    }
+}
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM Content Loaded');
@@ -13,10 +240,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const trendingEmpty = document.getElementById('trending-empty');
     const trendingCount = document.getElementById('trending-count');
     const timeFilter = document.getElementById('time-filter');
-    const marketCapFilter = document.getElementById('market-cap-filter');
-    const sectorFilter = document.getElementById('sector-filter');
-    const modal = document.getElementById('article-modal');
-    const modalClose = document.getElementById('modal-close');
     
     const tabButtons = document.querySelectorAll('.tab-button');
     const tabPanels = document.querySelectorAll('.tab-panel');
@@ -67,32 +290,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (timeFilter) {
             timeFilter.addEventListener('change', () => {
                 loadTrending();
-            });
-        }
-        
-        if (marketCapFilter) {
-            marketCapFilter.addEventListener('change', () => {
-                loadTrending();
-            });
-        }
-        
-        if (sectorFilter) {
-            sectorFilter.addEventListener('change', () => {
-                loadTrending();
-            });
-        }
-        
-        if (modalClose) {
-            modalClose.addEventListener('click', () => {
-                modal.style.display = 'none';
-            });
-        }
-        
-        if (modal) {
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.style.display = 'none';
-                }
             });
         }
     }
@@ -208,10 +405,10 @@ document.addEventListener('DOMContentLoaded', function() {
             
             chrome.storage.local.set({ pocketstox_analyses: analyses });
             
+            expandedCardId = analysis.id;
+            
             loadArticles();
             loadTrending();
-            
-            showArticleModal(analysis);
             
             hideLoadingState();
         })
@@ -266,28 +463,102 @@ document.addEventListener('DOMContentLoaded', function() {
     function createArticleCard(analysis) {
         const card = document.createElement('div');
         card.className = 'article-card';
+        card.setAttribute('data-card-id', analysis.id);
         
         const date = new Date(analysis.timestamp);
         const formattedDate = formatDate(date);
         
-        card.innerHTML = `
-            <div class="article-title">${escapeHtml(analysis.title)}</div>
+        const isExpanded = expandedCardId === analysis.id;
+        
+        const collapsedContent = document.createElement('div');
+        collapsedContent.className = 'article-collapsed';
+        collapsedContent.innerHTML = `
+            <div class="article-header">
+                <div class="article-title">${escapeHtml(analysis.title)}</div>
+                <div class="expand-indicator">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 9l6 6 6-6"/>
+                    </svg>
+                </div>
+            </div>
             <div class="article-date">${formattedDate}</div>
         `;
         
-        card.addEventListener('click', () => {
-            showArticleModal(analysis);
+        const expandedContent = document.createElement('div');
+        expandedContent.className = 'article-expanded';
+        expandedContent.style.display = isExpanded ? 'block' : 'none';
+        
+        if (analysis.matches && analysis.matches.length > 0) {
+            expandedContent.innerHTML = `
+                <div class="stocks-list">
+                    ${analysis.matches.map(match => {
+                        const scorePercent = (match.score * 100).toFixed(1);
+                        return `
+                            <div class="stock-item" data-ticker="${match.ticker}">
+                                <div class="stock-header">
+                                    <div class="stock-ticker">${match.ticker}</div>
+                                    <div class="stock-score">${scorePercent}%</div>
+                                </div>
+                                <div class="stock-company">${escapeHtml(match.company)}</div>
+                                <div class="stock-exchange">${match.exchange}</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+            
+            expandedContent.querySelectorAll('.stock-item').forEach(stockItem => {
+                stockItem.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const ticker = stockItem.getAttribute('data-ticker');
+                    chrome.tabs.create({
+                        url: `https://finance.yahoo.com/quote/${ticker}`
+                    });
+                });
+            });
+        } else {
+            expandedContent.innerHTML = '<div class="no-stocks">No stocks found for this article</div>';
+        }
+        
+        if (isExpanded) {
+            card.classList.add('expanded');
+        }
+        
+        card.appendChild(collapsedContent);
+        card.appendChild(expandedContent);
+        
+        collapsedContent.addEventListener('click', () => {
+            toggleCard(analysis.id);
         });
         
         return card;
     }
     
+    function toggleCard(cardId) {
+        if (expandedCardId === cardId) {
+            expandedCardId = null;
+        } else {
+            expandedCardId = cardId;
+        }
+        
+        document.querySelectorAll('.article-card').forEach(card => {
+            const currentCardId = card.getAttribute('data-card-id');
+            const expandedContent = card.querySelector('.article-expanded');
+            const isCurrentlyExpanded = expandedCardId === currentCardId;
+            
+            if (isCurrentlyExpanded) {
+                card.classList.add('expanded');
+                expandedContent.style.display = 'block';
+            } else {
+                card.classList.remove('expanded');
+                expandedContent.style.display = 'none';
+            }
+        });
+    }
+    
     function loadTrending() {
         const timeRange = timeFilter ? timeFilter.value : '7';
-        const marketCap = marketCapFilter ? marketCapFilter.value : 'all';
-        const sector = sectorFilter ? sectorFilter.value : 'all';
-        
-        const trendingStocks = getTrendingStocks(timeRange, marketCap, sector);
+        const trendingStocks = getTrendingStocks(timeRange);
         
         const uniqueStocks = trendingStocks.filter(stock => stock.count > 1);
         if (uniqueStocks.length > 0 && trendingCount) {
@@ -307,16 +578,20 @@ document.addEventListener('DOMContentLoaded', function() {
         trendingContainer.style.display = 'flex';
         trendingContainer.innerHTML = '';
         
-        // Get max count for frequency bar
-        const maxCount = Math.max(...trendingStocks.map(s => s.count));
+        const treemapContainer = document.createElement('div');
+        treemapContainer.id = 'treemap-container';
+        trendingContainer.appendChild(treemapContainer);
         
-        trendingStocks.forEach(stock => {
-            const trendingCard = createTrendingCard(stock, maxCount);
-            trendingContainer.appendChild(trendingCard);
+        new StockTreemap(treemapContainer, trendingStocks, {
+            maxItems: 12,
+            colors: [
+                '#9333ea', '#7c3aed', '#a855f7', '#c084fc', 
+                '#8b5cf6', '#d8b4fe', '#e9d5ff', '#f3e8ff'
+            ]
         });
     }
     
-    function getTrendingStocks(timeRange, marketCap = 'all', sector = 'all') {
+    function getTrendingStocks(timeRange) {
         const stockFrequency = {};
         const now = new Date();
         const cutoffDate = new Date();
@@ -332,20 +607,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (analysisDate < cutoffDate) return;
             
             analysis.matches.forEach(match => {
-                // Apply market cap filter
-                if (marketCap !== 'all' && match.market_cap !== marketCap) return;
-                
-                // Apply sector filter
-                if (sector !== 'all' && match.sector !== sector) return;
-                
                 const key = match.ticker;
                 if (!stockFrequency[key]) {
                     stockFrequency[key] = {
                         ticker: match.ticker,
                         company: match.company,
                         exchange: match.exchange,
-                        market_cap: match.market_cap,
-                        sector: match.sector,
                         count: 0,
                         avgScore: 0,
                         scores: []
@@ -363,64 +630,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         return Object.values(stockFrequency)
             .sort((a, b) => b.count - a.count);
-    }
-    
-    function createTrendingCard(stock, maxCount) {
-        const card = document.createElement('div');
-        card.className = 'trending-card';
-        
-        const mentionText = stock.count === 1 ? '1 mention' : `${stock.count} mentions`;
-        
-        card.innerHTML = `
-            <div class="trending-ticker">${stock.ticker}</div>
-            <div class="trending-count">${mentionText}</div>
-        `;
-        
-        card.addEventListener('click', () => {
-            chrome.tabs.create({
-                url: `https://finance.yahoo.com/quote/${stock.ticker}`
-            });
-        });
-        
-        return card;
-    }
-    
-    function showArticleModal(analysis) {
-        const modalTitle = document.getElementById('modal-article-title');
-        const modalDate = document.getElementById('modal-article-date');
-        const modalStocksList = document.getElementById('modal-stocks-list');
-        
-        if (modalTitle) modalTitle.textContent = analysis.title;
-        if (modalDate) modalDate.textContent = formatDate(new Date(analysis.timestamp));
-        
-        if (modalStocksList) {
-            modalStocksList.innerHTML = '';
-            analysis.matches.forEach(match => {
-                const stockItem = document.createElement('div');
-                stockItem.className = 'modal-stock-item';
-                
-                const scorePercent = (match.score * 100).toFixed(1);
-                
-                stockItem.innerHTML = `
-                    <div class="result-header">
-                        <div class="result-ticker">${match.ticker}</div>
-                        <div class="result-score">${scorePercent}%</div>
-                    </div>
-                    <div class="result-company">${escapeHtml(match.company)}</div>
-                    <div class="result-exchange">${match.exchange}</div>
-                `;
-                
-                stockItem.addEventListener('click', () => {
-                    chrome.tabs.create({
-                        url: `https://finance.yahoo.com/quote/${match.ticker}`
-                    });
-                });
-                
-                modalStocksList.appendChild(stockItem);
-            });
-        }
-        
-        if (modal) modal.style.display = 'flex';
     }
     
     function formatDate(date) {
