@@ -4,16 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pocketstox Extension</title>
-    <link rel="stylesheet" type="text/css" href="../styles/popup.css">
-    <script src="scripts/config.js"></script>
-    <script src="scripts/popup.js"></script>
+    <link rel="stylesheet" type="text/css" href="styles/popup.css">
+    <script src="src/services/storage.js"></script>
+    <script type="module" src="src/popup/popup.js"></script>
 </head>
 <body>
     <div class="extension-container">
       
         <div class="header">
             <div class="logo-section">
-                <div class="logo-text">Pocketstox</div>
+                <img src="assets/images/logo-text-purple.svg" alt="Pocketstox" class="logo-image">
             </div>
             <div class="plan-tag">Free</div>
         </div>
@@ -54,8 +54,7 @@
                         <path d="M2 12l10 5 10-5"/>
                         <path d="M2 17l10 5 10-5"/>
                     </svg>
-                    Recurring Patterns 
-                    <span class="trending-badge" id="trending-count" style="display: none;">0</span>
+                    Recurring Patterns
                 </button>
             </div>
 
