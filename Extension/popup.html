@@ -14,8 +14,9 @@
         <div class="header">
             <div class="logo-section">
                 <img src="assets/images/logo-text-purple.svg" alt="Pocketstox" class="logo-image">
+                <span class="plan-tag">Free</span>
             </div>
-            <div class="plan-tag">Free</div>
+            <div style="width: 32px; height: 32px;"></div> <!-- Exact size of close button -->
         </div>
 
         <div class="main-content">
@@ -110,6 +111,41 @@
                     </div>
 
                     <div class="trending-container" id="trending-container"> 
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analysis Overlay -->
+        <div class="analysis-overlay" id="analysis-overlay">
+            <div class="overlay-container">
+                <!-- Reuse main header -->
+                <div class="header">
+                    <div class="logo-section">
+                        <img src="./assets/images/logo-text-purple.svg" alt="Pocketstox" class="logo-image">
+                        <span class="plan-tag">Free</span>
+                    </div>
+                    <button class="overlay-back" id="overlay-back" style="background: none; border: none; cursor: pointer; padding: 6px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" style="color: #6b7280;">
+                            <path d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="overlay-main-content">
+                    <div class="overlay-content" id="overlay-content">
+                        <!-- Content will be dynamically inserted here -->
+                    </div>
+                </div>
+                
+                <!-- Reuse footer -->
+                <div class="footer">
+                    <div class="footer-text">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="footer-icon">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Not financial advice. Always do your own research.
                     </div>
                 </div>
             </div>

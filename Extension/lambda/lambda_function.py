@@ -68,7 +68,7 @@ def lambda_handler(event, context):
         query_response = pc_index.query(
             namespace="pocketstox-embeddings-db",
             vector=article_vector,
-            top_k=5,
+            top_k=6,
             include_metadata=True,
         )
 
