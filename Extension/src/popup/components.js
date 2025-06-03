@@ -6,23 +6,67 @@ export function createArticleCard(analysis) {
     const date = new Date(analysis.timestamp);
     const formattedDate = formatDate(date);
     
-    card.innerHTML = `
+    const isExpanded = window.expandedCardId === analysis.id;
+    
+    const collapsedContent = document.createElement('div');
+    collapsedContent.className = 'article-collapsed';
+    collapsedContent.innerHTML = `
         <div class="article-header">
             <div class="article-title">${escapeHtml(analysis.title)}</div>
             <div class="expand-indicator">
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M8 5l7 7-7 7"/>
+                    <path d="M6 9l6 6 6-6"/>
                 </svg>
             </div>
         </div>
         <div class="article-date">${formattedDate}</div>
     `;
     
-    card.addEventListener('click', () => {
-        // Show overlay instead of expanding
-        if (window.showAnalysisOverlay) {
-            window.showAnalysisOverlay(analysis);
-        }
+    const expandedContent = document.createElement('div');
+    expandedContent.className = 'article-expanded';
+    expandedContent.style.display = isExpanded ? 'block' : 'none';
+    
+    if (analysis.matches && analysis.matches.length > 0) {
+        expandedContent.innerHTML = `
+            <div class="stocks-list">
+                ${analysis.matches.map(match => {
+                    const scorePercent = (match.score * 100).toFixed(1);
+                    return `
+                        <div class="stock-item" data-ticker="${match.ticker}">
+                            <div class="stock-header">
+                                <div class="stock-ticker">${match.ticker}</div>
+                                <div class="stock-score">${scorePercent}%</div>
+                            </div>
+                            <div class="stock-company">${escapeHtml(match.company)}</div>
+                            <div class="stock-exchange">${match.exchange}</div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+        
+        expandedContent.querySelectorAll('.stock-item').forEach(stockItem => {
+            stockItem.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const ticker = stockItem.getAttribute('data-ticker');
+                chrome.tabs.create({
+                    url: `https://finance.yahoo.com/quote/${ticker}`
+                });
+            });
+        });
+    } else {
+        expandedContent.innerHTML = '<div class="no-stocks">No stocks found for this article</div>';
+    }
+    
+    if (isExpanded) {
+        card.classList.add('expanded');
+    }
+    
+    card.appendChild(collapsedContent);
+    card.appendChild(expandedContent);
+    
+    collapsedContent.addEventListener('click', () => {
+        window.toggleCard(analysis.id);
     });
     
     return card;
