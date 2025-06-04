@@ -1,4 +1,4 @@
-import StockTreemap from './treemap.js';
+import StockBarChart from './barchart.js';
 import { createArticleCard, formatDate, escapeHtml, getTrendingStocks } from './components.js';
 import { analyzeArticle } from '../services/api.js';
 
@@ -19,6 +19,9 @@ let trendingEmpty;
 let timeFilter;
 let tabButtons;
 let tabPanels;
+let analysisOverlay;
+let overlayContent;
+let overlayBack;
 
 // Make these available globally for components
 window.expandedCardId = null;
@@ -53,6 +56,9 @@ document.addEventListener('DOMContentLoaded', function() {
     timeFilter = document.getElementById('time-filter');
     tabButtons = document.querySelectorAll('.tab-button');
     tabPanels = document.querySelectorAll('.tab-panel');
+    analysisOverlay = document.getElementById('analysis-overlay');
+    overlayContent = document.getElementById('overlay-content');
+    overlayBack = document.getElementById('overlay-back');
     
     init();
 });
@@ -61,10 +67,14 @@ function init() {
     console.log('Initializing popup');
     
     chrome.storage.local.get(['pocketstox_analyses'], (result) => {
+        console.log('Storage result:', result);
         if (result.pocketstox_analyses) {
             analyses = result.pocketstox_analyses;
+            console.log('Loaded analyses:', analyses.length);
             loadArticles();
             loadTrending();
+        } else {
+            console.log('No analyses found in storage');
         }
     });
     
@@ -82,7 +92,10 @@ function setupEventListeners() {
     console.log('Setting up event listeners');
     
     if (scrapeButton) {
-        scrapeButton.addEventListener('click', handleScrapeClick);
+        scrapeButton.addEventListener('click', () => {
+            console.log('Scrape button clicked!');
+            handleScrapeClick();
+        });
         console.log('Scrape button listener added');
     } else {
         console.error('Scrape button not found!');
@@ -99,6 +112,10 @@ function setupEventListeners() {
         timeFilter.addEventListener('change', () => {
             loadTrending();
         });
+    }
+    
+    if (overlayBack) {
+        overlayBack.addEventListener('click', hideAnalysisOverlay);
     }
 }
 
@@ -160,20 +177,22 @@ async function sendToAPI(title, content) {
             matches: data.matches || []
         };
         
+        // Automatically save to history
         analyses.unshift(analysis);
-        
         chrome.storage.local.set({ pocketstox_analyses: analyses });
         
-        expandedCardId = analysis.id;
-        window.expandedCardId = analysis.id;
-        
+        // Update UI
         loadArticles();
         loadTrending();
+        
+        // Show results in overlay
+        showAnalysisOverlay(analysis, false);
         
         hideLoadingState();
     } catch (error) {
         console.error('API Error:', error);
         hideLoadingState();
+        hideAnalysisOverlay();
         alert(`Analysis failed: ${error.message}`);
     }
 }
@@ -188,34 +207,8 @@ function showLoadingState() {
         spinner.style.display = 'block';
     }
     
-    // Show skeleton loading for article cards
-    if (articlesContainer) {
-        if (analyses.length === 0 && emptyState) {
-            emptyState.style.display = 'none';
-            articlesContainer.style.display = 'flex';
-        }
-        
-        // Replace article content with skeleton placeholders
-        articlesContainer.innerHTML = '';
-        
-        // Add skeleton card for the new article being processed
-        const newSkeletonCard = createSkeletonCard(true);
-        articlesContainer.appendChild(newSkeletonCard);
-        
-        // Add skeleton versions of existing articles
-        analyses.forEach(() => {
-            const skeletonCard = createSkeletonCard(false);
-            articlesContainer.appendChild(skeletonCard);
-        });
-    }
-    
-    // Add loading animation to treemap
-    if (trendingContainer) {
-        const treemap = trendingContainer.querySelector('#treemap-container');
-        if (treemap) {
-            treemap.classList.add('loading-animation');
-        }
-    }
+    // Show overlay with loading state
+    showAnalysisOverlay(null, true);
 }
 
 function hideLoadingState() {
@@ -226,17 +219,6 @@ function hideLoadingState() {
     const spinner = scrapeButton.querySelector('.loading-spinner');
     if (spinner) {
         spinner.style.display = 'none';
-    }
-    
-    // Reload articles to show actual content
-    loadArticles();
-    
-    // Remove loading animation from treemap
-    if (trendingContainer) {
-        const treemap = trendingContainer.querySelector('#treemap-container');
-        if (treemap) {
-            treemap.classList.remove('loading-animation');
-        }
     }
 }
 
@@ -352,16 +334,116 @@ function loadTrending() {
         trendingContainer.style.display = 'flex';
         trendingContainer.innerHTML = '';
         
-        const treemapContainer = document.createElement('div');
-        treemapContainer.id = 'treemap-container';
-        trendingContainer.appendChild(treemapContainer);
+        const barchartContainer = document.createElement('div');
+        barchartContainer.id = 'barchart-container';
+        trendingContainer.appendChild(barchartContainer);
         
-        new StockTreemap(treemapContainer, trendingStocks, {
+        new StockBarChart(barchartContainer, trendingStocks, {
             maxItems: 10,
-            colors: [
-                '#9333ea', '#7c3aed', '#a855f7', '#c084fc', 
-                '#8b5cf6', '#d8b4fe', '#e9d5ff', '#f3e8ff'
-            ]
+            color: '#9333ea'
         });
     }
 }
+
+function showAnalysisOverlay(analysis, isLoading = false) {
+    if (!analysisOverlay || !overlayContent) return;
+    
+    // Clear content
+    overlayContent.innerHTML = '';
+    
+    if (isLoading) {
+        // Show loading state
+        overlayContent.innerHTML = `
+            <div class="overlay-loading">
+                <div class="overlay-spinner"></div>
+                <div class="overlay-loading-text">Analyzing article...</div>
+            </div>
+        `;
+    } else if (analysis) {
+        // Show article info
+        const articleInfo = document.createElement('div');
+        articleInfo.className = 'overlay-article-info';
+        
+        // Format URL for display
+        let displayUrl = '';
+        if (analysis.url) {
+            try {
+                const url = new URL(analysis.url);
+                displayUrl = url.hostname.replace('www.', '');
+            } catch {
+                displayUrl = analysis.url;
+            }
+        }
+        
+        articleInfo.innerHTML = `
+            <div class="overlay-article-title">${analysis.title || 'Untitled Article'}</div>
+            <div class="overlay-article-meta">
+                <div class="overlay-article-date">${formatDate(new Date(analysis.timestamp))}</div>
+                ${displayUrl ? `<div class="overlay-article-url">${displayUrl}</div>` : ''}
+            </div>
+        `;
+        
+        // Make URL clickable
+        if (analysis.url && displayUrl) {
+            const urlElement = articleInfo.querySelector('.overlay-article-url');
+            if (urlElement) {
+                urlElement.style.cursor = 'pointer';
+                urlElement.addEventListener('click', () => {
+                    chrome.tabs.create({ url: analysis.url });
+                });
+            }
+        }
+        
+        overlayContent.appendChild(articleInfo);
+        
+        // Show stocks
+        if (analysis.matches && analysis.matches.length > 0) {
+            const stocksGrid = document.createElement('div');
+            stocksGrid.className = 'overlay-stocks-grid';
+            
+            // Limit to top 6 stocks
+            const topStocks = analysis.matches.slice(0, 6);
+            
+            topStocks.forEach(match => {
+                const stockCard = document.createElement('div');
+                stockCard.className = 'overlay-stock-card';
+                
+                const scorePercent = (match.score * 100).toFixed(1);
+                
+                stockCard.innerHTML = `
+                    <div class="overlay-stock-header">
+                        <div class="overlay-stock-ticker">${match.ticker}</div>
+                        <div class="overlay-stock-score">${scorePercent}%</div>
+                    </div>
+                    <div class="overlay-stock-company">${match.company}</div>
+                    <div class="overlay-stock-exchange">${match.exchange}</div>
+                `;
+                
+                stockCard.addEventListener('click', () => {
+                    chrome.tabs.create({
+                        url: `https://finance.yahoo.com/quote/${match.ticker}`
+                    });
+                });
+                
+                stocksGrid.appendChild(stockCard);
+            });
+            
+            overlayContent.appendChild(stocksGrid);
+        } else {
+            overlayContent.innerHTML += '<div class="no-stocks">No stocks found for this article</div>';
+        }
+    }
+    
+    // Show overlay with smooth fade
+    analysisOverlay.classList.add('show');
+}
+
+function hideAnalysisOverlay() {
+    if (!analysisOverlay) return;
+    
+    analysisOverlay.classList.remove('show');
+}
+
+// Make it available globally for components
+window.showAnalysisOverlay = showAnalysisOverlay;
+
