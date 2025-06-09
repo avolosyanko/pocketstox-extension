@@ -5,9 +5,31 @@ const CONFIG = {
 };
 
 export async function analyzeArticle(title, content) {
+    // Check usage limit before making API call
+    const storageManager = new window.StorageManager();
+    const canAnalyze = await storageManager.canAnalyze();
+    
+    if (!canAnalyze) {
+        const stats = await storageManager.getUsageStats();
+        throw new Error(`LIMIT_REACHED:${stats.today}`);
+    }
+    
+    // Get monitoring data
+    const installId = await storageManager.getInstallId();
+    const usage = await storageManager.getUsageData();
+    const account = await storageManager.getAccount();
+    
     const headers = {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'X-Install-Id': installId || 'unknown',
+        'X-Usage-Count': usage.count.toString(),
+        'X-Usage-Date': usage.date
     };
+    
+    // Add auth token if user is logged in
+    if (account && account.authToken) {
+        headers['Authorization'] = `Bearer ${account.authToken}`;
+    }
     
     if (CONFIG.apiKey) {
         headers['X-Api-Key'] = CONFIG.apiKey;
@@ -34,7 +56,12 @@ export async function analyzeArticle(title, content) {
     }
     
     try {
-        return JSON.parse(responseText);
+        const result = JSON.parse(responseText);
+        
+        // Increment usage counter on successful response
+        await storageManager.incrementUsage();
+        
+        return result;
     } catch (parseError) {
         console.error('JSON Parse Error:', parseError);
         throw new Error('Invalid response format');

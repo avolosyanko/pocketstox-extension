@@ -22,6 +22,8 @@ let tabPanels;
 let analysisOverlay;
 let overlayContent;
 let overlayBack;
+let signInButton;
+let profileButton;
 
 // Make these available globally for components
 window.expandedCardId = null;
@@ -59,6 +61,8 @@ document.addEventListener('DOMContentLoaded', function() {
     analysisOverlay = document.getElementById('analysis-overlay');
     overlayContent = document.getElementById('overlay-content');
     overlayBack = document.getElementById('overlay-back');
+    signInButton = document.getElementById('sign-in-button');
+    profileButton = document.getElementById('profile-button');
     
     init();
 });
@@ -86,6 +90,8 @@ function init() {
     });
 
     setupEventListeners();
+    updateUsageDisplay();
+    updateHeaderDisplay();
 }
 
 function setupEventListeners() {
@@ -117,6 +123,18 @@ function setupEventListeners() {
     if (overlayBack) {
         overlayBack.addEventListener('click', hideAnalysisOverlay);
     }
+    
+    if (signInButton) {
+        signInButton.addEventListener('click', () => {
+            chrome.tabs.create({
+                url: 'https://pocketstox.com/upgrade'
+            });
+        });
+    }
+    
+    if (profileButton) {
+        profileButton.addEventListener('click', showProfileMenu);
+    }
 }
 
 function switchTab(tabName) {
@@ -137,8 +155,20 @@ function switchTab(tabName) {
     });
 }
 
-function handleScrapeClick() {
+async function handleScrapeClick() {
     console.log('Scrape button clicked!');
+
+    // Check if limit is reached
+    const storageManager = new window.StorageManager();
+    const stats = await storageManager.getUsageStats();
+    
+    if (stats.limitReached) {
+        // Go straight to upgrade page
+        chrome.tabs.create({
+            url: 'https://pocketstox.com/upgrade'
+        });
+        return;
+    }
 
     showLoadingState();
     
@@ -189,10 +219,15 @@ async function sendToAPI(title, content) {
         showAnalysisOverlay(analysis, false);
         
         hideLoadingState();
+        
+        // Update usage display after successful analysis
+        updateUsageDisplay();
+        updateHeaderDisplay();
     } catch (error) {
         console.error('API Error:', error);
         hideLoadingState();
         hideAnalysisOverlay();
+        
         alert(`Analysis failed: ${error.message}`);
     }
 }
@@ -454,4 +489,318 @@ function hideAnalysisOverlay() {
 
 // Make it available globally for components
 window.showAnalysisOverlay = showAnalysisOverlay;
+
+function showUpgradeFlow() {
+    // For now, open a new tab to your upgrade page
+    // Later you can implement an in-extension flow
+    chrome.tabs.create({
+        url: 'https://pocketstox.com/upgrade' // Replace with your actual upgrade URL
+    });
+    
+    // Alternatively, show an in-extension upgrade form
+    // showUpgradeModal();
+}
+
+function showUpgradeModal() {
+    const modalBackdrop = document.createElement('div');
+    modalBackdrop.className = 'modal-backdrop';
+    modalBackdrop.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+    `;
+    
+    const modal = document.createElement('div');
+    modal.className = 'upgrade-modal';
+    modal.style.cssText = `
+        background: white;
+        border-radius: 12px;
+        padding: 24px;
+        max-width: 400px;
+        margin: 16px;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    `;
+    
+    modal.innerHTML = `
+        <h3 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 600; color: #111827;">
+            Create Your Account
+        </h3>
+        <p style="margin: 0 0 24px 0; color: #6b7280; line-height: 1.5;">
+            Sign up to unlock premium features and keep your analysis history across devices.
+        </p>
+        <form id="upgrade-form">
+            <input type="email" 
+                placeholder="Email address" 
+                required
+                style="
+                    width: 100%;
+                    padding: 12px 16px;
+                    border: 1px solid #e5e7eb;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    margin-bottom: 12px;
+                    box-sizing: border-box;
+                "
+            />
+            <input type="password" 
+                placeholder="Create password" 
+                required
+                style="
+                    width: 100%;
+                    padding: 12px 16px;
+                    border: 1px solid #e5e7eb;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    margin-bottom: 20px;
+                    box-sizing: border-box;
+                "
+            />
+            <button type="submit" style="
+                width: 100%;
+                padding: 12px 16px;
+                border: none;
+                background: linear-gradient(135deg, #9333ea 0%, #7c3aed 100%);
+                color: white;
+                border-radius: 8px;
+                font-weight: 600;
+                cursor: pointer;
+                font-size: 14px;
+                box-shadow: 0 4px 14px 0 rgba(147, 51, 234, 0.35);
+            ">Create Account & Upgrade</button>
+        </form>
+        <p style="margin: 16px 0 0 0; text-align: center; color: #6b7280; font-size: 13px;">
+            Already have an account? 
+            <a href="#" id="signin-link" style="color: #9333ea; text-decoration: none;">Sign in</a>
+        </p>
+    `;
+    
+    modalBackdrop.appendChild(modal);
+    document.body.appendChild(modalBackdrop);
+    
+    // Handle form submission
+    modal.querySelector('#upgrade-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        // Implement actual signup logic here
+        alert('Account creation would happen here');
+        modalBackdrop.remove();
+    });
+    
+    // Close on backdrop click
+    modalBackdrop.addEventListener('click', (e) => {
+        if (e.target === modalBackdrop) {
+            modalBackdrop.remove();
+        }
+    });
+}
+
+
+async function updateUsageDisplay() {
+    const storageManager = new window.StorageManager();
+    const stats = await storageManager.getUsageStats();
+    
+    // Update the button and usage counter
+    if (scrapeButton) {
+        const buttonText = scrapeButton.querySelector('.button-text');
+        const usageCounter = scrapeButton.querySelector('.usage-counter');
+        const buttonIcon = scrapeButton.querySelector('svg:not(.spinner)');
+        
+        if (stats.isPremium) {
+            // Premium user display
+            if (usageCounter) {
+                usageCounter.textContent = 'Premium';
+                usageCounter.style.background = 'linear-gradient(135deg, #9333ea 0%, #7c3aed 100%)';
+                usageCounter.style.color = 'white';
+            }
+            if (buttonText) {
+                buttonText.textContent = 'Generate Companies';
+            }
+            scrapeButton.disabled = false;
+            scrapeButton.classList.remove('limit-reached');
+        } else {
+            // Free user display
+            if (usageCounter) {
+                usageCounter.textContent = `${stats.today}/5 today`;
+                usageCounter.style.background = '';
+                usageCounter.style.color = '';
+            }
+            
+            if (stats.remaining > 0) {
+                if (buttonText) {
+                    buttonText.textContent = 'Generate Companies';
+                }
+                
+                // Sparkle icon when searches available
+                if (buttonIcon) {
+                    buttonIcon.innerHTML = `<path d="M12 3v2M12 19v2M2 12h3M19 12h3M5.64 5.64l2.12 2.12M16.24 16.24l2.12 2.12M5.64 18.36l2.12-2.12M16.24 7.76l2.12-2.12"/>`;
+                }
+                
+                // Enable hover effects
+                scrapeButton.classList.remove('limit-reached');
+            } else {
+                if (buttonText) {
+                    buttonText.textContent = 'Upgrade to Premium';
+                }
+                
+                // Lock icon when limit reached
+                if (buttonIcon) {
+                    buttonIcon.innerHTML = `<rect x="5" y="11" width="14" height="10" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>`;
+                }
+                
+                // Disable hover effects
+                scrapeButton.classList.add('limit-reached');
+            }
+            
+            // Always enabled to allow clicking
+            scrapeButton.disabled = false;
+        }
+    }
+}
+
+
+function showProfileMenu() {
+    // Create dropdown menu
+    const dropdown = document.createElement('div');
+    dropdown.className = 'profile-dropdown';
+    dropdown.style.cssText = `
+        position: absolute;
+        top: 60px;
+        right: 16px;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        border: 1px solid #e5e7eb;
+        min-width: 200px;
+        z-index: 1000;
+        overflow: hidden;
+    `;
+    
+    // Get account info
+    const storageManager = new window.StorageManager();
+    storageManager.getAccount().then(account => {
+        const isPremium = account && account.isPremium;
+        
+        dropdown.innerHTML = `
+            <div style="padding: 12px 16px; border-bottom: 1px solid #f3f4f6;">
+                <div style="font-weight: 600; color: #111827; margin-bottom: 4px;">
+                    ${account ? account.email || 'Anonymous User' : 'Anonymous User'}
+                </div>
+                <div style="font-size: 12px; color: #6b7280;">
+                    ${isPremium ? 'Premium Plan' : 'Free Plan'}
+                </div>
+            </div>
+            <div style="padding: 8px 0;">
+                ${!isPremium ? `
+                    <button class="dropdown-item" data-action="upgrade">
+                        <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                        </svg>
+                        Upgrade to Premium
+                    </button>
+                ` : ''}
+                <button class="dropdown-item" data-action="settings">
+                    <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
+                        <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/>
+                    </svg>
+                    Settings
+                </button>
+                <button class="dropdown-item" data-action="signout">
+                    <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor">
+                        <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"/>
+                    </svg>
+                    Sign Out
+                </button>
+            </div>
+        `;
+        
+        // Add event listeners
+        dropdown.querySelectorAll('.dropdown-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                const action = e.target.closest('.dropdown-item').dataset.action;
+                handleProfileAction(action);
+                dropdown.remove();
+            });
+        });
+    });
+    
+    // Add dropdown styles
+    const style = document.createElement('style');
+    style.textContent = `
+        .dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            padding: 12px 16px;
+            background: none;
+            border: none;
+            text-align: left;
+            cursor: pointer;
+            color: #374151;
+            font-size: 14px;
+            transition: background-color 0.2s ease;
+        }
+        .dropdown-item:hover {
+            background: #f9fafb;
+        }
+        .dropdown-item svg {
+            color: #6b7280;
+        }
+    `;
+    document.head.appendChild(style);
+    
+    document.body.appendChild(dropdown);
+    
+    // Close on click outside
+    setTimeout(() => {
+        document.addEventListener('click', function closeDropdown(e) {
+            if (!dropdown.contains(e.target) && e.target !== profileButton) {
+                dropdown.remove();
+                document.removeEventListener('click', closeDropdown);
+            }
+        });
+    }, 0);
+}
+
+async function updateHeaderDisplay() {
+    const storageManager = new window.StorageManager();
+    const account = await storageManager.getAccount();
+    
+    if (account) {
+        // User is signed in - show profile button
+        if (signInButton) signInButton.style.display = 'none';
+        if (profileButton) profileButton.style.display = 'flex';
+    } else {
+        // User is anonymous - show sign in button
+        if (signInButton) signInButton.style.display = 'block';
+        if (profileButton) profileButton.style.display = 'none';
+    }
+}
+
+async function handleProfileAction(action) {
+    switch (action) {
+        case 'signin':
+        case 'upgrade':
+            chrome.tabs.create({
+                url: 'https://pocketstox.com/upgrade'
+            });
+            break;
+        case 'settings':
+            // Could show settings modal or open settings page
+            alert('Settings coming soon!');
+            break;
+        case 'signout':
+            const storageManager = new window.StorageManager();
+            await storageManager.clearAccount();
+            updateUsageDisplay();
+            updateHeaderDisplay();
+            break;
+    }
+}
 

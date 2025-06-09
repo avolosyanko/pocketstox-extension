@@ -1,7 +1,29 @@
 class StorageManager {
     constructor() {
         this.STORAGE_KEY = 'pocketstox_analyses';
+        this.USAGE_KEY = 'pocketstox_usage';
+        this.INSTALL_KEY = 'pocketstox_install_id';
+        this.ACCOUNT_KEY = 'pocketstox_account';
         this.MAX_ANALYSES = 0;
+        this.DAILY_LIMIT = 5;
+        this.initializeInstallId();
+    }
+
+    async initializeInstallId() {
+        const result = await chrome.storage.local.get([this.INSTALL_KEY]);
+        if (!result[this.INSTALL_KEY]) {
+            const installId = this.generateInstallId();
+            await chrome.storage.local.set({ [this.INSTALL_KEY]: installId });
+        }
+    }
+
+    generateInstallId() {
+        return 'inst_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    async getInstallId() {
+        const result = await chrome.storage.local.get([this.INSTALL_KEY]);
+        return result[this.INSTALL_KEY];
     }
 
     async getAllAnalyses() {
@@ -106,18 +128,112 @@ class StorageManager {
     }
 
     async getUsageStats() {
+        const usage = await this.getUsageData();
         const analyses = await this.getAllAnalyses();
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const todayCount = analyses.filter(a => 
-            new Date(a.timestamp) >= today
-        ).length;
 
         return {
             total: analyses.length,
-            today: todayCount,
-            remaining: 5 - todayCount
+            today: usage.count,
+            remaining: Math.max(0, this.DAILY_LIMIT - usage.count),
+            limitReached: usage.count >= this.DAILY_LIMIT
+        };
+    }
+
+    async getUsageData() {
+        const result = await chrome.storage.local.get([this.USAGE_KEY]);
+        const today = new Date().toDateString();
+        
+        if (!result[this.USAGE_KEY] || result[this.USAGE_KEY].date !== today) {
+            return { date: today, count: 0 };
+        }
+        
+        return result[this.USAGE_KEY];
+    }
+
+    async canAnalyze() {
+        const usage = await this.getUsageData();
+        return usage.count < this.DAILY_LIMIT;
+    }
+
+    async incrementUsage() {
+        const usage = await this.getUsageData();
+        const today = new Date().toDateString();
+        
+        const newUsage = {
+            date: today,
+            count: usage.date === today ? usage.count + 1 : 1
+        };
+        
+        await chrome.storage.local.set({ [this.USAGE_KEY]: newUsage });
+        return newUsage;
+    }
+
+    async resetUsageIfNewDay() {
+        const usage = await this.getUsageData();
+        const today = new Date().toDateString();
+        
+        if (usage.date !== today) {
+            await chrome.storage.local.set({ 
+                [this.USAGE_KEY]: { date: today, count: 0 } 
+            });
+        }
+    }
+
+    // Account management methods
+    async getAccount() {
+        const result = await chrome.storage.local.get([this.ACCOUNT_KEY]);
+        return result[this.ACCOUNT_KEY] || null;
+    }
+
+    async setAccount(accountData) {
+        await chrome.storage.local.set({ [this.ACCOUNT_KEY]: accountData });
+    }
+
+    async clearAccount() {
+        await chrome.storage.local.remove([this.ACCOUNT_KEY]);
+    }
+
+    async isPremium() {
+        const account = await this.getAccount();
+        return account && account.isPremium === true;
+    }
+
+    async linkAnonymousToAccount(accountData) {
+        // Preserve install ID and usage history when upgrading
+        const installId = await this.getInstallId();
+        const analyses = await this.getAllAnalyses();
+        
+        // Set account with preserved data
+        await this.setAccount({
+            ...accountData,
+            linkedInstallId: installId,
+            importedAnalysesCount: analyses.length
+        });
+    }
+
+    async getDailyLimit() {
+        const isPremium = await this.isPremium();
+        return isPremium ? 999999 : this.DAILY_LIMIT;
+    }
+
+    async canAnalyze() {
+        const usage = await this.getUsageData();
+        const limit = await this.getDailyLimit();
+        return usage.count < limit;
+    }
+
+    async getUsageStats() {
+        const usage = await this.getUsageData();
+        const analyses = await this.getAllAnalyses();
+        const limit = await this.getDailyLimit();
+        const isPremium = await this.isPremium();
+
+        return {
+            total: analyses.length,
+            today: usage.count,
+            remaining: Math.max(0, limit - usage.count),
+            limitReached: !isPremium && usage.count >= limit,
+            isPremium: isPremium
         };
     }
 }
