@@ -6,6 +6,28 @@ export function createArticleCard(analysis) {
     const date = new Date(analysis.timestamp);
     const formattedDate = formatDate(date);
     
+    // Format URL for display
+    let displayUrl = '';
+    if (analysis.url) {
+        try {
+            const url = new URL(analysis.url);
+            displayUrl = url.hostname.replace('www.', '');
+        } catch {
+            displayUrl = analysis.url;
+        }
+    }
+    
+    // Get favicon URL
+    let faviconUrl = '';
+    if (analysis.url) {
+        try {
+            const url = new URL(analysis.url);
+            faviconUrl = `https://www.google.com/s2/favicons?domain=${url.hostname}&sz=24`;
+        } catch {
+            faviconUrl = '';
+        }
+    }
+    
     card.innerHTML = `
         <div class="article-header">
             <div class="article-title">${escapeHtml(analysis.title)}</div>
@@ -15,7 +37,16 @@ export function createArticleCard(analysis) {
                 </svg>
             </div>
         </div>
-        <div class="article-date">${formattedDate}</div>
+        <div class="article-meta">
+            ${displayUrl ? `
+                <div class="article-url">
+                    ${faviconUrl ? `<img src="${faviconUrl}" class="article-favicon" alt="" onerror="this.style.display='none'">` : ''}
+                    ${displayUrl}
+                </div>
+                <span class="meta-separator">•</span>
+            ` : ''}
+            <div class="article-date">${formattedDate}</div>
+        </div>
     `;
     
     card.addEventListener('click', () => {

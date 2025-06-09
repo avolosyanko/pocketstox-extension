@@ -317,9 +317,9 @@ function toggleCard(cardId) {
 }
 
 function loadTrending() {
-    if (!timeFilter || !trendingContainer) return;
+    if (!trendingContainer) return;
     
-    const timeRange = timeFilter.value || '7';
+    const timeRange = timeFilter ? timeFilter.value || '7' : '7';
     const trendingStocks = getTrendingStocks(analyses, timeRange);
     
     
@@ -366,10 +366,12 @@ function showAnalysisOverlay(analysis, isLoading = false) {
         
         // Format URL for display
         let displayUrl = '';
+        let faviconUrl = '';
         if (analysis.url) {
             try {
                 const url = new URL(analysis.url);
                 displayUrl = url.hostname.replace('www.', '');
+                faviconUrl = `https://www.google.com/s2/favicons?domain=${url.hostname}&sz=24`;
             } catch {
                 displayUrl = analysis.url;
             }
@@ -378,8 +380,14 @@ function showAnalysisOverlay(analysis, isLoading = false) {
         articleInfo.innerHTML = `
             <div class="overlay-article-title">${analysis.title || 'Untitled Article'}</div>
             <div class="overlay-article-meta">
+                ${displayUrl ? `
+                    <div class="overlay-article-url">
+                        ${faviconUrl ? `<img src="${faviconUrl}" class="article-favicon" alt="" onerror="this.style.display='none'">` : ''}
+                        ${displayUrl}
+                    </div>
+                    <span class="meta-separator">•</span>
+                ` : ''}
                 <div class="overlay-article-date">${formatDate(new Date(analysis.timestamp))}</div>
-                ${displayUrl ? `<div class="overlay-article-url">${displayUrl}</div>` : ''}
             </div>
         `;
         
@@ -413,7 +421,7 @@ function showAnalysisOverlay(analysis, isLoading = false) {
                 stockCard.innerHTML = `
                     <div class="overlay-stock-header">
                         <div class="overlay-stock-ticker">${match.ticker}</div>
-                        <div class="overlay-stock-score">${scorePercent}%</div>
+                        <div class="overlay-stock-score">${scorePercent}% match</div>
                     </div>
                     <div class="overlay-stock-company">${match.company}</div>
                     <div class="overlay-stock-exchange">${match.exchange}</div>
@@ -421,7 +429,7 @@ function showAnalysisOverlay(analysis, isLoading = false) {
                 
                 stockCard.addEventListener('click', () => {
                     chrome.tabs.create({
-                        url: `https://finance.yahoo.com/quote/${match.ticker}`
+                        url: `https://robinhood.com/stocks/${match.ticker}`
                     });
                 });
                 

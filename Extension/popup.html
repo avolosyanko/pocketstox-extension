@@ -14,7 +14,6 @@
         <div class="header">
             <div class="logo-section">
                 <img src="assets/images/logo-text-purple.svg" alt="Pocketstox" class="logo-image">
-                <span class="plan-tag">Free</span>
             </div>
             <div style="width: 32px; height: 32px;"></div> <!-- Exact size of close button -->
         </div>
@@ -44,10 +43,10 @@
 
             <div class="tab-container">
                 <button class="tab-button active" data-tab="articles">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-linecap="round" stroke-linejoin="round"/>
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                     </svg>
-                    Recent Articles
+                    Article History
                 </button>
                 <button class="tab-button" data-tab="trending">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -55,7 +54,16 @@
                         <path d="M2 12l10 5 10-5"/>
                         <path d="M2 17l10 5 10-5"/>
                     </svg>
-                    Recurring Patterns
+                    My Patterns
+                </button>
+                <button class="tab-button" data-tab="community">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    Community
                 </button>
             </div>
 
@@ -90,27 +98,44 @@
                 </div>
 
                 <div class="tab-panel" id="trending-panel"> 
-                    <div class="time-filter-container">
-                        <select class="time-filter" id="time-filter">
-                            <option value="7">Last 7 days</option>
-                            <option value="30">Last 30 days</option>
-                            <option value="all">All time</option>
-                        </select>
-                    </div>
-                    
                     <div class="empty-state" id="trending-empty" style="display: none;"> 
                         <div class="empty-icon">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>
                         </div>
-                        <h3 class="empty-title">No recurring patterns yet</h3> 
+                        <h3 class="empty-title">No patterns detected yet</h3> 
                         <p class="empty-description">
-                            Analyze multiple articles to see which stocks appear most frequently
+                            Analyze more articles to discover your personal stock patterns
                         </p>
                     </div>
 
                     <div class="trending-container" id="trending-container"> 
+                    </div>
+                </div>
+
+                <div class="tab-panel" id="community-panel">
+                    <div class="community-section">
+                        <div class="recent-discoveries">
+                            <div class="discovery-item" onclick="chrome.tabs.create({url: 'https://robinhood.com/stocks/NVDA'})">
+                                <div class="stock-info">
+                                    <span class="stock-ticker">NVDA</span>
+                                    <span class="stock-name">NVIDIA Corp</span>
+                                </div>
+                                <div class="discovery-stats">
+                                    <span class="discovery-badge trending">Popular this week</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stock-pool-stats">
+                            <div class="pool-stat-item">
+                                <span class="stat-number">47</span>
+                                <span class="stat-label">Unique stocks discovered this week</span>
+                            </div>
+                            <div class="pool-contribution">
+                                <span class="contribution-text">You've contributed <strong>2 new stocks</strong> this week</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -123,7 +148,6 @@
                 <div class="header">
                     <div class="logo-section">
                         <img src="./assets/images/logo-text-purple.svg" alt="Pocketstox" class="logo-image">
-                        <span class="plan-tag">Free</span>
                     </div>
                     <button class="overlay-back" id="overlay-back" style="background: none; border: none; cursor: pointer; padding: 6px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
                         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" style="color: #6b7280;">

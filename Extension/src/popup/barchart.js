@@ -157,7 +157,7 @@ class StockBarChart {
         // Click handler
         barContainer.addEventListener('click', () => {
             chrome.tabs.create({
-                url: `https://finance.yahoo.com/quote/${item.ticker}`
+                url: `https://robinhood.com/stocks/${item.ticker}`
             });
         });
 
