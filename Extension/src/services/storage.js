@@ -4,7 +4,7 @@ class StorageManager {
         this.USAGE_KEY = 'pocketstox_usage';
         this.INSTALL_KEY = 'pocketstox_install_id';
         this.ACCOUNT_KEY = 'pocketstox_account';
-        this.MAX_ANALYSES = 0;
+        this.MAX_ANALYSES = 100;
         this.DAILY_LIMIT = 5;
         this.initializeInstallId();
     }

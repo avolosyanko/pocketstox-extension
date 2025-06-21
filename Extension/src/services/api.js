@@ -4,7 +4,7 @@ const CONFIG = {
     apiUrl: 'https://gmoh9tv5t9.execute-api.eu-west-2.amazonaws.com/prod/vectormatch'
 };
 
-export async function analyzeArticle(title, content) {
+async function analyzeArticle(title, content) {
     // Check usage limit before making API call
     const storageManager = new window.StorageManager();
     const canAnalyze = await storageManager.canAnalyze();
@@ -57,13 +57,12 @@ export async function analyzeArticle(title, content) {
     
     try {
         const result = JSON.parse(responseText);
-        
-        // Increment usage counter on successful response
-        await storageManager.incrementUsage();
-        
         return result;
     } catch (parseError) {
         console.error('JSON Parse Error:', parseError);
         throw new Error('Invalid response format');
     }
 }
+
+// Make function available globally
+window.analyzeArticle = analyzeArticle;
