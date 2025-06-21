@@ -1,12 +1,18 @@
 {
     "manifest_version": 3,
-    "name": "Pocketstox: AI Stock Discovery App",
+    "name": "Pocketstox",
     "description": "Extension reads articles for you and uses algorithms to determine stocks most affected.",
     "version": "1.0",
     "action": {
-        "default_popup": "./popup.html"
+        "default_title": "Open Pocketstox Side Panel"
     },
-    "permissions": ["activeTab", "scripting", "storage"],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "side_panel": {
+        "default_path": "popup.html"
+    },
+    "permissions": ["activeTab", "scripting", "storage", "sidePanel"],
     "host_permissions": [
         "<all_urls>"
     ],
@@ -16,8 +22,15 @@
         "48": "assets/images/48x48.png",
         "128": "assets/images/128x128.png"
     },
+    "content_scripts": [
+        {
+            "matches": ["<all_urls>"],
+            "js": ["src/content/website-popup.js"],
+            "run_at": "document_idle"
+        }
+    ],
     "web_accessible_resources": [{
-        "resources": ["src/lib/Readability.min.js"],
+        "resources": ["src/lib/Readability.min.js", "assets/images/logo-black.png", "assets/images/128x128.png"],
         "matches": ["<all_urls>"]
     }]
 }

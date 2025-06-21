@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pocketstox Extension</title>
+    <link rel="stylesheet" type="text/css" href="styles/popup.css">
+    <script src="src/services/storage.js"></script>
+    <script type="module" src="src/popup/popup.js"></script>
+</head>
+<body>
+    <div class="extension-container">
+      
+        <div class="header">
+            <div class="logo-section">
+                <img src="assets/images/logo-text-purple.svg" alt="Pocketstox" class="logo-image">
+            </div>
+            <button class="sign-in-button" id="sign-in-button">Sign In</button>
+            <button class="profile-button" id="profile-button" style="display: none;">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                </svg>
+            </button>
+        </div>
+
+        <div class="main-content">
+            <div class="hero-card">
+                <h2 class="hero-title">Analyse This Article</h2>
+                <p class="hero-description">
+                    Discover stocks mentioned or affected by this article
+                </p>
+                <button class="generate-button" id="scrape">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 3v2M12 19v2M2 12h3M19 12h3M5.64 5.64l2.12 2.12M16.24 16.24l2.12 2.12M5.64 18.36l2.12-2.12M16.24 7.76l2.12-2.12"/>
+                    </svg>
+                    <span class="button-text">Generate Companies</span>
+                    <span class="usage-counter">0/5 today</span>
+                    <div class="loading-spinner" style="display: none;">
+                        <svg class="spinner" viewBox="0 0 24 24" width="16" height="16">
+                            <circle cx="12" cy="12" r="10" stroke="white" stroke-width="3" fill="none" opacity="0.25"/>
+                            <path d="M12 2 A10 10 0 0 1 22 12" stroke="white" stroke-width="3" fill="none" stroke-linecap="round">
+                                <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
+                            </path>
+                        </svg>
+                    </div>
+                </button>
+            </div>
+
+            <div class="tab-container">
+                <button class="tab-button active" data-tab="articles">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    Article History
+                </button>
+                <button class="tab-button" data-tab="trending">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                        <path d="M2 12l10 5 10-5"/>
+                        <path d="M2 17l10 5 10-5"/>
+                    </svg>
+                    My Patterns
+                </button>
+                <button class="tab-button" data-tab="community">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    Community
+                </button>
+            </div>
+
+            <div class="tab-content">
+                <div class="tab-panel active" id="articles-panel">
+                    <div class="empty-state" id="empty-state">
+                        <div class="empty-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 6v6m0 0v6m0-6h6m-6 0H6" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <h3 class="empty-title">No analyses yet</h3>
+                        <p class="empty-description">
+                            Click "Generate Companies" above to analyse your first article
+                        </p>
+                    </div>
+
+                    <div class="loading-state" id="loading-state" style="display: none;">
+                        <div class="skeleton-card">
+                            <div class="skeleton skeleton-title" style="width: 200px; height: 16px;"></div>
+                            <div class="skeleton skeleton-date" style="width: 80px; height: 12px; margin-top: 8px;"></div>
+                            <div class="skeleton-stocks">
+                                <div class="skeleton skeleton-stock" style="width: 60px; height: 24px;"></div>
+                                <div class="skeleton skeleton-stock" style="width: 70px; height: 24px;"></div>
+                                <div class="skeleton skeleton-stock" style="width: 55px; height: 24px;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="articles-container" id="articles-container" style="display: none;">
+                    </div>
+                </div>
+
+                <div class="tab-panel" id="trending-panel"> 
+                    <div class="empty-state" id="trending-empty" style="display: none;"> 
+                        <div class="empty-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <h3 class="empty-title">No patterns detected yet</h3> 
+                        <p class="empty-description">
+                            Analyze more articles to discover your personal stock patterns
+                        </p>
+                    </div>
+
+                    <div class="trending-container" id="trending-container"> 
+                    </div>
+                </div>
+
+                <div class="tab-panel" id="community-panel">
+                    <div class="community-section">
+                        <div class="recent-discoveries">
+                            <div class="discovery-item" onclick="chrome.tabs.create({url: 'https://robinhood.com/stocks/NVDA'})">
+                                <div class="stock-info">
+                                    <span class="stock-ticker">NVDA</span>
+                                    <span class="stock-name">NVIDIA Corp</span>
+                                </div>
+                                <div class="discovery-stats">
+                                    <span class="discovery-badge trending">Popular this week</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="stock-pool-stats">
+                            <div class="pool-stat-item">
+                                <span class="stat-number">47</span>
+                                <span class="stat-label">Unique stocks discovered this week</span>
+                            </div>
+                            <div class="pool-contribution">
+                                <span class="contribution-text">You've contributed <strong>2 new stocks</strong> this week</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analysis Overlay -->
+        <div class="analysis-overlay" id="analysis-overlay">
+            <div class="overlay-container">
+                <!-- Reuse main header -->
+                <div class="header">
+                    <div class="logo-section">
+                        <img src="./assets/images/logo-text-purple.svg" alt="Pocketstox" class="logo-image">
+                    </div>
+                    <button class="overlay-back" id="overlay-back" style="background: none; border: none; cursor: pointer; padding: 6px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" style="color: #6b7280;">
+                            <path d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                
+                <div class="overlay-main-content">
+                    <div class="overlay-content" id="overlay-content">
+                        <!-- Content will be dynamically inserted here -->
+                    </div>
+                </div>
+                
+                <!-- Reuse footer -->
+                <div class="footer">
+                    <div class="footer-text">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="footer-icon">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Not financial advice. Always do your own research.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div class="footer-text">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="footer-icon">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Not financial advice. Always do your own research.
+            </div>
+        </div>
+    </div>
+</body>
+</html>

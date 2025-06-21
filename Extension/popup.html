@@ -4,192 +4,326 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pocketstox Extension</title>
-    <link rel="stylesheet" type="text/css" href="styles/popup.css">
-    <script src="src/services/storage.js"></script>
-    <script type="module" src="src/popup/popup.js"></script>
+    <link rel="stylesheet" href="dist/popup.css">
+    <style>
+        body {
+            width: 100%;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            overflow-x: hidden;
+        }
+        
+        #root {
+            width: 100%;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        /* Optimize for narrow side panels */
+        @media (max-width: 380px) {
+            .tab-text {
+                font-size: 9px !important;
+            }
+            
+            /* Use icon-only tabs for very narrow panels */
+            .tab-full-text {
+                display: none !important;
+            }
+            
+            .tab-short-text {
+                display: inline !important;
+            }
+        }
+        
+        @media (min-width: 381px) {
+            .tab-short-text {
+                display: none !important;
+            }
+            
+            .tab-full-text {
+                display: inline !important;
+            }
+        }
+    </style>
 </head>
 <body>
-    <div class="extension-container">
-      
-        <div class="header">
-            <div class="logo-section">
-                <img src="assets/images/logo-text-purple.svg" alt="Pocketstox" class="logo-image">
-            </div>
-            <button class="sign-in-button" id="sign-in-button">Sign In</button>
-            <button class="profile-button" id="profile-button" style="display: none;">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                    <circle cx="12" cy="7" r="4"/>
-                </svg>
-            </button>
-        </div>
-
-        <div class="main-content">
-            <div class="hero-card">
-                <h2 class="hero-title">Analyse This Article</h2>
-                <p class="hero-description">
-                    Discover stocks mentioned or affected by this article
-                </p>
-                <button class="generate-button" id="scrape">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 3v2M12 19v2M2 12h3M19 12h3M5.64 5.64l2.12 2.12M16.24 16.24l2.12 2.12M5.64 18.36l2.12-2.12M16.24 7.76l2.12-2.12"/>
-                    </svg>
-                    <span class="button-text">Generate Companies</span>
-                    <span class="usage-counter">0/5 today</span>
-                    <div class="loading-spinner" style="display: none;">
-                        <svg class="spinner" viewBox="0 0 24 24" width="16" height="16">
-                            <circle cx="12" cy="12" r="10" stroke="white" stroke-width="3" fill="none" opacity="0.25"/>
-                            <path d="M12 2 A10 10 0 0 1 22 12" stroke="white" stroke-width="3" fill="none" stroke-linecap="round">
-                                <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/>
-                            </path>
-                        </svg>
-                    </div>
-                </button>
-            </div>
-
-            <div class="tab-container">
-                <button class="tab-button active" data-tab="articles">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                    </svg>
-                    Article History
-                </button>
-                <button class="tab-button" data-tab="trending">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-                        <path d="M2 12l10 5 10-5"/>
-                        <path d="M2 17l10 5 10-5"/>
-                    </svg>
-                    My Patterns
-                </button>
-                <button class="tab-button" data-tab="community">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                        <circle cx="9" cy="7" r="4"/>
-                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                    </svg>
-                    Community
-                </button>
-            </div>
-
-            <div class="tab-content">
-                <div class="tab-panel active" id="articles-panel">
-                    <div class="empty-state" id="empty-state">
-                        <div class="empty-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M12 6v6m0 0v6m0-6h6m-6 0H6" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </div>
-                        <h3 class="empty-title">No analyses yet</h3>
-                        <p class="empty-description">
-                            Click "Generate Companies" above to analyse your first article
-                        </p>
-                    </div>
-
-                    <div class="loading-state" id="loading-state" style="display: none;">
-                        <div class="skeleton-card">
-                            <div class="skeleton skeleton-title" style="width: 200px; height: 16px;"></div>
-                            <div class="skeleton skeleton-date" style="width: 80px; height: 12px; margin-top: 8px;"></div>
-                            <div class="skeleton-stocks">
-                                <div class="skeleton skeleton-stock" style="width: 60px; height: 24px;"></div>
-                                <div class="skeleton skeleton-stock" style="width: 70px; height: 24px;"></div>
-                                <div class="skeleton skeleton-stock" style="width: 55px; height: 24px;"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="articles-container" id="articles-container" style="display: none;">
-                    </div>
-                </div>
-
-                <div class="tab-panel" id="trending-panel"> 
-                    <div class="empty-state" id="trending-empty" style="display: none;"> 
-                        <div class="empty-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </div>
-                        <h3 class="empty-title">No patterns detected yet</h3> 
-                        <p class="empty-description">
-                            Analyze more articles to discover your personal stock patterns
-                        </p>
-                    </div>
-
-                    <div class="trending-container" id="trending-container"> 
-                    </div>
-                </div>
-
-                <div class="tab-panel" id="community-panel">
-                    <div class="community-section">
-                        <div class="recent-discoveries">
-                            <div class="discovery-item" onclick="chrome.tabs.create({url: 'https://robinhood.com/stocks/NVDA'})">
-                                <div class="stock-info">
-                                    <span class="stock-ticker">NVDA</span>
-                                    <span class="stock-name">NVIDIA Corp</span>
-                                </div>
-                                <div class="discovery-stats">
-                                    <span class="discovery-badge trending">Popular this week</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="stock-pool-stats">
-                            <div class="pool-stat-item">
-                                <span class="stat-number">47</span>
-                                <span class="stat-label">Unique stocks discovered this week</span>
-                            </div>
-                            <div class="pool-contribution">
-                                <span class="contribution-text">You've contributed <strong>2 new stocks</strong> this week</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Analysis Overlay -->
-        <div class="analysis-overlay" id="analysis-overlay">
-            <div class="overlay-container">
-                <!-- Reuse main header -->
-                <div class="header">
-                    <div class="logo-section">
-                        <img src="./assets/images/logo-text-purple.svg" alt="Pocketstox" class="logo-image">
-                    </div>
-                    <button class="overlay-back" id="overlay-back" style="background: none; border: none; cursor: pointer; padding: 6px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" style="color: #6b7280;">
-                            <path d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
-                </div>
+    <div id="root"></div>
+    
+    <!-- Load vanilla JS services first -->
+    <script src="src/services/storage.js"></script>
+    <script src="src/services/auth.js"></script>
+    <script src="src/services/api.js"></script>
+    
+    <!-- Service Bridge -->
+    <script>
+        // Create instances of services
+        console.log('Service Bridge: Checking if AuthService is available:', typeof AuthService !== 'undefined');
+        console.log('Service Bridge: Checking if StorageManager is available:', typeof StorageManager !== 'undefined');
+        
+        const authService = typeof AuthService !== 'undefined' ? new AuthService() : null;
+        const storageManager = typeof StorageManager !== 'undefined' ? new StorageManager() : null;
+        
+        console.log('Service Bridge: AuthService instance:', authService);
+        console.log('Service Bridge: StorageManager instance:', storageManager);
+        
+        // Create global extension services object for React to access
+        window.extensionServices = {
+            auth: {
+                signIn: async () => {
+                    try {
+                        // Redirect to upgrade page like the original popup
+                        chrome.tabs.create({
+                            url: 'https://pocketstox.com/upgrade'
+                        });
+                        return null;
+                    } catch (error) {
+                        console.error('Auth sign in failed:', error);
+                        return null;
+                    }
+                },
+                signOut: async () => {
+                    try {
+                        if (authService) {
+                            // Sign out logic
+                            return true;
+                        }
+                        return true;
+                    } catch (error) {
+                        console.error('Auth sign out failed:', error);
+                        throw error;
+                    }
+                },
+                getUser: async () => {
+                    try {
+                        if (storageManager) {
+                            const account = await storageManager.getAccount();
+                            return account?.user || null;
+                        }
+                        return null;
+                    } catch (error) {
+                        console.error('Get user failed:', error);
+                        return null;
+                    }
+                }
+            },
+            api: {
+                analyzeArticle: async () => {
+                    try {
+                        // Check usage limit first
+                        if (storageManager) {
+                            const stats = await storageManager.getUsageStats();
+                            if (stats.limitReached) {
+                                throw new Error('Daily limit reached. Please upgrade to continue.');
+                            }
+                        }
+                        
+                        return new Promise((resolve, reject) => {
+                            // Set up message listener for content extraction
+                            const messageListener = (message, sender, sendResponse) => {
+                                if (message.action === 'contentExtracted') {
+                                    chrome.runtime.onMessage.removeListener(messageListener);
+                                    
+                                    const { title, content } = message;
+                                    console.log('Content extracted:', { 
+                                        titleLength: title ? title.length : 0, 
+                                        contentLength: content ? content.length : 0 
+                                    });
+                                    
+                                    // Call the API with extracted content
+                                    if (typeof analyzeArticle !== 'undefined') {
+                                        analyzeArticle(title, content).then(async (result) => {
+                                            // Save the analysis using StorageManager
+                                            if (storageManager && result) {
+                                                await storageManager.saveAnalysis({
+                                                    title: title,
+                                                    url: window.currentArticleUrl || '',
+                                                    matches: result.matches || [],
+                                                    content: content
+                                                });
+                                                // Increment usage count
+                                                await storageManager.incrementUsage();
+                                            }
+                                            resolve(result);
+                                        }).catch(reject);
+                                    } else {
+                                        reject(new Error('analyzeArticle function not found'));
+                                    }
+                                }
+                            };
+                            
+                            chrome.runtime.onMessage.addListener(messageListener);
+                            
+                            // Execute content extraction scripts
+                            chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+                                if (tabs[0]) {
+                                    window.currentArticleUrl = tabs[0].url;
+                                    window.currentArticleTitle = tabs[0].title;
+                                    
+                                    chrome.scripting.executeScript({
+                                        target: {tabId: tabs[0].id},
+                                        files: ['src/lib/Readability.min.js']
+                                    }).then(() => {
+                                        return chrome.scripting.executeScript({
+                                            target: {tabId: tabs[0].id},
+                                            files: ['src/content/content.js']
+                                        });
+                                    }).catch((error) => {
+                                        chrome.runtime.onMessage.removeListener(messageListener);
+                                        reject(error);
+                                    });
+                                } else {
+                                    chrome.runtime.onMessage.removeListener(messageListener);
+                                    reject(new Error('No active tab found'));
+                                }
+                            });
+                        });
+                    } catch (error) {
+                        console.error('Article analysis failed:', error);
+                        throw error;
+                    }
+                },
+                getTrendingStocks: async () => {
+                    try {
+                        if (typeof APIService !== 'undefined' && APIService.getTrendingStocks) {
+                            return await APIService.getTrendingStocks();
+                        }
+                        
+                        // Mock data for development
+                        return [
+                            { symbol: 'NVDA', name: 'NVIDIA Corp', trending: true },
+                            { symbol: 'TSLA', name: 'Tesla Inc', trending: true },
+                            { symbol: 'AAPL', name: 'Apple Inc', trending: false }
+                        ];
+                    } catch (error) {
+                        console.error('Get trending stocks failed:', error);
+                        throw error;
+                    }
+                }
+            },
+            storage: {
+                getArticles: async () => {
+                    try {
+                        console.log('Service Bridge: getArticles called');
+                        console.log('Service Bridge: storageManager available:', !!storageManager);
+                        
+                        if (storageManager) {
+                            console.log('Service Bridge: Calling storageManager.getAllAnalyses()');
+                            const analyses = await storageManager.getAllAnalyses();
+                            console.log('Service Bridge: getAllAnalyses returned:', analyses);
+                            return analyses || [];
+                        }
+                        
+                        console.log('Service Bridge: storageManager not available, returning empty array');
+                        return [];
+                    } catch (error) {
+                        console.error('Get articles failed:', error);
+                        return [];
+                    }
+                },
+                saveArticle: async (article) => {
+                    try {
+                        if (storageManager) {
+                            return await storageManager.saveAnalysis(article);
+                        }
+                        
+                        // Mock save for development
+                        console.log('Mock saving article:', article);
+                        return { success: true, id: Date.now().toString() };
+                    } catch (error) {
+                        console.error('Save article failed:', error);
+                        throw error;
+                    }
+                },
+                deleteArticle: async (id) => {
+                    try {
+                        if (storageManager) {
+                            return await storageManager.deleteAnalysis(id);
+                        }
+                        
+                        console.log('Mock deleting article:', id);
+                        return { success: true };
+                    } catch (error) {
+                        console.error('Delete article failed:', error);
+                        throw error;
+                    }
+                },
+                getUsageCount: async () => {
+                    try {
+                        if (storageManager) {
+                            const stats = await storageManager.getUsageStats();
+                            return stats.today || 0;
+                        }
+                        
+                        // Mock usage count for development
+                        return 2;
+                    } catch (error) {
+                        console.error('Get usage count failed:', error);
+                        return 0;
+                    }
+                }
+            }
+        };
+        
+        // Listen for React events
+        window.addEventListener('reactEvent', (event) => {
+            console.log('React event received:', event.detail);
+            // Handle React to vanilla JS communication
+        });
+        
+        // Send events to React
+        window.notifyReact = (type, data) => {
+            const event = new CustomEvent('extensionEvent', {
+                detail: { type, data }
+            });
+            window.dispatchEvent(event);
+        };
+        
+        // Initialize services
+        console.log('Extension services bridge initialized');
+        
+        // Debug: Check existing storage data on load
+        setTimeout(async () => {
+            if (storageManager) {
+                const analyses = await storageManager.getAllAnalyses();
+                const usageStats = await storageManager.getUsageStats();
+                console.log('=== DEBUG: Existing Storage Data ===');
+                console.log('Analyses found:', analyses?.length || 0);
+                console.log('Sample analysis:', analyses?.[0]);
+                console.log('Usage stats:', usageStats);
+                console.log('=== END DEBUG ===');
                 
-                <div class="overlay-main-content">
-                    <div class="overlay-content" id="overlay-content">
-                        <!-- Content will be dynamically inserted here -->
-                    </div>
-                </div>
-                
-                <!-- Reuse footer -->
-                <div class="footer">
-                    <div class="footer-text">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="footer-icon">
-                            <circle cx="12" cy="12" r="10"/>
-                            <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                        Not financial advice. Always do your own research.
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="footer">
-            <div class="footer-text">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="footer-icon">
-                    <circle cx="12" cy="12" r="10"/>
-                    <path d="M12 8v4m0 4h.01" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                Not financial advice. Always do your own research.
-            </div>
-        </div>
-    </div>
+                // Add some test data if none exists
+                if (!analyses || analyses.length === 0) {
+                    console.log('Adding test analysis data...');
+                    await storageManager.saveAnalysis({
+                        title: 'Test Article: Tesla Reports Strong Q4 Earnings',
+                        url: 'https://example.com/tesla-earnings',
+                        matches: [
+                            { ticker: 'TSLA', company: 'Tesla Inc', exchange: 'NASDAQ', score: 0.92 },
+                            { ticker: 'AAPL', company: 'Apple Inc', exchange: 'NASDAQ', score: 0.45 }
+                        ],
+                        content: 'Tesla reported strong fourth quarter earnings with record vehicle deliveries...'
+                    });
+                    
+                    await storageManager.saveAnalysis({
+                        title: 'Apple Announces New iPhone Features',
+                        url: 'https://example.com/apple-iphone',
+                        matches: [
+                            { ticker: 'AAPL', company: 'Apple Inc', exchange: 'NASDAQ', score: 0.88 },
+                            { ticker: 'NVDA', company: 'NVIDIA Corp', exchange: 'NASDAQ', score: 0.31 }
+                        ],
+                        content: 'Apple unveiled new AI-powered features for the iPhone lineup...'
+                    });
+                    
+                    console.log('Test data added!');
+                }
+            }
+        }, 1000);
+    </script>
+    
+    <!-- React App -->
+    <script type="module" src="dist/popup.js"></script>
 </body>
 </html>
