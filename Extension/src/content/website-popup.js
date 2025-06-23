@@ -51,17 +51,20 @@ class WebsitePopup {
                         <img src="${chrome.runtime.getURL('assets/images/128x128.png')}" alt="Pocketstox" width="18" height="18" />
                     </button>
                     <div class="pocketstox-separator"></div>
-                    <button class="pocketstox-analyze-btn" id="pocketstox-analyze">
-                        Analyse
+                    <button class="pocketstox-action-btn" id="pocketstox-panel">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="transform: scaleX(-1);">
+                            <rect width="18" height="18" x="3" y="3" rx="2"/>
+                            <path d="M9 3v18"/>
+                        </svg>
                     </button>
                     <button class="pocketstox-action-btn" id="pocketstox-settings">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                             <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
                             <circle cx="12" cy="12" r="3"/>
                         </svg>
                     </button>
                     <button class="pocketstox-action-btn" id="pocketstox-close">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M18 6 6 18"/>
                             <path d="m6 6 12 12"/>
                         </svg>
@@ -107,18 +110,17 @@ class WebsitePopup {
                 background: rgba(209, 213, 219, 0.6);
                 backdrop-filter: blur(20px);
                 border-radius: 16px;
-                padding: 12px;
+                padding: 8px;
                 box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.05);
                 border: 1px solid rgba(255, 255, 255, 0.2);
                 display: flex;
                 align-items: center;
-                min-width: 250px;
                 font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
             }
             
             .pocketstox-popup-actions {
                 display: flex;
-                gap: 8px;
+                gap: 6px;
                 align-items: center;
                 width: 100%;
             }
@@ -139,7 +141,8 @@ class WebsitePopup {
             
             .pocketstox-logo-btn:hover {
                 background: rgba(255, 255, 255, 1);
-                transform: scale(1.05);
+                transform: translateY(-2px);
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             }
             
             .pocketstox-logo-btn img {
@@ -155,38 +158,13 @@ class WebsitePopup {
                 margin: 0 4px;
             }
             
-            .pocketstox-analyze-btn {
-                height: 36px;
-                padding: 0 16px;
-                border-radius: 8px;
-                border: none;
-                background: linear-gradient(to bottom right, #9333ea, #7c3aed);
-                color: white;
-                font-size: 12px;
-                font-weight: 500;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                cursor: pointer;
-                transition: all 200ms ease;
-                white-space: nowrap;
-                flex: 1;
-                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            }
-            
-            .pocketstox-analyze-btn:hover {
-                background: linear-gradient(to bottom right, #7c3aed, #6d28d9);
-                box-shadow: 0 10px 15px -3px rgba(139, 92, 246, 0.3), 0 4px 6px -2px rgba(139, 92, 246, 0.05);
-                transform: translateY(-2px);
-            }
-            
             .pocketstox-action-btn {
                 width: 36px;
                 height: 36px;
                 border-radius: 10px;
                 border: none;
-                background: rgba(107, 114, 128, 0.08);
-                color: #374151;
+                background: transparent;
+                color: #1f2937;
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -197,8 +175,7 @@ class WebsitePopup {
             
             .pocketstox-action-btn:hover {
                 background: rgba(107, 114, 128, 0.15);
-                color: #1f2937;
-                transform: scale(1.05);
+                color: #111827;
             }
             
             .pocketstox-action-btn:active {
@@ -212,8 +189,7 @@ class WebsitePopup {
                 }
                 
                 .pocketstox-popup-content {
-                    padding: 10px;
-                    min-width: 180px;
+                    padding: 6px;
                 }
                 
                 .pocketstox-popup-icon {
@@ -242,9 +218,9 @@ class WebsitePopup {
             this.openExtensionPopup();
         });
         
-        // Analyze button
-        this.popup.querySelector('#pocketstox-analyze').addEventListener('click', () => {
-            this.analyzeCurrentPage();
+        // Panel button - open side panel
+        this.popup.querySelector('#pocketstox-panel').addEventListener('click', () => {
+            this.openExtensionPopup();
         });
         
         // Close button
