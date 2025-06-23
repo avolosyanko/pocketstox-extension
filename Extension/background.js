@@ -48,6 +48,9 @@ async function toggleSidePanel(windowId) {
                 chrome.tabs.sendMessage(tabs[0].id, { 
                     action: 'showSidePanelInfo',
                     message: 'Side panel opened. To close, click the X in the panel or press Escape.'
+                }).catch((error) => {
+                    // Ignore errors - content script might not be available on all pages
+                    console.log('Content script not available on this page');
                 });
             }
         });
@@ -84,6 +87,9 @@ async function handleAnalyzeCurrentPage(message, tab) {
                 url: message.url,
                 title: message.title,
                 tabId: tab.id
+            }).catch((error) => {
+                // Ignore errors - side panel might not be ready yet
+                console.log('Side panel not ready for messages yet');
             });
         }, 500);
         

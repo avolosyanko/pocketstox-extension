@@ -28,7 +28,7 @@ const CustomBadge = React.forwardRef(({ className, variant = "default", ...props
 })
 CustomBadge.displayName = "Badge"
 
-const ArticleCard = ({ article, onClick }) => {
+const ArticleCard = ({ article, onClick, isSelected }) => {
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
@@ -47,7 +47,10 @@ const ArticleCard = ({ article, onClick }) => {
 
   return (
     <Card 
-      className="cursor-pointer transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 hover:border-primary/30 hover:scale-[1.02] group"
+      className={cn(
+        "cursor-pointer transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 hover:border-primary/30 hover:scale-[1.02] group",
+        isSelected && "border-purple-500 bg-purple-50/50"
+      )}
       onClick={() => onClick?.(article)}
     >
       <CardHeader className="space-y-2">
