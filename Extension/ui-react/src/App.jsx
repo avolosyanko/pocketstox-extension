@@ -12,6 +12,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('articles')
   const [showActionsDropdown, setShowActionsDropdown] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false)
 
 
   const handleArticleClick = (article) => {
@@ -93,38 +94,13 @@ function App() {
     <div className="h-screen w-full flex flex-col min-w-[280px] bg-white">
       
       {/* Fixed Navigation Header */}
-      <div className="flex-shrink-0 bg-white border-b border-gray-200">
-        <NavigationHeader activeTab={activeTab} onTabChange={setActiveTab} />
+      <div className="flex-shrink-0">
+        <NavigationHeader 
+          activeTab={activeTab} 
+          onTabChange={setActiveTab}
+          onGenerate={handleGenerate}
+        />
       </div>
-
-      {/* Generate Button - only show on articles tab */}
-      {activeTab === 'articles' && (
-        <div className="flex-shrink-0 bg-white border-b border-gray-200 px-3 py-2">
-          <button
-            onClick={handleGenerate}
-            className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium py-2.5 px-4 rounded-md transition-colors"
-          >
-            <Plus size={16} />
-            Generate Analysis
-          </button>
-        </div>
-      )}
-
-      {/* Search Bar - only show on articles tab */}
-      {activeTab === 'articles' && (
-        <div className="flex-shrink-0 bg-white border-b border-gray-200 px-3 py-2">
-          <div className="relative">
-            <Search size={16} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search articles and tickers..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-md focus:outline-none focus:ring-0 focus:border-gray-300"
-            />
-          </div>
-        </div>
-      )}
 
       {/* Fixed Selection Banner */}
       {selectedCount > 0 && activeTab === 'articles' && (
@@ -180,10 +156,60 @@ function App() {
         </div>
       )}
 
+      {/* Generate Analysis Button - only show on articles tab */}
+      {activeTab === 'articles' && (
+        <div className="flex-shrink-0 bg-white px-3 pt-2 pb-1">
+          <button
+            onClick={handleGenerate}
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-md transition-colors"
+          >
+            <Plus size={14} className="text-purple-600" />
+            <span className="text-xs font-medium text-purple-700">Generate Analysis</span>
+          </button>
+        </div>
+      )}
+
+      {/* Search Bar - only show on articles tab */}
+      {activeTab === 'articles' && (
+        <div className="flex-shrink-0 bg-white px-3 pt-1 pb-2 sticky top-0 z-10">
+          {!isSearchExpanded ? (
+            /* Search Button */
+            <button
+              onClick={() => setIsSearchExpanded(true)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-md transition-colors"
+            >
+              <Search size={14} className="text-gray-600" />
+              <span className="text-xs font-medium text-gray-700">Search</span>
+            </button>
+          ) : (
+            /* Expanded Search Input */
+            <div className="relative bg-gray-50 border border-gray-200 rounded-md">
+              <Search size={14} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-600" />
+              <input
+                type="text"
+                placeholder="Search articles and tickers..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onBlur={() => {
+                  if (!searchQuery.trim()) {
+                    setIsSearchExpanded(false)
+                  }
+                }}
+                autoFocus
+                className="w-full pl-10 pr-4 py-2.5 text-xs font-medium bg-transparent border-0 focus:outline-none placeholder-gray-500 text-gray-700"
+              />
+            </div>
+          )}
+          {/* Fade effect for content scrolling behind */}
+          <div className="absolute -bottom-2 left-0 right-0 h-2 bg-gradient-to-b from-white to-transparent pointer-events-none"></div>
+        </div>
+      )}
+
+
       {/* Scrollable Content Area */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden bg-white">
         {/* Dynamic Tab Content */}
-        <main className="px-2 pt-2 pb-2">
+        <main className="px-3 pt-2 pb-2">
           {renderTabContent()}
         </main>
       </div>

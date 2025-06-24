@@ -38,8 +38,8 @@ class StorageManager {
         const analyses = await this.getAllAnalyses();
         
         const analysis = {
-            id: Date.now().toString(),
-            timestamp: new Date().toISOString(),
+            id: analysisData.id || Date.now().toString(),
+            timestamp: analysisData.timestamp || new Date().toISOString(),
             title: analysisData.title || 'Untitled Article',
             url: analysisData.url || '',
             matches: analysisData.matches || [],
