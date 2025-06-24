@@ -210,14 +210,13 @@ const ArticlesTab = memo(({ onArticleClick, onSelectionChange, searchQuery = '' 
   const groupedArticles = groupArticlesByDate(filteredArticles)
 
   // Render article as list item with vertical lines
-  const renderArticleItem = (article, index, isLast = false) => {
+  const renderArticleCard = (article) => {
     const articleId = article.id || article.title
     return (
       <div 
         key={articleId} 
         className={cn(
-          "py-3 cursor-pointer group transition-colors",
-          !isLast && "border-b border-gray-200",
+          "py-3 border-b border-gray-200 cursor-pointer group transition-colors",
           selectedArticles.has(articleId) 
             ? "bg-purple-50" 
             : "hover:bg-gray-50"
@@ -241,76 +240,75 @@ const ArticlesTab = memo(({ onArticleClick, onSelectionChange, searchQuery = '' 
             />
           </div>
 
-          {/* Content */}
-          <div className="flex-1 min-w-0">
-            {/* Title */}
-            <h3 className="font-medium text-gray-900 text-xs mb-1.5 line-clamp-2 leading-tight">
-              {article.title}
-            </h3>
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          {/* Title */}
+          <h3 className="font-medium text-gray-900 text-xs mb-1.5 line-clamp-2 leading-tight">
+            {article.title}
+          </h3>
 
-            {/* Meta info */}
-            <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
-              <div className="flex items-center gap-1">
-                <Calendar size={10} />
-                <span>{formatDate(article.timestamp)}</span>
-              </div>
-              {article.url && (
-                <>
-                  <span>•</span>
-                  <div className="flex items-center gap-1">
-                    {getFaviconUrl(article.url) && (
-                      <img 
-                        src={getFaviconUrl(article.url)} 
-                        alt=""
-                        className="w-2.5 h-2.5"
-                        onError={(e) => e.target.style.display = 'none'}
-                      />
-                    )}
-                    <a 
-                      href={article.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:text-gray-700 flex items-center gap-0.5"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <span>{extractDomain(article.url)}</span>
-                      <ExternalLink size={8} />
-                    </a>
-                  </div>
-                </>
-              )}
+          {/* Meta info */}
+          <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+            <div className="flex items-center gap-1">
+              <Calendar size={10} />
+              <span>{formatDate(article.timestamp)}</span>
             </div>
-
-            {/* Stocks */}
-            {article.companies && article.companies.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {article.companies.slice(0, 5).map((stock, idx) => (
-                  <span
-                    key={idx}
-                    className={cn(
-                      "inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium",
-                      selectedArticles.has(articleId)
-                        ? "bg-purple-100 text-purple-700"
-                        : "bg-gray-100 text-gray-700"
-                    )}
+            {article.url && (
+              <>
+                <span>•</span>
+                <div className="flex items-center gap-1">
+                  {getFaviconUrl(article.url) && (
+                    <img 
+                      src={getFaviconUrl(article.url)} 
+                      alt=""
+                      className="w-2.5 h-2.5"
+                      onError={(e) => e.target.style.display = 'none'}
+                    />
+                  )}
+                  <a 
+                    href={article.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-gray-700 flex items-center gap-0.5"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    {stock.symbol || stock.ticker || stock}
-                  </span>
-                ))}
-                {article.companies.length > 5 && (
-                  <span className={cn(
-                    "text-xs",
-                    selectedArticles.has(articleId) ? "text-purple-500" : "text-gray-500"
-                  )}>
-                    +{article.companies.length - 5}
-                  </span>
-                )}
-              </div>
+                    <span>{extractDomain(article.url)}</span>
+                    <ExternalLink size={8} />
+                  </a>
+                </div>
+              </>
             )}
           </div>
+
+          {/* Stocks */}
+          {article.companies && article.companies.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {article.companies.slice(0, 5).map((stock, idx) => (
+                <span
+                  key={idx}
+                  className={cn(
+                    "inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium",
+                    selectedArticles.has(articleId)
+                      ? "bg-purple-100 text-purple-700"
+                      : "bg-gray-100 text-gray-700"
+                  )}
+                >
+                  {stock.symbol || stock.ticker || stock}
+                </span>
+              ))}
+              {article.companies.length > 5 && (
+                <span className={cn(
+                  "text-xs",
+                  selectedArticles.has(articleId) ? "text-purple-500" : "text-gray-500"
+                )}>
+                  +{article.companies.length - 5}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
-    )
+      )
   }
 
   return (
@@ -320,9 +318,7 @@ const ArticlesTab = memo(({ onArticleClick, onSelectionChange, searchQuery = '' 
         <div>
           <h3 className="text-xs font-normal text-gray-500 tracking-wide mb-3 px-1">Today</h3>
           <div>
-            {groupedArticles.today.map((article, index) => 
-              renderArticleItem(article, index, index === groupedArticles.today.length - 1)
-            )}
+            {groupedArticles.today.map((article) => renderArticleCard(article))}
           </div>
         </div>
       )}
@@ -332,9 +328,7 @@ const ArticlesTab = memo(({ onArticleClick, onSelectionChange, searchQuery = '' 
         <div>
           <h3 className="text-xs font-normal text-gray-500 tracking-wide mb-3 px-1">Yesterday</h3>
           <div>
-            {groupedArticles.yesterday.map((article, index) => 
-              renderArticleItem(article, index, index === groupedArticles.yesterday.length - 1)
-            )}
+            {groupedArticles.yesterday.map((article) => renderArticleCard(article))}
           </div>
         </div>
       )}
@@ -344,9 +338,7 @@ const ArticlesTab = memo(({ onArticleClick, onSelectionChange, searchQuery = '' 
         <div>
           <h3 className="text-xs font-normal text-gray-500 tracking-wide mb-3 px-1">Last Week</h3>
           <div>
-            {groupedArticles.lastWeek.map((article, index) => 
-              renderArticleItem(article, index, index === groupedArticles.lastWeek.length - 1)
-            )}
+            {groupedArticles.lastWeek.map((article) => renderArticleCard(article))}
           </div>
         </div>
       )}
@@ -359,9 +351,7 @@ const ArticlesTab = memo(({ onArticleClick, onSelectionChange, searchQuery = '' 
             <div key={monthKey}>
               <h3 className="text-xs font-normal text-gray-500 tracking-wide mb-3 px-1">{monthKey}</h3>
               <div>
-                {monthArticles.map((article, index) => 
-                  renderArticleItem(article, index, index === monthArticles.length - 1)
-                )}
+                {monthArticles.map((article) => renderArticleCard(article))}
               </div>
             </div>
           )

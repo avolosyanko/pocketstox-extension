@@ -162,6 +162,9 @@ window.extensionServices = {
                         id: analysis.id || Date.now().toString()
                     }));
                     
+                    // Sort by timestamp in descending order (newest first)
+                    transformedAnalyses.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                    
                     console.log('Service Bridge: Transformed analyses:', transformedAnalyses);
                     return transformedAnalyses;
                 }
@@ -254,12 +257,27 @@ setTimeout(async () => {
         console.log('Adding sample analysis data (15 articles)...');
         const now = new Date();
         
+        // Helper function to generate specific timestamp
+        const getTimestamp = (daysAgo, hours = null, minutes = null) => {
+            const timestamp = new Date(now);
+            timestamp.setDate(timestamp.getDate() - daysAgo);
+            timestamp.setHours(hours !== null ? hours : Math.floor(Math.random() * 24));
+            timestamp.setMinutes(minutes !== null ? minutes : Math.floor(Math.random() * 60));
+            return timestamp.toISOString();
+        };
+        
+        // Helper function for random timestamp within range
+        const getRandomTimestamp = (maxDaysAgo) => {
+            const randomDays = Math.random() * maxDaysAgo;
+            return getTimestamp(randomDays);
+        };
+        
         const sampleArticles = [
                 {
                     id: 'sample-1',
                     title: 'Tesla Reports Strong Q4 Earnings Beat',
                     url: 'https://example.com/tesla-earnings',
-                    timestamp: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
+                    timestamp: getTimestamp(0, 14, 30), // Today at 2:30 PM
                     matches: [
                         { ticker: 'TSLA', company: 'Tesla Inc', exchange: 'NASDAQ', score: 0.92 },
                         { ticker: 'NVDA', company: 'NVIDIA Corp', exchange: 'NASDAQ', score: 0.35 }
@@ -271,7 +289,7 @@ setTimeout(async () => {
                     id: 'sample-2',
                     title: 'Apple Unveils Revolutionary AI Features in iOS',
                     url: 'https://example.com/apple-ai',
-                    timestamp: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+                    timestamp: getTimestamp(0, 10, 15), // Today at 10:15 AM
                     matches: [
                         { ticker: 'AAPL', company: 'Apple Inc', exchange: 'NASDAQ', score: 0.88 },
                         { ticker: 'GOOGL', company: 'Alphabet Inc', exchange: 'NASDAQ', score: 0.42 }
@@ -283,7 +301,7 @@ setTimeout(async () => {
                     id: 'sample-3',
                     title: 'Microsoft Azure Cloud Revenue Surges 40%',
                     url: 'https://example.com/microsoft-azure',
-                    timestamp: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+                    timestamp: getTimestamp(1, 16, 45), // Yesterday at 4:45 PM
                     matches: [
                         { ticker: 'MSFT', company: 'Microsoft Corporation', exchange: 'NASDAQ', score: 0.95 },
                         { ticker: 'AMZN', company: 'Amazon.com Inc', exchange: 'NASDAQ', score: 0.38 }
@@ -295,7 +313,7 @@ setTimeout(async () => {
                     id: 'sample-4',
                     title: 'NVIDIA AI Chip Demand Continues to Soar',
                     url: 'https://example.com/nvidia-ai-chips',
-                    timestamp: new Date(now.getTime() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+                    timestamp: getTimestamp(1, 9, 20), // Yesterday at 9:20 AM
                     matches: [
                         { ticker: 'NVDA', company: 'NVIDIA Corp', exchange: 'NASDAQ', score: 0.91 },
                         { ticker: 'AMD', company: 'Advanced Micro Devices', exchange: 'NASDAQ', score: 0.45 }
@@ -307,7 +325,7 @@ setTimeout(async () => {
                     id: 'sample-5',
                     title: 'Amazon Prime Day Sets New Sales Records',
                     url: 'https://example.com/amazon-prime-day',
-                    timestamp: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+                    timestamp: getRandomTimestamp(21),
                     matches: [
                         { ticker: 'AMZN', company: 'Amazon.com Inc', exchange: 'NASDAQ', score: 0.89 },
                         { ticker: 'SHOP', company: 'Shopify Inc', exchange: 'NYSE', score: 0.32 }
@@ -319,7 +337,7 @@ setTimeout(async () => {
                     id: 'sample-6',
                     title: 'Meta Announces Major VR Breakthrough',
                     url: 'https://example.com/meta-vr',
-                    timestamp: new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString(),
+                    timestamp: getRandomTimestamp(5),
                     matches: [
                         { ticker: 'META', company: 'Meta Platforms Inc', exchange: 'NASDAQ', score: 0.87 },
                         { ticker: 'NVDA', company: 'NVIDIA Corp', exchange: 'NASDAQ', score: 0.28 }
@@ -331,7 +349,7 @@ setTimeout(async () => {
                     id: 'sample-7',
                     title: 'Google Search Algorithm Update Impacts Rankings',
                     url: 'https://example.com/google-algorithm',
-                    timestamp: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+                    timestamp: getRandomTimestamp(35),
                     matches: [
                         { ticker: 'GOOGL', company: 'Alphabet Inc', exchange: 'NASDAQ', score: 0.86 },
                         { ticker: 'META', company: 'Meta Platforms Inc', exchange: 'NASDAQ', score: 0.25 }
@@ -343,7 +361,7 @@ setTimeout(async () => {
                     id: 'sample-8',
                     title: 'Netflix Subscriber Growth Exceeds Forecasts',
                     url: 'https://example.com/netflix-growth',
-                    timestamp: new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+                    timestamp: getRandomTimestamp(28),
                     matches: [
                         { ticker: 'NFLX', company: 'Netflix Inc', exchange: 'NASDAQ', score: 0.93 },
                         { ticker: 'DIS', company: 'Walt Disney Co', exchange: 'NYSE', score: 0.41 }
@@ -355,7 +373,7 @@ setTimeout(async () => {
                     id: 'sample-9',
                     title: 'SpaceX Starship Test Flight Achieves Milestone',
                     url: 'https://example.com/spacex-starship',
-                    timestamp: new Date(now.getTime() - 9 * 24 * 60 * 60 * 1000).toISOString(),
+                    timestamp: getRandomTimestamp(42),
                     matches: [
                         { ticker: 'TSLA', company: 'Tesla Inc', exchange: 'NASDAQ', score: 0.72 },
                         { ticker: 'BA', company: 'Boeing Co', exchange: 'NYSE', score: 0.34 }
@@ -367,7 +385,7 @@ setTimeout(async () => {
                     id: 'sample-10',
                     title: 'AMD Ryzen 8000 Series Launches with AI Focus',
                     url: 'https://example.com/amd-ryzen-8000',
-                    timestamp: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+                    timestamp: getRandomTimestamp(18),
                     matches: [
                         { ticker: 'AMD', company: 'Advanced Micro Devices', exchange: 'NASDAQ', score: 0.90 },
                         { ticker: 'INTC', company: 'Intel Corporation', exchange: 'NASDAQ', score: 0.47 }
@@ -379,7 +397,7 @@ setTimeout(async () => {
                     id: 'sample-11',
                     title: 'PayPal Introduces New Cryptocurrency Features',
                     url: 'https://example.com/paypal-crypto',
-                    timestamp: new Date(now.getTime() - 11 * 24 * 60 * 60 * 1000).toISOString(),
+                    timestamp: getRandomTimestamp(50),
                     matches: [
                         { ticker: 'PYPL', company: 'PayPal Holdings Inc', exchange: 'NASDAQ', score: 0.85 },
                         { ticker: 'SQ', company: 'Block Inc', exchange: 'NYSE', score: 0.39 }
@@ -391,7 +409,7 @@ setTimeout(async () => {
                     id: 'sample-12',
                     title: 'Intel Foundry Services Secures Major Client',
                     url: 'https://example.com/intel-foundry',
-                    timestamp: new Date(now.getTime() - 12 * 24 * 60 * 60 * 1000).toISOString(),
+                    timestamp: getRandomTimestamp(25),
                     matches: [
                         { ticker: 'INTC', company: 'Intel Corporation', exchange: 'NASDAQ', score: 0.88 },
                         { ticker: 'TSM', company: 'Taiwan Semiconductor', exchange: 'NYSE', score: 0.33 }
@@ -403,7 +421,7 @@ setTimeout(async () => {
                     id: 'sample-13',
                     title: 'Zoom Video Earnings Miss Wall Street Expectations',
                     url: 'https://example.com/zoom-earnings',
-                    timestamp: new Date(now.getTime() - 13 * 24 * 60 * 60 * 1000).toISOString(),
+                    timestamp: getRandomTimestamp(12),
                     matches: [
                         { ticker: 'ZM', company: 'Zoom Video Communications', exchange: 'NASDAQ', score: 0.92 },
                         { ticker: 'MSFT', company: 'Microsoft Corporation', exchange: 'NASDAQ', score: 0.29 }
@@ -415,7 +433,7 @@ setTimeout(async () => {
                     id: 'sample-14',
                     title: 'Oracle Cloud Infrastructure Gains Enterprise Traction',
                     url: 'https://example.com/oracle-cloud',
-                    timestamp: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+                    timestamp: getRandomTimestamp(55),
                     matches: [
                         { ticker: 'ORCL', company: 'Oracle Corporation', exchange: 'NYSE', score: 0.89 },
                         { ticker: 'CRM', company: 'Salesforce Inc', exchange: 'NYSE', score: 0.31 }
@@ -427,7 +445,7 @@ setTimeout(async () => {
                     id: 'sample-15',
                     title: 'Adobe Creative Cloud Subscription Growth Slows',
                     url: 'https://example.com/adobe-creative',
-                    timestamp: new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+                    timestamp: getRandomTimestamp(45),
                     matches: [
                         { ticker: 'ADBE', company: 'Adobe Inc', exchange: 'NASDAQ', score: 0.91 },
                         { ticker: 'MSFT', company: 'Microsoft Corporation', exchange: 'NASDAQ', score: 0.26 }
@@ -437,11 +455,22 @@ setTimeout(async () => {
                 }
         ];
 
+        // Sort articles by timestamp to ensure proper ordering
+        sampleArticles.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        
         // Save all sample articles
         for (const article of sampleArticles) {
+            console.log('Saving article:', article.title, 'with timestamp:', article.timestamp);
             await storageManager.saveAnalysis(article);
         }
         
         console.log('Sample data added! Created', sampleArticles.length, 'articles');
+        
+        // Verify what was saved
+        const savedArticles = await storageManager.getAllAnalyses();
+        console.log('Verification - Saved articles timestamps:');
+        savedArticles.forEach((article, index) => {
+            console.log(`Article ${index + 1}: ${article.title} - ${article.timestamp}`);
+        });
     }
 }, 1000);
