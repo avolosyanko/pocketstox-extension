@@ -38,14 +38,14 @@ export function createArticleCard(analysis) {
             </div>
         </div>
         <div class="article-meta">
+            <div class="article-date">${formattedDate}</div>
             ${displayUrl ? `
+                <span class="meta-separator">•</span>
                 <div class="article-url">
                     ${faviconUrl ? `<img src="${faviconUrl}" class="article-favicon" alt="" onerror="this.style.display='none'">` : ''}
                     ${displayUrl}
                 </div>
-                <span class="meta-separator">•</span>
             ` : ''}
-            <div class="article-date">${formattedDate}</div>
         </div>
     `;
     
@@ -66,16 +66,26 @@ export function formatDate(date) {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
     
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
-    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    // Check if it's today
+    const isToday = date.toDateString() === now.toDateString();
     
-    return date.toLocaleDateString('en-US', { 
-        month: 'short', 
-        day: 'numeric',
-        year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
-    });
+    if (isToday) {
+        // Use relative time for today
+        if (diffMins < 1) return 'Just now';
+        if (diffMins === 1) return '1 min ago';
+        if (diffMins < 60) return `${diffMins} mins ago`;
+        if (diffHours === 1) return '1 hour ago';
+        return `${diffHours} hours ago`;
+    }
+    
+    // Use formatted date for all other days
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = months[date.getMonth()];
+    const day = date.getDate();
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    
+    return `${month} ${day}, ${hours}:${minutes}`;
 }
 
 export function escapeHtml(text) {

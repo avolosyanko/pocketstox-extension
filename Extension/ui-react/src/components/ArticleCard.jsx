@@ -1,7 +1,7 @@
 import React from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 // Badge component defined inline
-import { ExternalLink, Calendar } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // Create Badge component since we haven't defined it yet
@@ -30,12 +30,32 @@ CustomBadge.displayName = "Badge"
 
 const ArticleCard = ({ article, onClick, isSelected }) => {
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffMs = now - date
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    
+    // Check if it's today
+    const isToday = date.toDateString() === now.toDateString()
+    
+    if (isToday) {
+      // Use relative time for today
+      if (diffMins < 1) return 'Just now'
+      if (diffMins === 1) return '1 min ago'
+      if (diffMins < 60) return `${diffMins} mins ago`
+      if (diffHours === 1) return '1 hour ago'
+      return `${diffHours} hours ago`
+    }
+    
+    // Use formatted date for all other days
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const month = months[date.getMonth()]
+    const day = date.getDate()
+    const hours = date.getHours().toString().padStart(2, '0')
+    const minutes = date.getMinutes().toString().padStart(2, '0')
+    
+    return `${month} ${day}, ${hours}:${minutes}`
   }
 
   const getStockColor = (stock) => {
@@ -48,7 +68,7 @@ const ArticleCard = ({ article, onClick, isSelected }) => {
   return (
     <Card 
       className={cn(
-        "cursor-pointer transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 hover:border-primary/30 hover:scale-[1.02] group",
+        "cursor-pointer transition-all duration-300 hover:border-primary/30 hover:scale-[1.02] group",
         isSelected && "border-purple-500 bg-purple-50/50"
       )}
       onClick={() => onClick?.(article)}
@@ -62,12 +82,13 @@ const ArticleCard = ({ article, onClick, isSelected }) => {
         </div>
         
         <div className="flex items-center gap-2 text-sm text-gray-500">
-          <Calendar size={12} />
           <span>{formatDate(article.timestamp)}</span>
-          {article.source && (
+          {(article.url || article.source) && (
             <>
               <span>•</span>
-              <span className="font-medium">{article.source}</span>
+              <span className="font-medium">
+                {article.url ? new URL(article.url).hostname.replace('www.', '') : article.source}
+              </span>
             </>
           )}
         </div>

@@ -1,58 +1,78 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { ChevronDown, Search, Plus } from 'lucide-react'
 import NavigationHeader from './components/NavigationHeader'
 import ArticlesTab from './components/ArticlesTab'
 import PatternsTab from './components/PatternsTab'
 import CommunityTab from './components/CommunityTab'
 import AccountTab from './components/AccountTab'
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
+import ArticleClusterGraph from './components/ArticleClusterGraph'
 import './index.css'
 
 function App() {
   console.log('App component rendering')
   const [activeTab, setActiveTab] = useState('articles')
-  const [showActionsDropdown, setShowActionsDropdown] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearchExpanded, setIsSearchExpanded] = useState(false)
+  const articlesTabRef = useRef(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [selectedArticle, setSelectedArticle] = useState(null)
 
 
   const handleArticleClick = (article) => {
-    // Handle article click - could open overlay or navigate
     console.log('Article clicked:', article)
-    // This would integrate with your existing overlay system
+    setSelectedArticle(article)
+    setDrawerOpen(true)
   }
 
   const [selectedCount, setSelectedCount] = useState(0)
-  const [articlesTabActions, setArticlesTabActions] = useState(null)
-  
-  console.log('Current state:', { 
-    selectedCount, 
-    articlesTabActions: articlesTabActions ? 'Actions Available' : 'No Actions', 
-    showActionsDropdown,
-    actionsKeys: articlesTabActions ? Object.keys(articlesTabActions) : 'none'
-  })
+
+  const handleCancelSelection = () => {
+    console.log('Cancel button clicked!')
+    console.log('articlesTabRef.current:', articlesTabRef.current)
+    try {
+      if (articlesTabRef.current && articlesTabRef.current.clearSelection) {
+        console.log('Calling clearSelection...')
+        articlesTabRef.current.clearSelection()
+        console.log('clearSelection called successfully')
+      } else {
+        console.error('clearSelection function not available on ref')
+      }
+    } catch (error) {
+      console.error('Error in handleCancelSelection:', error)
+    }
+  }
 
   const handleSelectAll = () => {
-    console.log('handleSelectAll called', articlesTabActions)
-    articlesTabActions?.selectAll()
-    setShowActionsDropdown(false)
+    console.log('Select All button clicked!')
+    console.log('articlesTabRef.current:', articlesTabRef.current)
+    try {
+      if (articlesTabRef.current && articlesTabRef.current.selectAll) {
+        console.log('Calling selectAll...')
+        articlesTabRef.current.selectAll()
+        console.log('selectAll called successfully')
+      } else {
+        console.error('selectAll function not available on ref')
+      }
+    } catch (error) {
+      console.error('Error in handleSelectAll:', error)
+    }
   }
 
-  const handleExportCSV = () => {
-    console.log('handleExportCSV called', articlesTabActions)
-    articlesTabActions?.exportToCSV()
-    setShowActionsDropdown(false)
-  }
-
-  const handleCancel = () => {
-    console.log('handleCancel called', articlesTabActions)
-    articlesTabActions?.clearSelection()
-    setShowActionsDropdown(false)
-  }
-
-  const handleDelete = () => {
-    console.log('handleDelete called', articlesTabActions)
-    articlesTabActions?.deleteSelected()
-    setShowActionsDropdown(false)
+  const handleDeleteSelected = () => {
+    console.log('Delete button clicked!')
+    console.log('articlesTabRef.current:', articlesTabRef.current)
+    try {
+      if (articlesTabRef.current && articlesTabRef.current.deleteSelected) {
+        console.log('Calling deleteSelected...')
+        articlesTabRef.current.deleteSelected()
+        console.log('deleteSelected called successfully')
+      } else {
+        console.error('deleteSelected function not available on ref')
+      }
+    } catch (error) {
+      console.error('Error in handleDeleteSelected:', error)
+    }
   }
 
   const handleGenerate = async () => {
@@ -74,6 +94,7 @@ function App() {
       case 'articles':
         return (
           <ArticlesTab 
+            ref={articlesTabRef}
             onArticleClick={handleArticleClick}
             onSelectionChange={setSelectedCount}
             searchQuery={searchQuery}
@@ -86,12 +107,13 @@ function App() {
       case 'account':
         return <AccountTab />
       default:
-        return <ArticlesTab onArticleClick={handleArticleClick} onSelectionChange={setSelectedCount} searchQuery={searchQuery} />
+        return <ArticlesTab ref={articlesTabRef} onArticleClick={handleArticleClick} onSelectionChange={setSelectedCount} searchQuery={searchQuery} />
     }
   }
 
   return (
-    <div className="h-screen w-full flex flex-col min-w-[280px] bg-white">
+    <>
+      <div className="h-screen w-full flex flex-col min-w-[280px] bg-white">
       
       {/* Fixed Navigation Header */}
       <div className="flex-shrink-0">
@@ -102,59 +124,6 @@ function App() {
         />
       </div>
 
-      {/* Fixed Selection Banner */}
-      {selectedCount > 0 && activeTab === 'articles' && (
-        <div className="flex-shrink-0 bg-purple-100 border-b border-purple-200 p-3 flex items-center justify-between px-4">
-          <span className="text-xs text-purple-700 font-medium">
-            {selectedCount} selected
-          </span>
-          <div className="relative">
-            <button 
-              onClick={() => setShowActionsDropdown(!showActionsDropdown)}
-              className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-3 py-1.5 rounded-md font-medium transition-colors flex items-center gap-1"
-            >
-              Actions
-              <ChevronDown size={12} />
-            </button>
-            
-            {showActionsDropdown && (
-              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-50 min-w-[140px]">
-                <button 
-                  onClick={handleSelectAll}
-                  className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 first:rounded-t-md"
-                >
-                  Select All
-                </button>
-                <button 
-                  onClick={handleExportCSV}
-                  className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
-                >
-                  Export to CSV
-                </button>
-                <button 
-                  onClick={handleCancel}
-                  className="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={handleDelete}
-                  className="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 last:rounded-b-md"
-                >
-                  Delete
-                </button>
-              </div>
-            )}
-            
-            {showActionsDropdown && (
-              <div 
-                className="fixed inset-0 z-40"
-                onClick={() => setShowActionsDropdown(false)}
-              />
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Generate Analysis Button - only show on articles tab */}
       {activeTab === 'articles' && (
@@ -200,20 +169,117 @@ function App() {
               />
             </div>
           )}
+          
+          {/* Selection Banner - appears before fade effect */}
+          {selectedCount > 0 && activeTab === 'articles' && (
+            <div className="pt-4 pb-2 flex items-center justify-between px-4">
+              <span className="text-xs text-purple-600 font-medium">
+                {selectedCount} selected
+              </span>
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={handleSelectAll}
+                  className="text-xs text-gray-600 font-medium hover:underline cursor-pointer"
+                >
+                  Select All
+                </button>
+                <button 
+                  onClick={handleCancelSelection}
+                  className="text-xs text-gray-600 font-medium hover:underline cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleDeleteSelected}
+                  className="text-xs text-red-600 font-medium hover:underline cursor-pointer"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          )}
+          
           {/* Fade effect for content scrolling behind */}
           <div className="absolute -bottom-2 left-0 right-0 h-2 bg-gradient-to-b from-white to-transparent pointer-events-none"></div>
         </div>
       )}
 
-
       {/* Scrollable Content Area */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden bg-white">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden bg-white scroll-smooth">
         {/* Dynamic Tab Content */}
         <main className="px-3 pt-2 pb-2">
           {renderTabContent()}
         </main>
       </div>
-    </div>
+      </div>
+
+      {/* Drawer for Article Details */}
+      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <DrawerContent className="h-[85vh]">
+          <DrawerHeader>
+            <DrawerTitle className="text-base font-semibold text-gray-900">
+              {selectedArticle?.title || 'Article Details'}
+            </DrawerTitle>
+          </DrawerHeader>
+          
+          <div className="px-6 pb-6 pt-2 space-y-4 overflow-y-auto">
+            {/* Stock Relationships Cluster Graph */}
+            {selectedArticle && (
+              <div>
+                <ArticleClusterGraph article={selectedArticle} />
+              </div>
+            )}
+            
+            {/* Mock Summary */}
+            <div>
+              <h4 className="text-xs font-semibold text-gray-700 mb-2">Summary</h4>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                This article discusses the latest quarterly earnings report showing strong revenue growth 
+                driven by increased market demand. Key highlights include a 23% year-over-year increase 
+                in revenue and expansion into new markets.
+              </p>
+            </div>
+            
+            {/* Mock Key Points */}
+            <div>
+              <h4 className="text-xs font-semibold text-gray-700 mb-2">Key Points</h4>
+              <ul className="space-y-1">
+                <li className="flex items-start gap-2 text-xs text-gray-600">
+                  <span className="text-purple-600 mt-0.5">•</span>
+                  <span>Revenue increased by 23% YoY to $2.3B</span>
+                </li>
+                <li className="flex items-start gap-2 text-xs text-gray-600">
+                  <span className="text-purple-600 mt-0.5">•</span>
+                  <span>Operating margins improved to 18.5%</span>
+                </li>
+                <li className="flex items-start gap-2 text-xs text-gray-600">
+                  <span className="text-purple-600 mt-0.5">•</span>
+                  <span>Guidance raised for next quarter</span>
+                </li>
+              </ul>
+            </div>
+            
+            {/* Mock Sentiment */}
+            <div className="flex items-center gap-3">
+              <h4 className="text-xs font-semibold text-gray-700">Sentiment:</h4>
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                Positive
+              </span>
+            </div>
+            
+            {/* Action Buttons */}
+            <div className="flex gap-2 pt-2">
+              <button className="flex-1 px-3 py-2 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-md transition-colors">
+                View Full Analysis
+              </button>
+              <button className="flex-1 px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors">
+                Open Article
+              </button>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
+    </>
   )
 }
 

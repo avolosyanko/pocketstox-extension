@@ -50,15 +50,11 @@ const NavigationHeader = memo(({ activeTab, onTabChange, onGenerate }) => {
         {/* Account Button */}
         <button
           onClick={() => onTabChange('account')}
-          className={`w-9 h-9 rounded-[10px] flex items-center justify-center transition-all ${
-            activeTab === 'account' 
-              ? 'bg-purple-100 hover:bg-purple-200' 
-              : 'bg-transparent hover:bg-gray-100'
-          }`}
+          className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all bg-transparent hover:bg-gray-100"
         >
           <User 
             size={16} 
-            className={activeTab === 'account' ? 'text-purple-600' : 'text-gray-700'} 
+            className="text-gray-700" 
             strokeWidth={2}
           />
         </button>

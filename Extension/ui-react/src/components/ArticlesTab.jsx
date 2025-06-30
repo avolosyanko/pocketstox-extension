@@ -1,13 +1,101 @@
-import React, { useState, useEffect, memo } from 'react'
+import React, { useState, useEffect, memo, useImperativeHandle, forwardRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
-import { FileText, Calendar, ExternalLink } from 'lucide-react'
+import { FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import ArticleClusterGraph from './ArticleClusterGraph'
 
-const ArticlesTab = memo(({ onArticleClick, onSelectionChange, searchQuery = '' }) => {
+const ArticlesTab = memo(forwardRef(({ onSelectionChange, searchQuery = '', onClearSelection, onArticleClick }, ref) => {
   const [articles, setArticles] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedArticles, setSelectedArticles] = useState(new Set())
+  const [expandedArticle, setExpandedArticle] = useState(null)
+
+  const handleClearSelection = () => {
+    console.log('ArticlesTab: handleClearSelection called')
+    console.log('ArticlesTab: Current selectedArticles size:', selectedArticles.size)
+    setSelectedArticles(new Set())
+    onSelectionChange?.(0)
+    onClearSelection?.()
+    console.log('ArticlesTab: Selection cleared')
+  }
+
+  const handleSelectAll = () => {
+    console.log('ArticlesTab: handleSelectAll called')
+    // Get all visible articles (after filtering)
+    const filteredArticles = articles.filter(article => {
+      if (!searchQuery.trim()) return true
+      
+      const query = searchQuery.toLowerCase()
+      
+      // Search in title
+      const titleMatch = article.title?.toLowerCase().includes(query)
+      
+      // Search in tickers/companies
+      const tickerMatch = article.companies?.some(company => 
+        company.symbol?.toLowerCase().includes(query) ||
+        company.ticker?.toLowerCase().includes(query) ||
+        company.company?.toLowerCase().includes(query) ||
+        (typeof company === 'string' && company.toLowerCase().includes(query))
+      )
+      
+      return titleMatch || tickerMatch
+    })
+    
+    const allArticleIds = new Set(filteredArticles.map(article => article.id || article.title))
+    console.log('ArticlesTab: Selecting all articles, count:', allArticleIds.size)
+    setSelectedArticles(allArticleIds)
+    onSelectionChange?.(allArticleIds.size)
+    console.log('ArticlesTab: All articles selected')
+  }
+
+  const handleDeleteSelected = async () => {
+    console.log('ArticlesTab: handleDeleteSelected called')
+    console.log('ArticlesTab: Selected articles to delete:', selectedArticles.size)
+    
+    try {
+      // Find articles to delete based on selected IDs
+      const articlesToDelete = articles.filter(article => {
+        const articleId = article.id || article.title
+        return selectedArticles.has(articleId)
+      })
+      
+      console.log('ArticlesTab: Articles to delete:', articlesToDelete.map(a => a.title))
+      
+      // Delete each article from storage
+      for (const article of articlesToDelete) {
+        if (window.extensionServices && window.extensionServices.storage) {
+          await window.extensionServices.storage.deleteArticle(article.id || article.title)
+          console.log('ArticlesTab: Deleted article:', article.title)
+        }
+      }
+      
+      // Update local state - remove deleted articles
+      const remainingArticles = articles.filter(article => {
+        const articleId = article.id || article.title
+        return !selectedArticles.has(articleId)
+      })
+      
+      setArticles(remainingArticles)
+      setSelectedArticles(new Set())
+      onSelectionChange?.(0)
+      onClearSelection?.()
+      
+      console.log('ArticlesTab: Successfully deleted', articlesToDelete.length, 'articles')
+      
+    } catch (error) {
+      console.error('ArticlesTab: Error deleting articles:', error)
+    }
+  }
+
+  useImperativeHandle(ref, () => {
+    console.log('ArticlesTab: useImperativeHandle called, exposing clearSelection, selectAll, and deleteSelected')
+    return {
+      clearSelection: handleClearSelection,
+      selectAll: handleSelectAll,
+      deleteSelected: handleDeleteSelected
+    }
+  })
 
   useEffect(() => {
     let isMounted = true
@@ -33,8 +121,14 @@ const ArticlesTab = memo(({ onArticleClick, onSelectionChange, searchQuery = '' 
         
         const articleData = await window.extensionServices.storage.getArticles()
         
+        // Add mock sentiment data for demonstration
+        const articlesWithMockData = (articleData || []).map((article, idx) => ({
+          ...article,
+          sentiment: idx % 3 === 0 ? 'positive' : idx % 3 === 1 ? 'negative' : 'neutral'
+        }))
+        
         if (isMounted) {
-          setArticles(articleData || [])
+          setArticles(articlesWithMockData)
           setIsLoading(false)
         }
       } catch (error) {
@@ -85,8 +179,6 @@ const ArticlesTab = memo(({ onArticleClick, onSelectionChange, searchQuery = '' 
     onSelectionChange?.(newSelected.size)
   }
 
-  // TODO: Re-add actions functionality later
-
   // Lightweight empty state
   if (articles.length === 0) {
     return (
@@ -122,12 +214,32 @@ const ArticlesTab = memo(({ onArticleClick, onSelectionChange, searchQuery = '' 
   }
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffMs = now - date
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    
+    // Check if it's today
+    const isToday = date.toDateString() === now.toDateString()
+    
+    if (isToday) {
+      // Use relative time for today
+      if (diffMins < 1) return 'Just now'
+      if (diffMins === 1) return '1 min ago'
+      if (diffMins < 60) return `${diffMins} mins ago`
+      if (diffHours === 1) return '1 hour ago'
+      return `${diffHours} hours ago`
+    }
+    
+    // Use formatted date for all other days
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const month = months[date.getMonth()]
+    const day = date.getDate()
+    const hours = date.getHours().toString().padStart(2, '0')
+    const minutes = date.getMinutes().toString().padStart(2, '0')
+    
+    return `${day} ${month}, ${hours}:${minutes}`
   }
 
   const groupArticlesByDate = (articles) => {
@@ -210,37 +322,45 @@ const ArticlesTab = memo(({ onArticleClick, onSelectionChange, searchQuery = '' 
   const groupedArticles = groupArticlesByDate(filteredArticles)
 
   // Render article as list item with vertical lines
-  const renderArticleItem = (article, index, isLast = false) => {
+  const renderArticleItem = (article, isLast = false) => {
     const articleId = article.id || article.title
+    
+    const handleCardClick = (e) => {
+      // Don't trigger if clicking on checkbox
+      if (e.target.closest('[data-checkbox]')) return
+      
+      onArticleClick?.(article)
+    }
+    
     return (
-      <div 
-        key={articleId} 
-        className={cn(
-          "py-3 cursor-pointer group transition-colors",
-          !isLast && "border-b border-gray-200",
-          selectedArticles.has(articleId) 
-            ? "bg-purple-50" 
-            : "hover:bg-gray-50"
-        )}
-        onClick={() => onArticleClick?.(article)}
-      >
-        <div className="flex items-center gap-3">
-          {/* Checkbox - show on hover or when any article is selected */}
+      <div key={articleId} className={cn("relative group", !isLast ? "pb-1" : "")}>
+        <div 
+          className={cn(
+            "relative rounded-lg cursor-pointer transition-all duration-300",
+            selectedArticles.has(articleId) 
+              ? "bg-purple-50" 
+              : "hover:bg-gray-50"
+          )}
+          onClick={handleCardClick}
+        >
+          <div className="py-3 px-6">
+          {/* Checkbox - positioned on the left border */}
           <div 
-            className={`transition-opacity duration-200 ${
+            data-checkbox
+            className={cn(
+              "absolute -left-1 top-1/2 -translate-y-1/2 z-10 transition-opacity duration-200",
               selectedArticles.size > 0 
                 ? 'opacity-100' 
                 : 'opacity-0 group-hover:opacity-100'
-            }`}
+            )}
             onClick={(e) => e.stopPropagation()}
           >
             <Checkbox
               checked={selectedArticles.has(articleId)}
               onCheckedChange={() => handleSelectArticle(articleId)}
-              className="data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-600"
+              className="data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-600 data-[state=checked]:text-white bg-white border-gray-300 h-4 w-4 [&_svg]:h-3 [&_svg]:w-3"
             />
           </div>
-
           {/* Content */}
           <div className="flex-1 min-w-0">
             {/* Title */}
@@ -250,13 +370,8 @@ const ArticlesTab = memo(({ onArticleClick, onSelectionChange, searchQuery = '' 
 
             {/* Meta info */}
             <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
-              <div className="flex items-center gap-1">
-                <Calendar size={10} />
-                <span>{formatDate(article.timestamp)}</span>
-              </div>
               {article.url && (
                 <>
-                  <span>•</span>
                   <div className="flex items-center gap-1">
                     {getFaviconUrl(article.url) && (
                       <img 
@@ -266,19 +381,12 @@ const ArticlesTab = memo(({ onArticleClick, onSelectionChange, searchQuery = '' 
                         onError={(e) => e.target.style.display = 'none'}
                       />
                     )}
-                    <a 
-                      href={article.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:text-gray-700 flex items-center gap-0.5"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <span>{extractDomain(article.url)}</span>
-                      <ExternalLink size={8} />
-                    </a>
+                    <span>{extractDomain(article.url)}</span>
                   </div>
+                  <span>•</span>
                 </>
               )}
+              <span>{formatDate(article.timestamp)}</span>
             </div>
 
             {/* Stocks */}
@@ -308,20 +416,23 @@ const ArticlesTab = memo(({ onArticleClick, onSelectionChange, searchQuery = '' 
               </div>
             )}
           </div>
+          </div>
         </div>
+        {!isLast && <div className="border-b border-gray-200 mt-1"></div>}
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="h-full flex flex-col">
+      <div className="space-y-6">
       {/* Today */}
       {groupedArticles.today.length > 0 && (
         <div>
           <h3 className="text-xs font-normal text-gray-500 tracking-wide mb-3 px-1">Today</h3>
           <div>
             {groupedArticles.today.map((article, index) => 
-              renderArticleItem(article, index, index === groupedArticles.today.length - 1)
+              renderArticleItem(article, index === groupedArticles.today.length - 1)
             )}
           </div>
         </div>
@@ -333,7 +444,7 @@ const ArticlesTab = memo(({ onArticleClick, onSelectionChange, searchQuery = '' 
           <h3 className="text-xs font-normal text-gray-500 tracking-wide mb-3 px-1">Yesterday</h3>
           <div>
             {groupedArticles.yesterday.map((article, index) => 
-              renderArticleItem(article, index, index === groupedArticles.yesterday.length - 1)
+              renderArticleItem(article, index === groupedArticles.yesterday.length - 1)
             )}
           </div>
         </div>
@@ -345,7 +456,7 @@ const ArticlesTab = memo(({ onArticleClick, onSelectionChange, searchQuery = '' 
           <h3 className="text-xs font-normal text-gray-500 tracking-wide mb-3 px-1">Last Week</h3>
           <div>
             {groupedArticles.lastWeek.map((article, index) => 
-              renderArticleItem(article, index, index === groupedArticles.lastWeek.length - 1)
+              renderArticleItem(article, index === groupedArticles.lastWeek.length - 1)
             )}
           </div>
         </div>
@@ -360,15 +471,16 @@ const ArticlesTab = memo(({ onArticleClick, onSelectionChange, searchQuery = '' 
               <h3 className="text-xs font-normal text-gray-500 tracking-wide mb-3 px-1">{monthKey}</h3>
               <div>
                 {monthArticles.map((article, index) => 
-                  renderArticleItem(article, index, index === monthArticles.length - 1)
+                  renderArticleItem(article, index === monthArticles.length - 1)
                 )}
               </div>
             </div>
           )
         ))}
+      </div>
     </div>
   )
-})
+}))
 
 ArticlesTab.displayName = 'ArticlesTab'
 

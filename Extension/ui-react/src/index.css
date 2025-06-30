@@ -1,6 +1,4 @@
-@import "tailwindcss/base";
-@import "tailwindcss/components";
-@import "tailwindcss/utilities";
+@import "tailwindcss";
 
 @layer base {
   * {
@@ -32,9 +30,40 @@ html, body {
   padding: 0;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   overflow-x: hidden;
+  scroll-behavior: smooth;
 }
 
 /* Simple CSS variables */
 :root {
   --radius: 0.5rem;
+}
+
+/* Vaul drawer styles */
+[vaul-drawer] {
+  touch-action: none;
+  will-change: transform;
+  transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+[vaul-drawer][vaul-drawer-visible="true"] {
+  transform: translate3d(0, 0, 0);
+}
+
+[vaul-overlay] {
+  opacity: 0;
+  transition: opacity 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+[vaul-overlay][vaul-drawer-visible="true"] {
+  opacity: 1;
+}
+
+/* Scale background when drawer is open */
+[vaul-drawer-wrapper][data-vaul-scale-background="true"] > [vaul-drawer-scale] {
+  transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+[vaul-drawer-wrapper][data-vaul-scale-background="true"][vaul-drawer-visible="true"] > [vaul-drawer-scale] {
+  transform: scale(0.93);
+  border-radius: 8px;
 }
