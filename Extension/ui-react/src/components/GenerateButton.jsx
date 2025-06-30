@@ -61,7 +61,7 @@ const GenerateButton = ({ onAnalysisComplete }) => {
   const isDisabled = isAnalyzing || apiLoading || usageCount >= usageLimit
 
   return (
-    <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-3 mb-4 text-center shadow-sm border border-purple-100">
+    <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-3 mb-4 text-center border border-purple-100">
       <h2 className="text-sm font-semibold text-gray-900 mb-1 leading-tight">
         Analyse This Article
       </h2>
@@ -72,7 +72,7 @@ const GenerateButton = ({ onAnalysisComplete }) => {
       <Button
         onClick={handleAnalyze}
         disabled={isDisabled}
-        className="w-full h-10 text-xs font-medium bg-gradient-to-br from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-lg shadow-lg hover:shadow-purple-500/30 transition-all duration-200 transform hover:-translate-y-0.5 border-0 flex items-center justify-center gap-1"
+        className="w-full h-10 text-xs font-medium bg-gradient-to-br from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-lg transition-all duration-200 transform hover:-translate-y-0.5 border-0 flex items-center justify-center gap-1"
       >
         {isAnalyzing ? (
           <>

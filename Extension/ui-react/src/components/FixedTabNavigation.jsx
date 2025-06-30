@@ -21,7 +21,7 @@ const FixedTabNavigation = ({ activeTab, onTabChange }) => {
             className={`
               flex items-center justify-center text-xs font-medium min-w-0 px-0.5 rounded-md transition-all duration-200
               ${isActive 
-                ? 'bg-white shadow-sm text-gray-900' 
+                ? 'bg-white text-gray-900' 
                 : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
               }
             `}

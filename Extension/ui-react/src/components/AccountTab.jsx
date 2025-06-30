@@ -11,8 +11,14 @@ const AccountTab = memo(() => {
           <div className="flex flex-col items-center text-center">
             {/* Profile Avatar */}
             <div className="mb-3">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-100 to-purple-200 border-2 border-purple-300 flex items-center justify-center">
-                <User size={24} className="text-purple-600" strokeWidth={2} />
+              <div className="relative">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 p-1">
+                  <div className="w-full h-full rounded-full bg-white p-0.5">
+                    <div className="w-full h-full rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                      <User size={28} className="text-gray-600" strokeWidth={2} />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
             

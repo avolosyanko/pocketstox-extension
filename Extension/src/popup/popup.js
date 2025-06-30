@@ -415,14 +415,14 @@ function showAnalysisOverlay(analysis, isLoading = false) {
         articleInfo.innerHTML = `
             <div class="overlay-article-title">${analysis.title || 'Untitled Article'}</div>
             <div class="overlay-article-meta">
+                <div class="overlay-article-date">${formatDate(new Date(analysis.timestamp))}</div>
                 ${displayUrl ? `
+                    <span class="meta-separator">•</span>
                     <div class="overlay-article-url">
                         ${faviconUrl ? `<img src="${faviconUrl}" class="article-favicon" alt="" onerror="this.style.display='none'">` : ''}
                         ${displayUrl}
                     </div>
-                    <span class="meta-separator">•</span>
                 ` : ''}
-                <div class="overlay-article-date">${formatDate(new Date(analysis.timestamp))}</div>
             </div>
         `;
         

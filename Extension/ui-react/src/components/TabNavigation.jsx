@@ -8,7 +8,7 @@ const TabNavigation = ({ children, defaultTab = "articles" }) => {
       <TabsList className="grid w-full grid-cols-3 mb-3 bg-gray-100/50 p-0.5 h-7">
         <TabsTrigger 
           value="articles" 
-          className="flex items-center justify-center text-xs font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm min-w-0 px-0.5"
+          className="flex items-center justify-center text-xs font-medium data-[state=active]:bg-white min-w-0 px-0.5"
         >
           <FileText size={10} className="flex-shrink-0" />
           <span className="tab-full-text truncate text-xs ml-0.5">History</span>
@@ -17,7 +17,7 @@ const TabNavigation = ({ children, defaultTab = "articles" }) => {
         
         <TabsTrigger 
           value="patterns" 
-          className="flex items-center justify-center text-xs font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm min-w-0 px-0.5"
+          className="flex items-center justify-center text-xs font-medium data-[state=active]:bg-white min-w-0 px-0.5"
         >
           <TrendingUp size={10} className="flex-shrink-0" />
           <span className="tab-full-text truncate text-xs ml-0.5">Patterns</span>
@@ -26,7 +26,7 @@ const TabNavigation = ({ children, defaultTab = "articles" }) => {
         
         <TabsTrigger 
           value="community" 
-          className="flex items-center justify-center text-xs font-medium data-[state=active]:bg-white data-[state=active]:shadow-sm min-w-0 px-0.5"
+          className="flex items-center justify-center text-xs font-medium data-[state=active]:bg-white min-w-0 px-0.5"
         >
           <Briefcase size={10} className="flex-shrink-0" />
           <span className="tab-full-text truncate text-xs ml-0.5">Portfolio</span>
