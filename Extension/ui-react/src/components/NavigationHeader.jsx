@@ -1,5 +1,5 @@
 import React, { memo } from 'react'
-import { Zap, TrendingUp, User, Plus } from 'lucide-react'
+import { Star, Layers, User } from 'lucide-react'
 
 const NavigationHeader = memo(({ activeTab, onTabChange, onGenerate }) => {
   
@@ -7,59 +7,54 @@ const NavigationHeader = memo(({ activeTab, onTabChange, onGenerate }) => {
     {
       id: 'articles',
       label: 'Discover',
-      icon: Zap
+      icon: Star
     },
     {
       id: 'patterns',
-      label: 'Analytics',
-      icon: TrendingUp
+      label: 'Patterns',
+      icon: Layers
+    },
+    {
+      id: 'account',
+      label: 'Account',
+      icon: User
     }
   ]
-
 
   const handleNavTabChange = (tabId) => {
     onTabChange(tabId)
   }
 
-  const toggleTab = () => {
-    const currentIndex = navigationTabs.findIndex(tab => tab.id === activeTab)
-    const nextIndex = (currentIndex + 1) % navigationTabs.length
-    handleNavTabChange(navigationTabs[nextIndex].id)
-  }
-
-  const getCurrentTabLabel = () => {
-    const currentTab = navigationTabs.find(tab => tab.id === activeTab)
-    return currentTab?.label || 'Discover'
-  }
-
   return (
-    <div className="bg-white border-b border-gray-200">
-      {/* Top row with title and account */}
-      <div className="flex items-center justify-between p-4">
-        {/* Clickable Heading */}
-        <button
-          onClick={toggleTab}
-          className="flex items-center gap-2 hover:bg-gray-50 px-2 py-1 rounded-md transition-colors"
-        >
-          <h1 className="text-base font-normal text-gray-900">{getCurrentTabLabel()}</h1>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="text-gray-500">
-            <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
-
-        {/* Account Button */}
-        <button
-          onClick={() => onTabChange('account')}
-          className="w-9 h-9 rounded-[10px] flex items-center justify-center transition-all bg-transparent hover:bg-gray-100"
-        >
-          <User 
-            size={16} 
-            className="text-gray-700" 
-            strokeWidth={2}
-          />
-        </button>
+    <div className="bg-white">
+      {/* Minimal Navigation Bar */}
+      <div className="px-4 pt-3 pb-2">
+        <div className="flex items-center justify-center border-b border-gray-100">
+          {navigationTabs.map((tab) => {
+            const Icon = tab.icon
+            const isActive = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleNavTabChange(tab.id)}
+                className={`
+                  relative flex items-center gap-2 px-4 py-3 text-xs font-normal transition-all duration-150
+                  ${isActive 
+                    ? 'text-purple-700' 
+                    : 'text-gray-500 hover:text-gray-700'
+                  }
+                `}
+              >
+                <Icon size={16} strokeWidth={isActive ? 1.5 : 1.5} />
+                <span>{tab.label}</span>
+                {isActive && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full" style={{background: "linear-gradient(135deg, rgb(147, 51, 234) 0%, rgb(124, 58, 237) 100%)"}}></div>
+                )}
+              </button>
+            )
+          })}
+        </div>
       </div>
-
     </div>
   )
 })
