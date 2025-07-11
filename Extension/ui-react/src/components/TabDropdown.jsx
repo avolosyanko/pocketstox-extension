@@ -17,7 +17,7 @@ const TabDropdown = memo(({ activeTab, onTabChange }) => {
     },
     {
       id: 'patterns',
-      label: 'Analytics',
+      label: 'Signals',
       icon: TrendingUp
     },
     {

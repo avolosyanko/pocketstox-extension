@@ -156,7 +156,7 @@ const PatternsTab = memo(() => {
   return (
     <div className="space-y-4">
       {/* Sector Patterns Chart */}
-      <Card>
+      <Card className="bg-gray-50 border border-gray-200">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm">Stock Sector Patterns</CardTitle>
           <p className="text-xs text-gray-500">
@@ -249,7 +249,7 @@ const PatternsTab = memo(() => {
     </Card>
     
     {/* Top Mentioned Stocks Chart */}
-    <Card>
+    <Card className="bg-gray-50 border border-gray-200">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div>

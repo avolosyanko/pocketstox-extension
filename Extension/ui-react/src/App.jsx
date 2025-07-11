@@ -6,7 +6,7 @@ import PatternsTab from './components/PatternsTab'
 import CommunityTab from './components/CommunityTab'
 import AccountTab from './components/AccountTab'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
-import ArticleClusterGraph from './components/ArticleClusterGraph'
+import ArticleClusterGraphObsidian from './components/ArticleClusterGraphObsidian'
 import './index.css'
 
 function App() {
@@ -127,20 +127,23 @@ function App() {
 
       {/* Generate Analysis Button - only show on articles tab */}
       {activeTab === 'articles' && (
-        <div className="flex-shrink-0 bg-white px-3 pt-2 pb-1">
+        <div className="flex-shrink-0 bg-white px-3 pt-2 pb-0.75">
           <button
             onClick={handleGenerate}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-md transition-colors"
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 border border-purple-600 rounded-md transition-all duration-200"
+            style={{background: "linear-gradient(135deg, rgb(147, 51, 234) 0%, rgb(124, 58, 237) 100%)"}}
+            onMouseEnter={(e) => {e.target.style.background = "linear-gradient(135deg, rgb(124, 58, 237) 0%, rgb(109, 40, 217) 100%)"}}
+            onMouseLeave={(e) => {e.target.style.background = "linear-gradient(135deg, rgb(147, 51, 234) 0%, rgb(124, 58, 237) 100%)"}}
           >
-            <Plus size={14} className="text-purple-600" />
-            <span className="text-xs font-medium text-purple-700">Generate Analysis</span>
+            <Plus size={14} className="text-white" />
+            <span className="text-xs font-medium text-white">Generate Analysis</span>
           </button>
         </div>
       )}
 
       {/* Search Bar - only show on articles tab */}
       {activeTab === 'articles' && (
-        <div className="flex-shrink-0 bg-white px-3 pt-1 pb-2 sticky top-0 z-10">
+        <div className="flex-shrink-0 bg-white px-3 pt-0.75 pb-2 sticky top-0 z-10">
           {!isSearchExpanded ? (
             /* Search Button */
             <button
@@ -215,7 +218,7 @@ function App() {
 
       {/* Drawer for Article Details */}
       <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <DrawerContent className="h-[85vh]">
+        <DrawerContent className="h-[90vh]">
           <DrawerHeader>
             <DrawerTitle className="text-base font-semibold text-gray-900">
               {selectedArticle?.title || 'Article Details'}
@@ -226,7 +229,8 @@ function App() {
             {/* Stock Relationships Cluster Graph */}
             {selectedArticle && (
               <div>
-                <ArticleClusterGraph article={selectedArticle} />
+                <h4 className="text-xs font-semibold text-gray-700 mb-2">Relevance Scores</h4>
+                <ArticleClusterGraphObsidian article={selectedArticle} />
               </div>
             )}
             
@@ -257,14 +261,6 @@ function App() {
                   <span>Guidance raised for next quarter</span>
                 </li>
               </ul>
-            </div>
-            
-            {/* Mock Sentiment */}
-            <div className="flex items-center gap-3">
-              <h4 className="text-xs font-semibold text-gray-700">Sentiment:</h4>
-              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                Positive
-              </span>
             </div>
             
             {/* Action Buttons */}

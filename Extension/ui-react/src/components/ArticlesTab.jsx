@@ -3,7 +3,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import ArticleClusterGraph from './ArticleClusterGraph'
 
 const ArticlesTab = memo(forwardRef(({ onSelectionChange, searchQuery = '', onClearSelection, onArticleClick }, ref) => {
   const [articles, setArticles] = useState([])
@@ -152,7 +151,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, searchQuery = '', onCl
     return (
       <div className="space-y-2">
         {[1, 2, 3].map((i) => (
-          <Card key={i} className="animate-pulse bg-white">
+          <Card key={i} className="animate-pulse bg-gray-50 border border-gray-200">
             <CardContent className="p-4 space-y-3">
               <div className="h-4 bg-gray-200 rounded w-3/4"></div>
               <div className="h-3 bg-gray-200 rounded w-1/2"></div>
@@ -182,7 +181,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, searchQuery = '', onCl
   // Lightweight empty state
   if (articles.length === 0) {
     return (
-      <Card className="border-dashed border-2 border-gray-200 bg-white">
+      <Card className="border-dashed border-2 border-gray-200 bg-gray-50">
         <CardContent className="flex flex-col items-center justify-center py-12 text-center">
           <div className="rounded-full bg-gray-100 p-3 mb-4">
             <FileText size={24} className="text-gray-400" />
@@ -199,7 +198,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, searchQuery = '', onCl
   // No search results state
   if (searchQuery.trim() && filteredArticles.length === 0) {
     return (
-      <Card className="border-dashed border-2 border-gray-200 bg-white">
+      <Card className="border-dashed border-2 border-gray-200 bg-gray-50">
         <CardContent className="flex flex-col items-center justify-center py-12 text-center">
           <div className="rounded-full bg-gray-100 p-3 mb-4">
             <FileText size={24} className="text-gray-400" />
@@ -333,13 +332,13 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, searchQuery = '', onCl
     }
     
     return (
-      <div key={articleId} className={cn("relative group", !isLast ? "pb-1" : "")}>
+      <div key={articleId} className={cn("relative group", !isLast ? "mb-1.5" : "")}>
         <div 
           className={cn(
-            "relative rounded-lg cursor-pointer transition-all duration-300",
+            "relative rounded-lg cursor-pointer transition-all duration-300 bg-white border border-gray-200",
             selectedArticles.has(articleId) 
               ? "bg-purple-50" 
-              : "hover:bg-gray-50"
+              : ""
           )}
           onClick={handleCardClick}
         >
@@ -418,7 +417,6 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, searchQuery = '', onCl
           </div>
           </div>
         </div>
-        {!isLast && <div className="border-b border-gray-200 mt-1"></div>}
       </div>
     )
   }

@@ -40,12 +40,76 @@ class WebsitePopup {
         return shouldShow;
     }
 
+    getFaviconUrl() {
+        // Try to get favicon from page
+        let faviconUrl = null;
+        
+        // Try to find favicon link in head
+        const faviconLink = document.querySelector('link[rel*="icon"]');
+        if (faviconLink) {
+            faviconUrl = faviconLink.href;
+        }
+        
+        // Fallback to Google's favicon service
+        if (!faviconUrl) {
+            faviconUrl = `https://www.google.com/s2/favicons?sz=16&domain=${window.location.hostname}`;
+        }
+        
+        return faviconUrl;
+    }
+
+    getSiteName() {
+        const hostname = window.location.hostname.toLowerCase();
+        
+        // Map domains to friendly names
+        const siteNames = {
+            'cnn.com': 'CNN',
+            'bbc.com': 'BBC',
+            'bbc.co.uk': 'BBC',
+            'reuters.com': 'Reuters',
+            'bloomberg.com': 'Bloomberg',
+            'wsj.com': 'WSJ',
+            'ft.com': 'Financial Times',
+            'marketwatch.com': 'MarketWatch',
+            'cnbc.com': 'CNBC',
+            'techcrunch.com': 'TechCrunch',
+            'theverge.com': 'The Verge'
+        };
+        
+        // Find matching domain
+        for (const [domain, name] of Object.entries(siteNames)) {
+            if (hostname.includes(domain)) {
+                return name;
+            }
+        }
+        
+        // Fallback to hostname
+        return hostname.replace('www.', '');
+    }
+
     createPopup() {
+        // Get site favicon and domain info
+        const faviconUrl = this.getFaviconUrl();
+        const siteName = this.getSiteName();
+        
         // Create popup container
         this.popup = document.createElement('div');
         this.popup.id = 'pocketstox-website-popup';
         this.popup.innerHTML = `
             <div class="pocketstox-popup-content">
+                <div class="pocketstox-site-info">
+                    <img src="${faviconUrl}" alt="${siteName}" class="pocketstox-favicon" />
+                    <div class="pocketstox-site-details">
+                        <span class="pocketstox-site-name">${siteName}</span>
+                        <div class="pocketstox-scannable-indicator">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 12l2 2 4-4"/>
+                                <circle cx="12" cy="12" r="9"/>
+                            </svg>
+                            <span>Scannable</span>
+                        </div>
+                    </div>
+                </div>
                 <div class="pocketstox-popup-actions">
                     <button class="pocketstox-logo-btn" id="pocketstox-logo">
                         <img src="${chrome.runtime.getURL('assets/images/128x128.png')}" alt="Pocketstox" width="18" height="18" />
@@ -92,7 +156,7 @@ class WebsitePopup {
             #pocketstox-website-popup {
                 position: fixed;
                 bottom: 20px;
-                right: 20px;
+                left: 20px;
                 z-index: 999999;
                 opacity: 0;
                 transform: translateY(10px);
@@ -107,15 +171,63 @@ class WebsitePopup {
             }
             
             .pocketstox-popup-content {
-                background: rgba(209, 213, 219, 0.6);
+                background: rgba(209, 213, 219, 0.3);
                 backdrop-filter: blur(20px);
                 border-radius: 16px;
                 padding: 8px;
                 box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.05);
                 border: 1px solid rgba(255, 255, 255, 0.2);
                 display: flex;
-                align-items: center;
+                flex-direction: column;
+                gap: 8px;
                 font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            }
+            
+            .pocketstox-site-info {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 4px 8px;
+                background: rgba(255, 255, 255, 0.1);
+                border-radius: 10px;
+                backdrop-filter: blur(10px);
+            }
+            
+            .pocketstox-favicon {
+                width: 16px;
+                height: 16px;
+                border-radius: 3px;
+                object-fit: contain;
+            }
+            
+            .pocketstox-site-details {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+                flex: 1;
+            }
+            
+            .pocketstox-site-name {
+                font-size: 12px;
+                font-weight: 600;
+                color: #1f2937;
+                line-height: 1.2;
+            }
+            
+            .pocketstox-scannable-indicator {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                color: #10b981;
+                font-size: 10px;
+                font-weight: 500;
+                line-height: 1.2;
+            }
+            
+            .pocketstox-scannable-indicator svg {
+                width: 10px;
+                height: 10px;
+                stroke-width: 2.5;
             }
             
             .pocketstox-popup-actions {
@@ -185,7 +297,7 @@ class WebsitePopup {
             @media (max-width: 768px) {
                 #pocketstox-website-popup {
                     bottom: 10px;
-                    right: 10px;
+                    left: 10px;
                 }
                 
                 .pocketstox-popup-content {
