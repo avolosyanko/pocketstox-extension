@@ -127,23 +127,20 @@ function App() {
 
       {/* Generate Analysis Button - only show on articles tab */}
       {activeTab === 'articles' && (
-        <div className="flex-shrink-0 bg-white px-3 pt-2 pb-0.75">
+        <div className="flex-shrink-0 bg-white px-3 pt-2 pb-0">
           <button
             onClick={handleGenerate}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 border border-purple-600 rounded-md transition-all duration-200"
-            style={{background: "linear-gradient(135deg, rgb(147, 51, 234) 0%, rgb(124, 58, 237) 100%)"}}
-            onMouseEnter={(e) => {e.target.style.background = "linear-gradient(135deg, rgb(124, 58, 237) 0%, rgb(109, 40, 217) 100%)"}}
-            onMouseLeave={(e) => {e.target.style.background = "linear-gradient(135deg, rgb(147, 51, 234) 0%, rgb(124, 58, 237) 100%)"}}
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium py-2.5 px-4 rounded-md flex items-center justify-center gap-2 select-none"
           >
-            <Plus size={14} className="text-white" />
-            <span className="text-xs font-medium text-white">Generate Analysis</span>
+            <Plus size={14} />
+            <span className="select-none">Generate Analysis</span>
           </button>
         </div>
       )}
 
       {/* Search Bar - only show on articles tab */}
       {activeTab === 'articles' && (
-        <div className="flex-shrink-0 bg-white px-3 pt-0.75 pb-2 sticky top-0 z-10">
+        <div className="flex-shrink-0 bg-white px-3 pt-1.5 pb-2 sticky top-0 z-10">
           {!isSearchExpanded ? (
             /* Search Button */
             <button
@@ -182,19 +179,19 @@ function App() {
               <div className="flex items-center gap-4">
                 <button 
                   onClick={handleSelectAll}
-                  className="text-xs text-gray-600 font-medium hover:underline cursor-pointer"
+                  className="text-xs text-gray-600 font-medium hover:underline cursor-pointer select-none"
                 >
                   Select All
                 </button>
                 <button 
                   onClick={handleCancelSelection}
-                  className="text-xs text-gray-600 font-medium hover:underline cursor-pointer"
+                  className="text-xs text-gray-600 font-medium hover:underline cursor-pointer select-none"
                 >
                   Cancel
                 </button>
                 <button 
                   onClick={handleDeleteSelected}
-                  className="text-xs text-red-600 font-medium hover:underline cursor-pointer"
+                  className="text-xs text-red-600 font-medium hover:underline cursor-pointer select-none"
                 >
                   Delete
                 </button>

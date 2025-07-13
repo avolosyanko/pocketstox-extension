@@ -72,7 +72,7 @@ const GenerateButton = ({ onAnalysisComplete }) => {
       <Button
         onClick={handleAnalyze}
         disabled={isDisabled}
-        className="w-full h-10 text-xs font-medium bg-gradient-to-br from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-lg transition-all duration-200 transform hover:-translate-y-0.5 border-0 flex items-center justify-center gap-1"
+        className="w-full h-10 text-xs font-medium bg-gradient-to-br from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-lg transition-all duration-200 transform hover:-translate-y-0.5 border-0 flex items-center justify-center gap-1 select-none"
       >
         {isAnalyzing ? (
           <>
