@@ -1,7 +1,7 @@
 import React, { useState, useEffect, memo, useImperativeHandle, forwardRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
-import { FileText } from 'lucide-react'
+import { FileText, X, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const ArticlesTab = memo(forwardRef(({ onSelectionChange, searchQuery = '', onClearSelection, onArticleClick }, ref) => {
@@ -9,6 +9,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, searchQuery = '', onCl
   const [isLoading, setIsLoading] = useState(true)
   const [selectedArticles, setSelectedArticles] = useState(new Set())
   const [expandedArticle, setExpandedArticle] = useState(null)
+  const [showNotification, setShowNotification] = useState(true)
 
   const handleClearSelection = () => {
     console.log('ArticlesTab: handleClearSelection called')
@@ -335,14 +336,14 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, searchQuery = '', onCl
       <div key={articleId} className={cn("relative group", !isLast ? "mb-1.5" : "")}>
         <div 
           className={cn(
-            "relative rounded-lg cursor-pointer transition-all duration-300 bg-white border border-gray-200",
+            "relative rounded-lg cursor-pointer transition-all duration-300 bg-white border",
             selectedArticles.has(articleId) 
-              ? "bg-purple-50" 
-              : ""
+              ? "bg-purple-50 border-purple-500" 
+              : "border-gray-200"
           )}
           onClick={handleCardClick}
         >
-          <div className="py-3 px-6">
+          <div className="py-4 pl-6 pr-4">
           {/* Checkbox - positioned on the left border */}
           <div 
             data-checkbox
@@ -363,12 +364,12 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, searchQuery = '', onCl
           {/* Content */}
           <div className="flex-1 min-w-0">
             {/* Title */}
-            <h3 className="font-medium text-gray-900 text-xs mb-1.5 line-clamp-2 leading-tight">
+            <h3 className="font-medium text-gray-900 text-xs mb-1 line-clamp-2 leading-tight">
               {article.title}
             </h3>
 
             {/* Meta info */}
-            <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+            <div className="flex items-center gap-2 text-xs text-gray-500">
               {article.url && (
                 <>
                   <div className="flex items-center gap-1">
@@ -388,32 +389,6 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, searchQuery = '', onCl
               <span>{formatDate(article.timestamp)}</span>
             </div>
 
-            {/* Stocks */}
-            {article.companies && article.companies.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {article.companies.slice(0, 5).map((stock, idx) => (
-                  <span
-                    key={idx}
-                    className={cn(
-                      "inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium",
-                      selectedArticles.has(articleId)
-                        ? "bg-purple-100 text-purple-700"
-                        : "bg-gray-100 text-gray-700"
-                    )}
-                  >
-                    {stock.symbol || stock.ticker || stock}
-                  </span>
-                ))}
-                {article.companies.length > 5 && (
-                  <span className={cn(
-                    "text-xs",
-                    selectedArticles.has(articleId) ? "text-purple-500" : "text-gray-500"
-                  )}>
-                    +{article.companies.length - 5}
-                  </span>
-                )}
-              </div>
-            )}
           </div>
           </div>
         </div>
@@ -423,6 +398,41 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, searchQuery = '', onCl
 
   return (
     <div className="h-full flex flex-col">
+      
+      {/* What's New Header */}
+      <div className="mb-4">
+        <h2 className="text-sm font-medium text-gray-900 px-1">What's New</h2>
+      </div>
+      
+      {/* Notification Banner */}
+      {showNotification && (
+        <div className="mb-4 p-4 rounded-xl relative bg-cover bg-center bg-no-repeat" style={{backgroundImage: 'url("../assets/images/test8.png")'}}>
+          
+          <div className="flex items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-semibold text-white mb-1 select-none">
+                Pocketstox Limited Beta UK Launch
+              </h3>
+              <p className="text-xs text-white/90 leading-relaxed mb-3 select-none">
+                Welcome to the exclusive UK beta of Pocketstox! Track, analyze, and discover market insights 
+                directly from any financial article. Be among the first to experience next-generation research tools.
+              </p>
+              
+              <div className="flex gap-2">
+                <button className="px-3 py-1.5 text-white/90 text-xs font-medium hover:text-white transition-colors border border-white/30 rounded-md select-none">
+                  Get started
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recents Header */}
+      <div className="mb-4">
+        <h2 className="text-sm font-medium text-gray-900 px-1">Recents</h2>
+      </div>
+      
       <div className="space-y-6">
       {/* Today */}
       {groupedArticles.today.length > 0 && (
