@@ -1,15 +1,14 @@
 import React from 'react'
-import { FileText, TrendingUp, Briefcase } from 'lucide-react'
+import { FileText, Briefcase } from 'lucide-react'
 
 const FixedTabNavigation = ({ activeTab, onTabChange }) => {
   const tabs = [
     { id: 'articles', label: 'History', shortLabel: 'H', icon: FileText },
-    { id: 'patterns', label: 'Patterns', shortLabel: 'P', icon: TrendingUp },
     { id: 'community', label: 'Portfolio', shortLabel: 'F', icon: Briefcase }
   ]
 
   return (
-    <div className="grid w-full grid-cols-3 mb-3 bg-gray-100/50 p-0.5 h-7 rounded-lg">
+    <div className="grid w-full grid-cols-2 mb-3 bg-gray-100/50 p-0.5 h-7 rounded-lg">
       {tabs.map((tab) => {
         const Icon = tab.icon
         const isActive = activeTab === tab.id

@@ -1,6 +1,7 @@
 import React, { memo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Briefcase } from 'lucide-react'
+import { semanticTypography } from '@/styles/typography'
 
 const CommunityTab = memo(() => {
   return (
@@ -9,8 +10,8 @@ const CommunityTab = memo(() => {
         <div className="rounded-full bg-gray-100 p-2 mb-3">
           <Briefcase size={20} className="text-gray-500" />
         </div>
-        <h3 className="text-sm font-semibold mb-1">Portfolio coming soon</h3>
-        <p className="text-gray-500 text-xs">
+        <h3 className={`${semanticTypography.emptyStateTitle} mb-1`}>Portfolio coming soon</h3>
+        <p className={semanticTypography.emptyStateDescription}>
           Track your investments and portfolio performance here.
         </p>
       </CardContent>

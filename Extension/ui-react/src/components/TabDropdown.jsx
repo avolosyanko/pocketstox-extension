@@ -6,7 +6,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Zap, TrendingUp, PieChart, UserRound } from 'lucide-react'
+import { Zap, PieChart, UserRound } from 'lucide-react'
 
 const TabDropdown = memo(({ activeTab, onTabChange }) => {
   const tabs = [
@@ -14,11 +14,6 @@ const TabDropdown = memo(({ activeTab, onTabChange }) => {
       id: 'articles',
       label: 'Discover',
       icon: Zap
-    },
-    {
-      id: 'patterns',
-      label: 'Signals',
-      icon: TrendingUp
     },
     {
       id: 'community',

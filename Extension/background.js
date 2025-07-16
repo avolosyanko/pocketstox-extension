@@ -6,8 +6,8 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 // Handle extension icon click
-chrome.action.onClicked.addListener((tab) => {
-    toggleSidePanel(tab.windowId);
+chrome.action.onClicked.addListener(async (tab) => {
+    await toggleSidePanel(tab.windowId);
 });
 
 // Handle messages from content scripts
@@ -36,27 +36,37 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 async function toggleSidePanel(windowId) {
     try {
-        // Chrome Side Panel API doesn't support programmatic closing
-        // So we'll just always open it, but provide better UX feedback
-        await chrome.sidePanel.open({ windowId: windowId });
-        sidePanelStates.set(windowId, true);
-        console.log('Side panel opened (Chrome API limitation: cannot programmatically close)');
+        const isCurrentlyOpen = sidePanelStates.get(windowId) || false;
         
-        // Send a message to the content script to show a notification
-        chrome.tabs.query({ windowId: windowId, active: true }, (tabs) => {
-            if (tabs[0]) {
-                chrome.tabs.sendMessage(tabs[0].id, { 
-                    action: 'showSidePanelInfo',
-                    message: 'Side panel opened. To close, click the X in the panel or press Escape.'
-                }).catch((error) => {
-                    // Ignore errors - content script might not be available on all pages
-                    console.log('Content script not available on this page');
-                });
-            }
-        });
+        if (isCurrentlyOpen) {
+            // Close the side panel by sending a message to it
+            sidePanelStates.set(windowId, false);
+            console.log('Closing side panel');
+            
+            // Send message to the side panel to close itself
+            chrome.runtime.sendMessage({
+                action: 'closeSidePanel',
+                windowId: windowId
+            }).catch((error) => {
+                console.log('Could not send close message to side panel:', error);
+            });
+            
+        } else {
+            // Open the side panel
+            await chrome.sidePanel.open({ windowId: windowId });
+            sidePanelStates.set(windowId, true);
+            console.log('Side panel opened');
+        }
         
     } catch (error) {
-        console.error('Failed to open side panel:', error);
+        console.error('Failed to toggle side panel:', error);
+        // Fallback: just try to open it
+        try {
+            await chrome.sidePanel.open({ windowId: windowId });
+            sidePanelStates.set(windowId, true);
+        } catch (fallbackError) {
+            console.error('Fallback open failed:', fallbackError);
+        }
     }
 }
 
