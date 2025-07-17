@@ -23,15 +23,12 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   const [displayedArticles, setDisplayedArticles] = useState([])
   const [loadMoreCount, setLoadMoreCount] = useState(10) // Initial load count
   const [isLoadingMore, setIsLoadingMore] = useState(false)
-  const [verifiedDomain, setVerifiedDomain] = useState('')
   const [remainingAnalyses, setRemainingAnalyses] = useState(5)
   const [hoveredStage, setHoveredStage] = useState(null)
 
   // Helper function to get tooltip text for each stage
   const getStageTooltip = (stageKey) => {
     switch (stageKey) {
-      case 'detecting':
-        return 'Checks if the current page is from a supported news site (BBC, Reuters, Bloomberg, etc.) and can be analyzed by our system'
       case 'parsing':
         return 'Reads and extracts the article content from the page, including headline, body text, and key details needed for analysis'
       case 'analysis':
@@ -42,16 +39,6 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   }
 
   const [extractionStages, setExtractionStages] = useState({
-    detecting: { 
-      status: 'waiting', 
-      title: 'URL Check', 
-      subtitle: 'Validating page URL and accessibility',
-      details: {
-        description: 'Verify article URL and page accessibility',
-        info: 'Pipeline configured for URL validation',
-        action: 'Learn more about URL checking'
-      }
-    },
     parsing: { 
       status: 'waiting', 
       title: 'Parse Input Article', 
@@ -97,8 +84,8 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
 
   const handleSelectAll = () => {
     console.log('ArticlesTab: handleSelectAll called')
-    // Get all visible articles (after filtering)
-    const filteredArticles = displayedArticles.filter(article => {
+    // Get ALL articles (including those not yet loaded), then filter if search is active
+    const filteredArticles = articles.filter(article => {
       if (!searchQuery.trim()) return true
       
       const query = searchQuery.toLowerCase()
@@ -257,7 +244,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
 
   // Handle manual step progression
   const handleRunStep = () => {
-    if (currentStep === 1) {
+    if (currentStep === 0) {
       // Run Parse Input Article
       setDetectionState('scanning')
       setExtractionStages(prev => ({
@@ -289,9 +276,9 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         }))
         setDetectionState('hold')
         setIdentifiedArticle(mockIdentifiedArticle)
-        setCurrentStep(2)
+        setCurrentStep(1)
       }, 2000)
-    } else if (currentStep === 2) {
+    } else if (currentStep === 1) {
       // Run Analysis Generation
       setDetectionState('scanning')
       setExtractionStages(prev => ({
@@ -306,59 +293,47 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
           analysis: { ...prev.analysis, status: 'completed', subtitle: 'Analysis generated successfully' }
         }))
         setDetectionState('ready')
-        setCurrentStep(3)
+        setCurrentStep(2)
       }, 2000)
     }
   }
 
-  // Initialize URL check on component mount
+
+  // Initialize pipeline on component mount
   useEffect(() => {
-    // Auto-run URL check when component loads
-    const approvedDomains = [
-      'bbc.com',
-      'bbc.co.uk',
-      'ft.com',
-      'reuters.com',
-      'bloomberg.com',
-      'cnbc.com',
-      'wsj.com',
-      'forbes.com',
-      'marketwatch.com',
-      'example.com' // For demo purposes
-    ]
-    
-    // Simulate getting current URL (in real app, this would come from extension API)
-    const currentUrl = 'https://example.com/tesla-q4-earnings'
-    const domain = new URL(currentUrl).hostname.replace('www.', '')
-    
-    setDetectionState('scanning')
-    setExtractionStages(prev => ({
-      ...prev,
-      detecting: { ...prev.detecting, status: 'active' }
-    }))
-    
-    // Simulate URL validation
-    setTimeout(() => {
-      const isApproved = approvedDomains.some(approved => domain.includes(approved))
-      
-      if (isApproved) {
-        setExtractionStages(prev => ({
-          ...prev,
-          detecting: { ...prev.detecting, status: 'completed', subtitle: 'URL validated and accessible' }
-        }))
-        setVerifiedDomain(domain)
+    // Try to restore pipeline state from sessionStorage
+    const savedState = sessionStorage.getItem('pipelineState')
+    if (savedState) {
+      try {
+        const { currentStep, detectionState, extractionStages, identifiedArticle } = JSON.parse(savedState)
+        setCurrentStep(currentStep)
+        setDetectionState(detectionState)
+        setExtractionStages(extractionStages)
+        setIdentifiedArticle(identifiedArticle)
+      } catch (error) {
+        console.error('Failed to restore pipeline state:', error)
+        // Start fresh - pipeline is ready to begin parsing
+        setCurrentStep(0)
         setDetectionState('hold')
-        setCurrentStep(1) // Ready for parsing step
-      } else {
-        setExtractionStages(prev => ({
-          ...prev,
-          detecting: { ...prev.detecting, status: 'error', subtitle: 'URL not in approved list' }
-        }))
-        setDetectionState('error')
-        setCurrentStep(-1) // Block further progression
       }
-    }, 2000)
+    } else {
+      // Start fresh - pipeline is ready to begin parsing
+      setCurrentStep(0)
+      setDetectionState('hold')
+    }
   }, [])
+
+
+  // Save pipeline state to sessionStorage whenever it changes
+  useEffect(() => {
+    const pipelineState = {
+      currentStep,
+      detectionState,
+      extractionStages,
+      identifiedArticle
+    }
+    sessionStorage.setItem('pipelineState', JSON.stringify(pipelineState))
+  }, [currentStep, detectionState, extractionStages, identifiedArticle])
 
   // Update displayed articles when search changes
   useEffect(() => {
@@ -403,9 +378,12 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   }
 
   const handleReset = () => {
+    // Clear sessionStorage
+    sessionStorage.removeItem('pipelineState')
+    
     // Reset all states to initial values
     setCurrentStep(0)
-    setDetectionState('idle')
+    setDetectionState('hold')
     setIdentifiedArticle(null)
     setIsEditing(false)
     setEditedTitle('')
@@ -413,16 +391,6 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     
     // Reset extraction stages to initial state
     setExtractionStages({
-      detecting: { 
-        status: 'waiting', 
-        title: 'URL Check', 
-        subtitle: 'Validating page URL and accessibility',
-        details: {
-          description: 'Verify article URL and page accessibility',
-          info: 'Pipeline configured for URL validation',
-          action: 'Learn more about URL checking'
-        }
-      },
       parsing: { 
         status: 'waiting', 
         title: 'Parse Input Article', 
@@ -458,22 +426,20 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     onSelectionChange?.(newSelected.size)
   }
 
-  // Lightweight empty state
-  if (displayedArticles.length === 0 && !isLoading) {
-    return (
-      <Card className="border-dashed border-2 border-gray-200 bg-white">
-        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-          <div className="rounded-full bg-gray-100 p-3 mb-4">
-            <FileText size={24} className="text-gray-400" />
-          </div>
-          <h3 className={semanticTypography.emptyStateTitle}>No analyses yet</h3>
-          <p className={cn(semanticTypography.emptyStateDescription, "max-w-xs")}>
-            Visit any article page and click the extension to analyze it.
-          </p>
-        </CardContent>
-      </Card>
-    )
-  }
+  // Define empty state component (but don't return early)
+  const EmptyState = () => (
+    <Card className="border-dashed border-2 border-gray-200 bg-white">
+      <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+        <div className="rounded-full bg-gray-100 p-3 mb-4">
+          <FileText size={24} className="text-gray-400" />
+        </div>
+        <h3 className={semanticTypography.emptyStateTitle}>No analyses yet</h3>
+        <p className={cn(semanticTypography.emptyStateDescription, "max-w-xs")}>
+          Visit any article page and click the extension to analyze it.
+        </p>
+      </CardContent>
+    </Card>
+  )
 
   // No search results state
   if (searchQuery.trim() && filteredArticles.length === 0) {
@@ -598,10 +564,10 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       <div key={articleId} className={cn("relative group", !isLast ? "mb-1.5" : "")}>
         <div 
           className={cn(
-            "relative rounded-lg cursor-pointer transition-all duration-300 bg-white border",
+            "relative rounded-lg cursor-pointer transition-all duration-300 border",
             selectedArticles.has(articleId) 
               ? "bg-purple-50 border-purple-500" 
-              : "border-gray-200"
+              : "bg-white border-gray-200"
           )}
           onClick={handleCardClick}
         >
@@ -626,7 +592,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
           {/* Content */}
           <div className="flex-1 min-w-0">
             {/* Title */}
-            <h3 className={cn(semanticTypography.articleTitle, "text-xs mb-1 line-clamp-2 leading-tight")}>
+            <h3 className={cn("text-sm font-medium text-gray-900", "mb-1 line-clamp-2 leading-tight")}>
               {article.title}
             </h3>
 
@@ -679,7 +645,8 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                 case 'error': return '#EF4444' // Red
                 case 'scanning': return '#9333EA' // Purple-600 (active/loading)
                 case 'ready': return '#22C55E' // Green (completed)
-                default: return '#22C55E' // Green (idle/default)
+                case 'idle': return '#9333EA' // Purple-600 (idle/waiting)
+                default: return '#22C55E' // Green (default)
               }
             })()
           }}>
@@ -713,16 +680,9 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
             </div>
             <div className="flex items-center gap-2">
               <button 
-                onClick={currentStep < 3 && currentStep > 0 ? handleRunStep : () => window.location.reload()}
-                disabled={currentStep < 1 || detectionState === 'scanning'}
-                className="text-xs px-3 py-1 bg-white/20 text-white rounded-md hover:bg-white/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm"
-              >
-                {currentStep < 3 && currentStep > 0 ? 'Run' : 'Rerun'}
-              </button>
-              <button 
                 onClick={handleReset}
                 disabled={detectionState === 'scanning'}
-                className="text-xs px-3 py-1 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="text-xs px-3 py-1 bg-white/20 text-white rounded-md hover:bg-white/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm"
               >
                 Clear
               </button>
@@ -751,7 +711,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                     {!isLast && (
                       <div 
                         className={cn(
-                          "absolute left-7 w-0.5 top-11",
+                          "absolute left-7 w-0.5 top-8",
                           isCompleted && "bg-green-500",
                           isActive && "bg-purple-600",
                           isReady && "bg-green-500",
@@ -759,7 +719,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                           isWaiting && "bg-gray-300"
                         )}
                         style={{
-                          height: 'calc(100% - 1.75rem)'  // 100% of parent minus top-11 but extend further
+                          height: 'calc(100% + 0.5rem)'  // Extend to connect with next circle
                         }}
                       ></div>
                     )}
@@ -851,28 +811,21 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                           isError && "text-red-500",
                           isWaiting && "text-gray-500"
                         )}>
-                          {isCompleted && (key === 'detecting' ? 'URL validated and accessible' : 
-                                         key === 'parsing' ? 'Article parsed and structured successfully' : 
+                          {isCompleted && (key === 'parsing' ? 'Article parsed and structured successfully' : 
                                          key === 'analysis' ? 'Content meets minimum requirements' : 
                                          'Ready for API submission')}
                           {isActive && 'Processing...'}
                           {isReady && 'Ready for API submission'}
-                          {isError && (key === 'detecting' ? 'URL not in approved list' : 'Failed to process')}
+                          {isError && 'Failed to process'}
                           {isWaiting && (key === 'analysis' ? `${remainingAnalyses} analyses remaining` : 'Waiting')}
                         </p>
                       </div>
                     </div>
                     
-                    {/* Domain Preview - Show after URL Check */}
-                    {key === 'detecting' && extractionStages.detecting.status === 'completed' && (
-                      <div className="mt-4 ml-12 px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-md font-mono">
-                        {verifiedDomain}
-                      </div>
-                    )}
                     
                     {/* Extracted Content - Show after Parse Input Article */}
                     {key === 'parsing' && identifiedArticle && extractionStages.parsing.status === 'completed' && (
-                      <div className="mt-4 ml-12">
+                      <div className="mt-1 mb-2 ml-12">
                         {isEditing ? (
                           <div className="space-y-3">
                             <div>
@@ -939,29 +892,34 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         <h2 className={cn(semanticTypography.cardTitle)}>Recents</h2>
       </div>
       
-      {/* Search Bar - only show when expanded */}
-      {isSearchExpanded && (
-        <div className="mb-4 px-1">
-          <div className="relative bg-gray-50 rounded-lg transition-colors duration-200">
-            <Search size={14} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search articles and tickers..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onBlur={() => {
-                if (!searchQuery.trim()) {
-                  setIsSearchExpanded(false)
-                }
-              }}
-              autoFocus
-              className={`w-full pl-10 pr-4 py-2.5 ${semanticTypography.primaryText} bg-transparent border-0 focus:outline-none placeholder-gray-400 rounded-lg`}
-            />
-          </div>
-        </div>
-      )}
-      
-      <div className="space-y-6">
+      {/* Show empty state if no articles, otherwise show articles */}
+      {displayedArticles.length === 0 && !isLoading ? (
+        <EmptyState />
+      ) : (
+        <>
+          {/* Search Bar - only show when expanded */}
+          {isSearchExpanded && (
+            <div className="mb-4 px-1">
+              <div className="relative bg-gray-50 rounded-lg transition-colors duration-200">
+                <Search size={14} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search articles and tickers..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onBlur={() => {
+                    if (!searchQuery.trim()) {
+                      setIsSearchExpanded(false)
+                    }
+                  }}
+                  autoFocus
+                  className={`w-full pl-10 pr-4 py-2.5 ${semanticTypography.primaryText} bg-transparent border-0 focus:outline-none placeholder-gray-400 rounded-lg`}
+                />
+              </div>
+            </div>
+          )}
+          
+          <div className="space-y-6">
       {/* Today */}
       {groupedArticles.today.length > 0 ? (
         <div>
@@ -1055,6 +1013,8 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
             )}
           </button>
         </div>
+      )}
+        </>
       )}
     </div>
   )
