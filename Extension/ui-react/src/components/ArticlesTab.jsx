@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { FileText, X, Sparkles, Search, Edit2, Save, XCircle, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { semanticTypography } from '@/styles/typography'
+import { semanticTypography, componentSpacing, spacing } from '@/styles/typography'
 
 const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onArticleClick, onGenerate }, ref) => {
   const [articles, setArticles] = useState([])
@@ -11,7 +11,6 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   const [selectedArticles, setSelectedArticles] = useState(new Set())
   const [expandedArticle, setExpandedArticle] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [isSearchExpanded, setIsSearchExpanded] = useState(false)
   const [identifiedArticle, setIdentifiedArticle] = useState(null)
   const [isEditing, setIsEditing] = useState(false)
   const [editedTitle, setEditedTitle] = useState('')
@@ -31,6 +30,8 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     switch (stageKey) {
       case 'parsing':
         return 'Reads and extracts the article content from the page, including headline, body text, and key details needed for analysis'
+      case 'validation':
+        return 'Checks the extracted content for quality, completeness, and suitability for analysis processing'
       case 'analysis':
         return 'Uses AI to analyze the article content and generate insights about stock market impact, sentiment, and key takeaways'
       default:
@@ -47,6 +48,16 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         description: 'Process and parse article content',
         info: 'Clean and structure the extracted content',
         action: 'View processing details'
+      }
+    },
+    validation: { 
+      status: 'waiting', 
+      title: 'Content Validation', 
+      subtitle: 'Verifying content quality and completeness',
+      details: {
+        description: 'Validate extracted content meets requirements',
+        info: 'Ensure content is suitable for analysis',
+        action: 'Run validation checks'
       }
     },
     analysis: { 
@@ -279,6 +290,23 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         setCurrentStep(1)
       }, 2000)
     } else if (currentStep === 1) {
+      // Run Content Validation
+      setDetectionState('scanning')
+      setExtractionStages(prev => ({
+        ...prev,
+        validation: { ...prev.validation, status: 'active' }
+      }))
+      
+      // Simulate validation completion
+      setTimeout(() => {
+        setExtractionStages(prev => ({
+          ...prev,
+          validation: { ...prev.validation, status: 'completed', subtitle: 'Content validation passed successfully' }
+        }))
+        setDetectionState('hold')
+        setCurrentStep(2)
+      }, 2000)
+    } else if (currentStep === 2) {
       // Run Analysis Generation
       setDetectionState('scanning')
       setExtractionStages(prev => ({
@@ -293,7 +321,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
           analysis: { ...prev.analysis, status: 'completed', subtitle: 'Analysis generated successfully' }
         }))
         setDetectionState('ready')
-        setCurrentStep(2)
+        setCurrentStep(3)
       }, 2000)
     }
   }
@@ -399,6 +427,16 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
           description: 'Process and parse article content',
           info: 'Clean and structure the extracted content',
           action: 'View processing details'
+        }
+      },
+      validation: { 
+        status: 'waiting', 
+        title: 'Content Validation', 
+        subtitle: 'Verifying content quality and completeness',
+        details: {
+          description: 'Validate extracted content meets requirements',
+          info: 'Ensure content is suitable for analysis',
+          action: 'Run validation checks'
         }
       },
       analysis: { 
@@ -561,18 +599,17 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     }
     
     return (
-      <div key={articleId} className={cn("relative group", !isLast ? "mb-1.5" : "")}>
-        <div 
-          className={cn(
-            "relative rounded-lg cursor-pointer transition-all duration-300 border",
-            selectedArticles.has(articleId) 
-              ? "bg-purple-50 border-purple-500" 
-              : "bg-white border-gray-200"
-          )}
-          onClick={handleCardClick}
-        >
-          <div className="py-4 pl-6 pr-4">
-          {/* Checkbox - positioned on the left border */}
+      <div 
+        className={cn(
+          "relative cursor-pointer transition-all duration-300 group",
+          selectedArticles.has(articleId) 
+            ? "bg-purple-50" 
+            : "hover:bg-gray-50"
+        )}
+        onClick={handleCardClick}
+      >
+          <div className={cn(componentSpacing.cardPadding, "pl-6")}>
+          {/* Checkbox - positioned over the line */}
           <div 
             data-checkbox
             className={cn(
@@ -592,7 +629,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
           {/* Content */}
           <div className="flex-1 min-w-0">
             {/* Title */}
-            <h3 className={cn("text-sm font-medium text-gray-900", "mb-1 line-clamp-2 leading-tight")}>
+            <h3 className={cn(semanticTypography.caption, "mb-1 line-clamp-2 font-medium")}>
               {article.title}
             </h3>
 
@@ -618,7 +655,6 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
             </div>
 
           </div>
-          </div>
         </div>
       </div>
     )
@@ -633,7 +669,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       </div>
       
       {/* Actions Section - Combined Pipeline UI */}
-      <div className="mb-4 px-1 space-y-3">
+      <div className="mb-4 ml-2 pr-1 space-y-3">
         {/* Pipeline Window */}
         <div className="border border-gray-200 rounded-lg bg-white">
           {/* Dynamic Header Bar - Purple for active/hold, Green for ready/completed, Red for error */}
@@ -794,13 +830,13 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                               onMouseLeave={() => setHoveredStage(null)}
                             />
                             {hoveredStage === key && (
-                              <div className="absolute top-full right-0 mt-1 p-2 bg-gray-900 text-white text-xs rounded shadow-lg w-40 z-50 leading-tight">
+                              <div className="absolute top-full right-0 mt-1 p-2 bg-gray-900 text-white text-xs rounded w-40 z-50 leading-tight">
                                 {getStageTooltip(key)}
                               </div>
                             )}
                           </div>
                         </div>
-                        <p className="text-sm text-gray-600 mb-1">
+                        <p className="text-xs text-gray-600 mb-1">
                           {stage.subtitle}
                         </p>
                         <p className={cn(
@@ -897,71 +933,53 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         <EmptyState />
       ) : (
         <>
-          {/* Search Bar - only show when expanded */}
-          {isSearchExpanded && (
-            <div className="mb-4 px-1">
-              <div className="relative bg-gray-50 rounded-lg transition-colors duration-200">
-                <Search size={14} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search articles and tickers..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onBlur={() => {
-                    if (!searchQuery.trim()) {
-                      setIsSearchExpanded(false)
-                    }
-                  }}
-                  autoFocus
-                  className={`w-full pl-10 pr-4 py-2.5 ${semanticTypography.primaryText} bg-transparent border-0 focus:outline-none placeholder-gray-400 rounded-lg`}
-                />
-              </div>
+          {/* Search Bar - always visible */}
+          <div className="mb-4 px-1">
+            <div className="relative bg-gray-50 rounded-lg transition-colors duration-200">
+              <Search size={14} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search articles and tickers..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`w-full pl-10 pr-4 py-2.5 ${semanticTypography.primaryText} bg-transparent border-0 focus:outline-none placeholder-gray-400 rounded-lg`}
+              />
             </div>
-          )}
+          </div>
           
-          <div className="space-y-6">
+          <div className={componentSpacing.cardGroupSpacing}>
       {/* Today */}
-      {groupedArticles.today.length > 0 ? (
+      {groupedArticles.today.length > 0 && (
         <div>
-          <div className="mb-3 flex items-center justify-between px-1">
-            <h3 className={cn(semanticTypography.secondaryText)}>Today</h3>
-            <button
-              onClick={() => setIsSearchExpanded(!isSearchExpanded)}
-              className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-md transition-colors"
-              title="Search articles"
-            >
-              <Search size={14} className="text-gray-500 hover:text-gray-700" />
-              <span>Search</span>
-            </button>
+          <div className="mb-4 px-1">
+            <h3 className={cn(semanticTypography.groupTitle)}>Today</h3>
           </div>
-          <div>
-            {groupedArticles.today.map((article, index) => 
-              renderArticleItem(article, index === groupedArticles.today.length - 1)
-            )}
+          <div className="bg-white rounded-lg border border-gray-200 ml-2">
+            {groupedArticles.today.map((article, index) => (
+              <div key={article.id || article.title}>
+                {renderArticleItem(article, false)}
+                {index < groupedArticles.today.length - 1 && (
+                  <div className="border-b border-gray-100 mx-6" />
+                )}
+              </div>
+            ))}
           </div>
-        </div>
-      ) : (
-        /* Search button fallback when no Today articles */
-        <div className="mb-3 flex items-center justify-end px-1">
-          <button
-            onClick={() => setIsSearchExpanded(!isSearchExpanded)}
-            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-md transition-colors"
-            title="Search articles"
-          >
-            <Search size={14} className="text-gray-500 hover:text-gray-700" />
-            <span>Search</span>
-          </button>
         </div>
       )}
 
       {/* Yesterday */}
       {groupedArticles.yesterday.length > 0 && (
         <div>
-          <h3 className={cn(semanticTypography.secondaryText, "mb-3 px-1")}>Yesterday</h3>
-          <div>
-            {groupedArticles.yesterday.map((article, index) => 
-              renderArticleItem(article, index === groupedArticles.yesterday.length - 1)
-            )}
+          <h3 className={cn(semanticTypography.groupTitle, "mb-4 px-1")}>Yesterday</h3>
+          <div className="bg-white rounded-lg border border-gray-200 ml-2">
+            {groupedArticles.yesterday.map((article, index) => (
+              <div key={article.id || article.title}>
+                {renderArticleItem(article, false)}
+                {index < groupedArticles.yesterday.length - 1 && (
+                  <div className="border-b border-gray-100 mx-6" />
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -969,11 +987,16 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       {/* Last Week */}
       {groupedArticles.lastWeek.length > 0 && (
         <div>
-          <h3 className={cn(semanticTypography.secondaryText, "mb-3 px-1")}>Last Week</h3>
-          <div>
-            {groupedArticles.lastWeek.map((article, index) => 
-              renderArticleItem(article, index === groupedArticles.lastWeek.length - 1)
-            )}
+          <h3 className={cn(semanticTypography.groupTitle, "mb-4 px-1")}>Last Week</h3>
+          <div className="bg-white rounded-lg border border-gray-200 ml-2">
+            {groupedArticles.lastWeek.map((article, index) => (
+              <div key={article.id || article.title}>
+                {renderArticleItem(article, false)}
+                {index < groupedArticles.lastWeek.length - 1 && (
+                  <div className="border-b border-gray-100 mx-6" />
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -984,11 +1007,16 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         .map(([monthKey, monthArticles]) => (
           monthArticles.length > 0 && (
             <div key={monthKey}>
-              <h3 className={cn(semanticTypography.secondaryText, "mb-3 px-1")}>{monthKey}</h3>
-              <div>
-                {monthArticles.map((article, index) => 
-                  renderArticleItem(article, index === monthArticles.length - 1)
-                )}
+              <h3 className={cn(semanticTypography.groupTitle, "mb-4 px-1")}>{monthKey}</h3>
+              <div className="bg-white rounded-lg border border-gray-200 ml-2">
+                {monthArticles.map((article, index) => (
+                  <div key={article.id || article.title}>
+                    {renderArticleItem(article, false)}
+                    {index < monthArticles.length - 1 && (
+                      <div className="border-b border-gray-100 mx-6" />
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           )
@@ -997,11 +1025,11 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       
       {/* Load More Button */}
       {!searchQuery.trim() && displayedArticles.length < articles.length && (
-        <div className="mt-4 mb-6 flex justify-center">
+        <div className="mt-4 mb-3 ml-2">
           <button
             onClick={handleLoadMore}
             disabled={isLoadingMore}
-            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 ${semanticTypography.primaryText} bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             {isLoadingMore ? (
               <>

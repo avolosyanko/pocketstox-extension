@@ -22,13 +22,6 @@
         "48": "assets/images/48x48.png",
         "128": "assets/images/128x128.png"
     },
-    "content_scripts": [
-        {
-            "matches": ["<all_urls>"],
-            "js": ["src/content/website-popup.js"],
-            "run_at": "document_idle"
-        }
-    ],
     "web_accessible_resources": [{
         "resources": ["src/lib/Readability.min.js", "assets/images/logo-black.png", "assets/images/128x128.png"],
         "matches": ["<all_urls>"]

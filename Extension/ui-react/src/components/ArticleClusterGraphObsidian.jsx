@@ -1,11 +1,8 @@
-import React, { useEffect, useRef, useMemo, useState } from 'react'
+import React, { useEffect, useRef, useMemo } from 'react'
 import ForceGraph2D from 'react-force-graph-2d'
 
 const ArticleClusterGraphObsidian = ({ article }) => {
   const graphRef = useRef()
-  const [hoveredNode, setHoveredNode] = useState(null)
-  const [hoverScale, setHoverScale] = useState(1)
-  const [linkOpacities, setLinkOpacities] = useState(new Map())
 
   // Generate graph data similar to Obsidian's style
   const graphData = useMemo(() => {
@@ -97,92 +94,6 @@ const ArticleClusterGraphObsidian = ({ article }) => {
     }
   }, [graphData])
 
-  // Smooth hover animation effect
-  useEffect(() => {
-    if (hoveredNode) {
-      // Animate scale up
-      const animateScale = () => {
-        setHoverScale(prev => {
-          const target = 1.15 // More subtle growth
-          const diff = target - prev
-          const newScale = prev + diff * 0.15 // Smooth easing
-          return Math.abs(diff) < 0.01 ? target : newScale
-        })
-      }
-      
-      const scaleInterval = setInterval(animateScale, 16) // 60fps
-      
-      // Animate connected links
-      const animateLinks = () => {
-        if (graphRef.current) {
-          const links = graphRef.current.graphData().links
-          const newOpacities = new Map()
-          
-          links.forEach(link => {
-            const isConnected = 
-              (link.source.id || link.source) === hoveredNode.id ||
-              (link.target.id || link.target) === hoveredNode.id
-            
-            if (isConnected) {
-              const currentOpacity = linkOpacities.get(link) || 0
-              const target = 1
-              const diff = target - currentOpacity
-              const newOpacity = currentOpacity + diff * 0.1
-              newOpacities.set(link, Math.abs(diff) < 0.01 ? target : newOpacity)
-            } else {
-              newOpacities.set(link, 0)
-            }
-          })
-          
-          setLinkOpacities(newOpacities)
-        }
-      }
-      
-      const linkInterval = setInterval(animateLinks, 16)
-      
-      return () => {
-        clearInterval(scaleInterval)
-        clearInterval(linkInterval)
-      }
-    } else {
-      // Animate scale down and links fade out
-      const animateScaleDown = () => {
-        setHoverScale(prev => {
-          const target = 1
-          const diff = target - prev
-          const newScale = prev + diff * 0.15
-          return Math.abs(diff) < 0.01 ? target : newScale
-        })
-      }
-      
-      const fadeLinks = () => {
-        setLinkOpacities(prev => {
-          const newOpacities = new Map()
-          prev.forEach((opacity, link) => {
-            const newOpacity = opacity * 0.85 // Fade out
-            newOpacities.set(link, newOpacity < 0.01 ? 0 : newOpacity)
-          })
-          return newOpacities
-        })
-      }
-      
-      const scaleInterval = setInterval(animateScaleDown, 16)
-      const linkInterval = setInterval(fadeLinks, 16)
-      
-      const timeout = setTimeout(() => {
-        clearInterval(scaleInterval)
-        clearInterval(linkInterval)
-        setHoverScale(1)
-        setLinkOpacities(new Map())
-      }, 300)
-      
-      return () => {
-        clearInterval(scaleInterval)
-        clearInterval(linkInterval)
-        clearTimeout(timeout)
-      }
-    }
-  }, [hoveredNode, linkOpacities])
 
   // Custom node rendering - Obsidian style with hover states
   const nodeCanvasObject = (node, ctx, globalScale) => {
@@ -194,13 +105,11 @@ const ArticleClusterGraphObsidian = ({ article }) => {
     const label = node.name
     const fontSize = 10 / globalScale
     ctx.font = `${fontSize}px Inter, sans-serif`
-    const isHovered = hoveredNode && hoveredNode.id === node.id
+    // All nodes are purple by default
+    const color = '#8B5CF6'
     
-    // All nodes are purple by default, darker purple when hovered
-    const color = isHovered ? '#7C3AED' : '#8B5CF6'
-    
-    // Apply hover scale effect
-    const nodeSize = isHovered ? node.val * hoverScale : node.val
+    // Use standard node size
+    const nodeSize = node.val
     
     ctx.fillStyle = color
     ctx.beginPath()
@@ -275,7 +184,6 @@ const ArticleClusterGraphObsidian = ({ article }) => {
         d3VelocityDecay={0.3} // Less velocity decay for more bounce
         nodeLabel={() => ''} // Remove hover labels
         onNodeHover={(node) => {
-          setHoveredNode(node)
           document.body.style.cursor = node ? 'pointer' : 'default'
         }}
         onNodeClick={(node) => {

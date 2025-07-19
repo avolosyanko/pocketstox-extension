@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { User } from 'lucide-react'
 import { useAuth } from '@/hooks/useExtensionAPI'
+import { semanticTypography, componentSpacing } from '@/styles/typography'
+import { cn } from '@/lib/utils'
 
 const Header = () => {
   const [user, setUser] = useState(null)
@@ -40,32 +42,35 @@ const Header = () => {
   }
 
   return (
-    <header className="flex items-center justify-between px-3 py-2 border-b border-gray-100 bg-white flex-shrink-0">
+    <header className={cn("flex items-center justify-between border-b border-gray-100 bg-white flex-shrink-0", componentSpacing.headerPadding)}>
       <div className="flex items-center min-w-0 flex-1">
         <img 
           src="../assets/images/logo-text-purple.svg" 
           alt="Pocketstox" 
-          className="h-4 flex-shrink-0 max-w-[120px] object-contain"
+          className="h-5 flex-shrink-0 max-w-[140px] object-contain"
         />
       </div>
       
-      <div className="flex items-center gap-1 flex-shrink-0">
+      <div className={cn("flex items-center flex-shrink-0", "gap-2")}>
         {user ? (
           <Button
             variant="ghost"
             size="sm"
             onClick={handleSignOut}
             disabled={loading}
-            className="flex items-center gap-1 text-xs px-2 py-1 h-auto"
+            className={cn("flex items-center gap-2 h-auto px-3 py-1.5", semanticTypography.secondaryText)}
           >
-            <User size={12} />
-            <span className="text-xs font-medium truncate max-w-[60px]">{user.name || 'Profile'}</span>
+            <User size={14} />
+            <span className={cn("truncate max-w-[80px]", semanticTypography.caption)}>{user.name || 'Profile'}</span>
           </Button>
         ) : (
           <button
             onClick={handleSignIn}
             disabled={loading}
-            className="text-xs font-medium text-gray-600 hover:text-gray-800 transition-colors disabled:opacity-50 whitespace-nowrap px-2 py-1"
+            className={cn(
+              semanticTypography.caption,
+              "hover:text-gray-800 transition-colors disabled:opacity-50 whitespace-nowrap px-3 py-1.5 rounded-md hover:bg-gray-50"
+            )}
           >
             {loading ? 'Signing In...' : 'Sign In'}
           </button>
