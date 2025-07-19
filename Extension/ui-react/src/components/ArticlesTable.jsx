@@ -183,8 +183,6 @@ const ArticlesTable = memo(({ onArticleClick }) => {
     <Button 
       className="w-full mb-4 text-white"
       style={{ background: 'var(--gradient-primary)' }}
-      onMouseEnter={(e) => e.target.style.background = 'var(--gradient-primary-hover)'}
-      onMouseLeave={(e) => e.target.style.background = 'var(--gradient-primary)'}
     >
       Generate Analysis
     </Button>

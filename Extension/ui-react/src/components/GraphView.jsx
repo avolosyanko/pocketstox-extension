@@ -232,7 +232,7 @@ const GraphView = ({ articles = [] }) => {
       {/* Info Panel */}
       {selectedNode && (
         <div className="absolute top-4 right-4 w-72 z-10">
-          <Card className="bg-white shadow-lg">
+          <Card className="bg-white">
             <CardContent className="p-4">
               <div className="flex justify-between items-start mb-3">
                 <div className="flex items-center gap-2">

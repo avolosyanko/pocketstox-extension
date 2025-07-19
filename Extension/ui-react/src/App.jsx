@@ -5,7 +5,7 @@ import CommunityTab from './components/CommunityTab'
 import AccountTab from './components/AccountTab'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import ArticleClusterGraphObsidian from './components/ArticleClusterGraphObsidian'
-import { semanticTypography, getTypographyClass } from '@/styles/typography'
+import { semanticTypography, getTypographyClass, componentSpacing } from '@/styles/typography'
 import './index.css'
 
 function App() {
@@ -177,9 +177,9 @@ function App() {
       )}
 
       {/* Scrollable Content Area */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden bg-white scroll-smooth">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-25 scroll-smooth">
         {/* Dynamic Tab Content */}
-        <main className="px-3 pt-2 pb-2">
+        <main className={componentSpacing.contentPadding}>
           {renderTabContent()}
         </main>
       </div>
