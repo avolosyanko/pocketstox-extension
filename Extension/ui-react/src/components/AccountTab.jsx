@@ -1,13 +1,19 @@
 import React, { memo } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { User, Check, BarChart3 } from 'lucide-react'
+import { User, Check, BarChart3, TrendingUp, Moon, Activity } from 'lucide-react'
 import { semanticTypography } from '@/styles/typography'
+import { cn } from '@/lib/utils'
 
 const AccountTab = memo(() => {
   return (
-    <div className="space-y-4">
+    <div>
+      {/* User Details Header */}
+      <div className="mt-1 mb-3 flex items-center px-1">
+        <h2 className={cn(semanticTypography.cardTitle)}>User Details</h2>
+      </div>
+      
       {/* Profile Card */}
-      <Card className="bg-transparent border border-gray-200">
+      <Card className="bg-transparent border border-gray-200 mb-3">
         <CardContent className="p-5">
           {/* Profile Section */}
           <div className="flex items-center gap-3 mb-4">
@@ -15,7 +21,7 @@ const AccountTab = memo(() => {
               <User size={16} className="text-purple-600" strokeWidth={2} />
             </div>
             <div className="flex-1">
-              <h2 className="text-sm font-medium text-gray-900">Anonymous User</h2>
+              <h2 className="text-sm font-medium text-gray-900">Anonymous</h2>
               <p className={semanticTypography.metadata}>Not signed in</p>
             </div>
           </div>
@@ -70,7 +76,7 @@ const AccountTab = memo(() => {
       </Card>
 
       {/* Daily Usage */}
-      <Card className="bg-transparent border border-gray-200">
+      <Card className="bg-transparent border border-gray-200 mb-3">
         <CardContent className="p-4">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
@@ -85,6 +91,56 @@ const AccountTab = memo(() => {
           <div className="w-full">
             <div className="w-full bg-gray-200 rounded-full h-1.5">
               <div className="bg-purple-600 h-1.5 rounded-full w-0"></div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Coming Soon Header */}
+      <div className="mt-1 mb-3 flex items-center px-1">
+        <h2 className={cn(semanticTypography.cardTitle)}>Coming Soon</h2>
+      </div>
+      
+      {/* Portfolio Tracking */}
+      <Card className="bg-transparent border border-gray-200 mb-3">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+              <TrendingUp size={16} className="text-gray-500" strokeWidth={2} />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-gray-900">Portfolio Tracking</h3>
+              <p className={`${semanticTypography.secondaryText}`}>Connect your portfolio with Pocketstox</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      
+      {/* Dark Mode */}
+      <Card className="bg-transparent border border-gray-200 mb-3">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+              <Moon size={16} className="text-gray-500" strokeWidth={2} />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-gray-900">Dark Mode</h3>
+              <p className={`${semanticTypography.secondaryText}`}>Switch between light and dark themes</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      
+      {/* Pattern Analytics */}
+      <Card className="bg-transparent border border-gray-200">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+              <Activity size={16} className="text-gray-500" strokeWidth={2} />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-gray-900">Pattern Analytics</h3>
+              <p className={`${semanticTypography.secondaryText}`}>Advanced chart pattern recognition</p>
             </div>
           </div>
         </CardContent>

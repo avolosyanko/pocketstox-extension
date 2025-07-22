@@ -601,10 +601,10 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     return (
       <div 
         className={cn(
-          "relative cursor-pointer transition-all duration-300 group",
+          "relative cursor-pointer transition-all duration-300 group border rounded-lg",
           selectedArticles.has(articleId) 
-            ? "bg-purple-50" 
-            : "hover:bg-gray-50"
+            ? "bg-purple-50 text-purple-700 border-purple-200" 
+            : "hover:bg-gray-50 border-transparent"
         )}
         onClick={handleCardClick}
       >
@@ -664,7 +664,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     <div className="h-full flex flex-col">
       
       {/* Actions Header */}
-      <div className="mb-3 flex items-center px-1">
+      <div className="mt-1 mb-3 flex items-center px-1">
         <h2 className={cn(semanticTypography.cardTitle)}>Actions</h2>
       </div>
       
@@ -861,7 +861,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                     
                     {/* Extracted Content - Show after Parse Input Article */}
                     {key === 'parsing' && identifiedArticle && extractionStages.parsing.status === 'completed' && (
-                      <div className="mt-1 mb-2 ml-12">
+                      <div className="mt-1 mb-2 ml-12 group">
                         {isEditing ? (
                           <div className="space-y-3">
                             <div>
@@ -900,12 +900,18 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                             </div>
                           </div>
                         ) : (
-                          <div className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-md font-mono relative group">
+                          <div 
+                            onClick={handleEditArticle}
+                            className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-md font-mono relative cursor-pointer"
+                          >
                             <div className="font-semibold mb-1">{identifiedArticle.title}</div>
                             <div>{identifiedArticle.content}</div>
                             <button
-                              onClick={handleEditArticle}
-                              className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-md transition-colors opacity-0 group-hover:opacity-100"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditArticle();
+                              }}
+                              className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 rounded-md transition-all opacity-0 group-hover:opacity-100 group-hover:bg-white/20 group-hover:backdrop-blur-sm hover:bg-white/30"
                             >
                               <Edit2 size={12} />
                               Edit
@@ -924,7 +930,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       </div>
 
       {/* Recents Header */}
-      <div className="mb-3 flex items-center px-1">
+      <div className="mt-1 mb-3 flex items-center px-1">
         <h2 className={cn(semanticTypography.cardTitle)}>Recents</h2>
       </div>
       
@@ -935,14 +941,14 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         <>
           {/* Search Bar - always visible */}
           <div className="mb-4 px-1">
-            <div className="relative bg-gray-50 rounded-lg transition-colors duration-200">
-              <Search size={14} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <div className="relative bg-gray-100 rounded-lg transition-colors duration-200">
+              <Search size={14} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500" />
               <input
                 type="text"
                 placeholder="Search articles and tickers..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className={`w-full pl-10 pr-4 py-2.5 ${semanticTypography.primaryText} bg-transparent border-0 focus:outline-none placeholder-gray-400 rounded-lg`}
+                className={`w-full pl-10 pr-4 py-2.5 ${semanticTypography.primaryText} bg-transparent border-0 focus:outline-none placeholder:text-xs placeholder:font-medium placeholder:text-gray-500 rounded-lg`}
               />
             </div>
           </div>
@@ -1029,11 +1035,11 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
           <button
             onClick={handleLoadMore}
             disabled={isLoadingMore}
-            className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 ${semanticTypography.primaryText} bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+            className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-medium text-gray-500 leading-4 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             {isLoadingMore ? (
               <>
-                <div className="w-3 h-3 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></div>
+                <div className="w-3 h-3 border-2 border-gray-400 border-t-gray-700 rounded-full animate-spin"></div>
                 Loading...
               </>
             ) : (
