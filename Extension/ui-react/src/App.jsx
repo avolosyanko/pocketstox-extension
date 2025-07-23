@@ -17,9 +17,17 @@ function App() {
 
 
   const handleArticleClick = (article) => {
-    console.log('Article clicked:', article)
-    setSelectedArticle(article)
-    setDrawerOpen(true)
+    try {
+      console.log('Article clicked:', article)
+      if (!article) {
+        console.error('Article is null or undefined')
+        return
+      }
+      setSelectedArticle(article)
+      setDrawerOpen(true)
+    } catch (error) {
+      console.error('Error handling article click:', error)
+    }
   }
 
   const [selectedCount, setSelectedCount] = useState(0)
@@ -199,7 +207,20 @@ function App() {
             {selectedArticle && (
               <div>
                 <h4 className="text-xs font-semibold text-gray-700 mb-2">Relevance Scores</h4>
-                <ArticleClusterGraphObsidian article={selectedArticle} />
+                <div className="min-h-[200px]">
+                  {(() => {
+                    try {
+                      return <ArticleClusterGraphObsidian article={selectedArticle} />
+                    } catch (error) {
+                      console.error('Error rendering ArticleClusterGraphObsidian:', error)
+                      return (
+                        <div className="flex items-center justify-center h-48 text-gray-500">
+                          <p>Unable to load graph visualization</p>
+                        </div>
+                      )
+                    }
+                  })()}
+                </div>
               </div>
             )}
             

@@ -16,13 +16,17 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   const [editedTitle, setEditedTitle] = useState('')
   const [editedContent, setEditedContent] = useState('')
   const [detectionState, setDetectionState] = useState('idle')
-  const [currentStep, setCurrentStep] = useState(0) // 0: url check, 1: parsing, 2: analysis
+  const [currentStep, setCurrentStep] = useState(0) // 0: parsing, 1: analysis
   const [isContentExpanded, setIsContentExpanded] = useState(false)
   const [expandedStage, setExpandedStage] = useState(null)
   const [displayedArticles, setDisplayedArticles] = useState([])
   const [loadMoreCount, setLoadMoreCount] = useState(10) // Initial load count
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [remainingAnalyses, setRemainingAnalyses] = useState(5)
+  
+  // Detect platform for keyboard shortcut display
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+  const modifierKey = isMac ? '⌘' : 'Ctrl'
   const [hoveredStage, setHoveredStage] = useState(null)
 
   // Helper function to get tooltip text for each stage
@@ -30,8 +34,6 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     switch (stageKey) {
       case 'parsing':
         return 'Reads and extracts the article content from the page, including headline, body text, and key details needed for analysis'
-      case 'validation':
-        return 'Checks the extracted content for quality, completeness, and suitability for analysis processing'
       case 'analysis':
         return 'Uses AI to analyze the article content and generate insights about stock market impact, sentiment, and key takeaways'
       default:
@@ -48,16 +50,6 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         description: 'Process and parse article content',
         info: 'Clean and structure the extracted content',
         action: 'View processing details'
-      }
-    },
-    validation: { 
-      status: 'waiting', 
-      title: 'Content Validation', 
-      subtitle: 'Verifying content quality and completeness',
-      details: {
-        description: 'Validate extracted content meets requirements',
-        info: 'Ensure content is suitable for analysis',
-        action: 'Run validation checks'
       }
     },
     analysis: { 
@@ -283,30 +275,13 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       setTimeout(() => {
         setExtractionStages(prev => ({
           ...prev,
-          parsing: { ...prev.parsing, status: 'completed', subtitle: 'Article parsed and structured successfully' }
+          parsing: { ...prev.parsing, status: 'completed' }
         }))
         setDetectionState('hold')
         setIdentifiedArticle(mockIdentifiedArticle)
         setCurrentStep(1)
       }, 2000)
     } else if (currentStep === 1) {
-      // Run Content Validation
-      setDetectionState('scanning')
-      setExtractionStages(prev => ({
-        ...prev,
-        validation: { ...prev.validation, status: 'active' }
-      }))
-      
-      // Simulate validation completion
-      setTimeout(() => {
-        setExtractionStages(prev => ({
-          ...prev,
-          validation: { ...prev.validation, status: 'completed', subtitle: 'Content validation passed successfully' }
-        }))
-        setDetectionState('hold')
-        setCurrentStep(2)
-      }, 2000)
-    } else if (currentStep === 2) {
       // Run Analysis Generation
       setDetectionState('scanning')
       setExtractionStages(prev => ({
@@ -318,10 +293,10 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       setTimeout(() => {
         setExtractionStages(prev => ({
           ...prev,
-          analysis: { ...prev.analysis, status: 'completed', subtitle: 'Analysis generated successfully' }
+          analysis: { ...prev.analysis, status: 'completed' }
         }))
         setDetectionState('ready')
-        setCurrentStep(3)
+        setCurrentStep(2)
       }, 2000)
     }
   }
@@ -362,6 +337,25 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     }
     sessionStorage.setItem('pipelineState', JSON.stringify(pipelineState))
   }, [currentStep, detectionState, extractionStages, identifiedArticle])
+
+  // Add keyboard shortcut for Cmd/Ctrl + Enter
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'e') {
+        event.preventDefault()
+        if (detectionState === 'hold' && (currentStep === 0 || currentStep === 1)) {
+          handleRunStep()
+        } else if (detectionState === 'ready') {
+          handleReset()
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [detectionState, currentStep])
 
   // Update displayed articles when search changes
   useEffect(() => {
@@ -427,16 +421,6 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
           description: 'Process and parse article content',
           info: 'Clean and structure the extracted content',
           action: 'View processing details'
-        }
-      },
-      validation: { 
-        status: 'waiting', 
-        title: 'Content Validation', 
-        subtitle: 'Verifying content quality and completeness',
-        details: {
-          description: 'Validate extracted content meets requirements',
-          info: 'Ensure content is suitable for analysis',
-          action: 'Run validation checks'
         }
       },
       analysis: { 
@@ -672,12 +656,12 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       <div className="mb-4 ml-2 pr-1 space-y-3">
         {/* Pipeline Window */}
         <div className="border border-gray-200 rounded-lg bg-white">
-          {/* Dynamic Header Bar - Purple for active/hold, Green for ready/completed, Red for error */}
+          {/* Dynamic Header Bar - Purple for active/waiting, Green for ready/completed, Red for error */}
           <div className="flex items-center justify-between px-4 py-3 rounded-t-lg text-white"
           style={{
             backgroundColor: (() => {
               switch(detectionState) {
-                case 'hold': return '#9333EA' // Purple-600
+                case 'hold': return '#9333EA' // Purple-600 (waiting)
                 case 'error': return '#EF4444' // Red
                 case 'scanning': return '#9333EA' // Purple-600 (active/loading)
                 case 'ready': return '#22C55E' // Green (completed)
@@ -709,18 +693,38 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
               <span className="text-sm font-medium">
                 {detectionState === 'idle' && 'Ready'}
                 {detectionState === 'scanning' && 'Processing'}
-                {detectionState === 'hold' && 'On Hold'}
+                {detectionState === 'hold' && 'Waiting'}
                 {detectionState === 'ready' && 'Complete'}
                 {detectionState === 'error' && 'Error'}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <button 
-                onClick={handleReset}
+                onClick={detectionState === 'hold' && (currentStep === 0 || currentStep === 1) ? handleRunStep : handleReset}
                 disabled={detectionState === 'scanning'}
-                className="text-xs px-3 py-1 bg-white/20 text-white rounded-md hover:bg-white/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm"
+                className="text-xs px-3 py-1 bg-white/20 text-white rounded-md hover:bg-white/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm flex items-center gap-1.5"
               >
-                Clear
+                {(currentStep === 0 || currentStep === 1) ? (
+                  <>
+                    {currentStep === 0 ? 'Start' : 'Continue'}
+                    <div className="flex items-center gap-0.5 ml-1">
+                      <kbd className="text-[10px] bg-white/20 px-1 py-0.5 rounded border border-white/20">{modifierKey}</kbd>
+                      <span className="text-[10px]">+</span>
+                      <kbd className="text-[10px] bg-white/20 px-1 py-0.5 rounded border border-white/20">E</kbd>
+                    </div>
+                  </>
+                ) : detectionState === 'ready' ? (
+                  <>
+                    Rerun
+                    <div className="flex items-center gap-0.5 ml-1">
+                      <kbd className="text-[10px] bg-white/20 px-1 py-0.5 rounded border border-white/20">{modifierKey}</kbd>
+                      <span className="text-[10px]">+</span>
+                      <kbd className="text-[10px] bg-white/20 px-1 py-0.5 rounded border border-white/20">E</kbd>
+                    </div>
+                  </>
+                ) : (
+                  'Clear'
+                )}
               </button>
             </div>
           </div>
@@ -769,7 +773,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                         isReady && "bg-green-500",
                         isError && "bg-red-500",
                         isWaiting && "bg-gray-300",
-                        // Show pause icon for next step when on hold
+                        // Show pause icon for next step when waiting
                         detectionState === 'hold' && index === currentStep && "cursor-pointer hover:brightness-110"
                       )}
                       onClick={detectionState === 'hold' && index === currentStep ? handleRunStep : undefined}
@@ -796,7 +800,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                             <path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth="2" strokeLinecap="round"/>
                           </svg>
                         )}
-                        {/* Show pause icon when on hold and this is the next step */}
+                        {/* Show pause icon when ready to run current step */}
                         {detectionState === 'hold' && index === currentStep && (
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
                             <path d="M6 4h4v16H6V4zM14 4h4v16h-4V4z" fill="white"/>
@@ -848,8 +852,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                           isWaiting && "text-gray-500"
                         )}>
                           {isCompleted && (key === 'parsing' ? 'Article parsed and structured successfully' : 
-                                         key === 'analysis' ? 'Content meets minimum requirements' : 
-                                         'Ready for API submission')}
+                                         'Analysis generated successfully')}
                           {isActive && 'Processing...'}
                           {isReady && 'Ready for API submission'}
                           {isError && 'Failed to process'}
@@ -870,7 +873,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                                 type="text"
                                 value={editedTitle}
                                 onChange={(e) => setEditedTitle(e.target.value)}
-                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                               />
                             </div>
                             <div>
@@ -878,23 +881,21 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                               <textarea
                                 value={editedContent}
                                 onChange={(e) => setEditedContent(e.target.value)}
-                                rows={8}
-                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                rows={12}
+                                className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
                               />
                             </div>
-                            <div className="flex items-center gap-2 pt-2">
+                            <div className="flex items-center gap-1 pt-2">
                               <button
                                 onClick={handleSaveEdit}
-                                className="flex items-center gap-1 px-3 py-1.5 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                                className="px-3 py-1.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 hover:text-gray-800 rounded-md transition-colors"
                               >
-                                <Save size={12} />
                                 Save
                               </button>
                               <button
                                 onClick={handleCancelEdit}
-                                className="flex items-center gap-1 px-3 py-1.5 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
+                                className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-800 rounded-md transition-colors"
                               >
-                                <XCircle size={12} />
                                 Cancel
                               </button>
                             </div>
@@ -905,7 +906,12 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                             className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-md font-mono relative cursor-pointer"
                           >
                             <div className="font-semibold mb-1">{identifiedArticle.title}</div>
-                            <div>{identifiedArticle.content}</div>
+                            <div>
+                              {identifiedArticle.content.length > 300 
+                                ? `${identifiedArticle.content.substring(0, 300)}...` 
+                                : identifiedArticle.content
+                              }
+                            </div>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -948,7 +954,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                 placeholder="Search articles and tickers..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className={`w-full pl-10 pr-4 py-2.5 ${semanticTypography.primaryText} bg-transparent border-0 focus:outline-none placeholder:text-xs placeholder:font-medium placeholder:text-gray-500 rounded-lg`}
+                className={`w-full pl-10 pr-4 py-2.5 ${semanticTypography.primaryText} bg-transparent border-0 focus:outline-none placeholder:text-xs placeholder:text-gray-600 rounded-lg`}
               />
             </div>
           </div>
@@ -1035,7 +1041,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
           <button
             onClick={handleLoadMore}
             disabled={isLoadingMore}
-            className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-medium text-gray-500 leading-4 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+            className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs text-gray-600 leading-4 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             {isLoadingMore ? (
               <>

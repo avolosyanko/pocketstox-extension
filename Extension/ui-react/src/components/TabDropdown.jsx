@@ -35,7 +35,7 @@ const TabDropdown = memo(({ activeTab, onTabChange }) => {
       <SelectTrigger className="w-full h-9 text-sm border-gray-200 focus:ring-0 focus:ring-offset-0 focus:border-gray-200">
         <div className="flex items-center gap-2">
           <ActiveIcon size={14} className="text-gray-600" strokeWidth={2} />
-          <span>{activeTabData?.label}</span>
+          <span className="text-sm font-medium">{activeTabData?.label}</span>
         </div>
       </SelectTrigger>
       <SelectContent>
@@ -45,7 +45,7 @@ const TabDropdown = memo(({ activeTab, onTabChange }) => {
             <SelectItem key={tab.id} value={tab.id}>
               <div className="flex items-center gap-2">
                 <IconComponent size={14} className="text-gray-600" strokeWidth={2} />
-                <span>{tab.label}</span>
+                <span className="text-sm font-medium">{tab.label}</span>
               </div>
             </SelectItem>
           )
