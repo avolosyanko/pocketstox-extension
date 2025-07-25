@@ -3,12 +3,9 @@
 @tailwind utilities;
 
 @layer base {
-  * {
-    @apply border-gray-200;
-  }
-  
   body {
-    @apply bg-white text-gray-900;
+    background-color: white;
+    color: #111827;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }

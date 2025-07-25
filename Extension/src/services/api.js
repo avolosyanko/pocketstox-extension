@@ -4,14 +4,17 @@ const CONFIG = {
     apiUrl: 'https://gmoh9tv5t9.execute-api.eu-west-2.amazonaws.com/prod/vectormatch'
 };
 
-async function analyzeArticle(title, content) {
+async function analyzeArticle(title, content, shouldIncrementUsage = true) {
     // Check usage limit before making API call
     const storageManager = new window.StorageManager();
-    const canAnalyze = await storageManager.canAnalyze();
     
-    if (!canAnalyze) {
-        const stats = await storageManager.getUsageStats();
-        throw new Error(`LIMIT_REACHED:${stats.today}`);
+    if (shouldIncrementUsage) {
+        const canAnalyze = await storageManager.canAnalyze();
+        
+        if (!canAnalyze) {
+            const stats = await storageManager.getUsageStats();
+            throw new Error(`LIMIT_REACHED:${stats.today}`);
+        }
     }
     
     // Get monitoring data
@@ -57,6 +60,12 @@ async function analyzeArticle(title, content) {
     
     try {
         const result = JSON.parse(responseText);
+        
+        // Increment usage count after successful analysis generation (only if requested)
+        if (shouldIncrementUsage) {
+            await storageManager.incrementUsage();
+        }
+        
         return result;
     } catch (parseError) {
         console.error('JSON Parse Error:', parseError);

@@ -1,8 +1,13 @@
-import React, { useEffect, useRef, useMemo } from 'react'
+import React, { useEffect, useRef, useMemo, useState } from 'react'
 import ForceGraph2D from 'react-force-graph-2d'
 
 const ArticleClusterGraphObsidian = ({ article }) => {
   const graphRef = useRef()
+  const [hoveredNode, setHoveredNode] = useState(null)
+  const [linkOpacities] = useState(new Map())
+  const [hasError, setHasError] = useState(false)
+  const [isInitialized, setIsInitialized] = useState(false)
+  const initTimeoutRef = useRef(null)
 
   // Generate graph data similar to Obsidian's style
   const graphData = useMemo(() => {
@@ -79,20 +84,85 @@ const ArticleClusterGraphObsidian = ({ article }) => {
 
   // Configure graph physics and ensure proper positioning
   useEffect(() => {
-    if (graphRef.current && graphData.nodes.length > 0) {
-      // Configure force simulation for Obsidian-like behavior
-      graphRef.current.d3Force('charge').strength(-400)
-      graphRef.current.d3Force('link').distance(link => link.distance || 100)
-      graphRef.current.d3Force('center').strength(0.5)
+    if (graphRef.current && graphData.nodes.length > 0 && !isInitialized) {
+      // Clear any existing timeout
+      if (initTimeoutRef.current) {
+        clearTimeout(initTimeoutRef.current)
+        initTimeoutRef.current = null
+      }
       
-      // Short delay to ensure nodes are positioned before fitting
-      setTimeout(() => {
-        if (graphRef.current) {
-          graphRef.current.zoomToFit(0, 25) // 0ms = instant fit once nodes are ready
+      try {
+        // Configure force simulation for Obsidian-like behavior
+        if (graphRef.current.d3Force) {
+          graphRef.current.d3Force('charge').strength(-400)
+          graphRef.current.d3Force('link').distance(link => link.distance || 100)
+          graphRef.current.d3Force('center').strength(0.5)
         }
-      }, 50) // Minimal delay to prevent out-of-view issue
+        
+        // Initialize with a delay to allow DOM to settle
+        initTimeoutRef.current = setTimeout(() => {
+          try {
+            if (graphRef.current && graphRef.current.zoomToFit) {
+              // Pause animation during initial positioning
+              if (graphRef.current.pauseAnimation) {
+                graphRef.current.pauseAnimation()
+              }
+              
+              // Set initial zoom and center
+              graphRef.current.zoomToFit(400, 20) // Slower, smoother fit
+              
+              // Resume animation after positioning
+              setTimeout(() => {
+                try {
+                  if (graphRef.current && graphRef.current.resumeAnimation) {
+                    graphRef.current.resumeAnimation()
+                    setIsInitialized(true)
+                  }
+                } catch (error) {
+                  console.error('Error resuming graph animation:', error)
+                  setIsInitialized(true) // Set initialized anyway
+                }
+              }, 450)
+            }
+          } catch (error) {
+            console.error('Error initializing graph:', error)
+            setIsInitialized(true) // Set initialized anyway
+          }
+        }, 200) // Allow overlay transition to complete
+      } catch (error) {
+        console.error('Error configuring graph forces:', error)
+        setIsInitialized(true) // Set initialized anyway
+      }
     }
-  }, [graphData])
+    
+    return () => {
+      if (initTimeoutRef.current) {
+        clearTimeout(initTimeoutRef.current)
+        initTimeoutRef.current = null
+      }
+    }
+  }, [graphData, isInitialized])
+  
+  // Reset initialization when article changes
+  useEffect(() => {
+    // Clear any existing timeouts
+    if (initTimeoutRef.current) {
+      clearTimeout(initTimeoutRef.current)
+      initTimeoutRef.current = null
+    }
+    setIsInitialized(false)
+    setHasError(false)
+  }, [article])
+
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      if (initTimeoutRef.current) {
+        clearTimeout(initTimeoutRef.current)
+        initTimeoutRef.current = null
+      }
+    }
+  }, [])
 
 
   // Custom node rendering - Obsidian style with hover states
@@ -117,6 +187,8 @@ const ArticleClusterGraphObsidian = ({ article }) => {
     ctx.fill()
     
     // Black text positioned below the node with hover scaling
+    const isHovered = hoveredNode && hoveredNode.id === node.id
+    const hoverScale = 1.2
     const textScale = isHovered ? hoverScale * 0.5 + 0.5 : 1 // Even more subtle text scaling
     const scaledFontSize = fontSize * textScale
     
@@ -139,6 +211,22 @@ const ArticleClusterGraphObsidian = ({ article }) => {
     }
   }
 
+  if (hasError) {
+    return (
+      <div className="relative w-full h-48 bg-gray-50 rounded-lg border border-gray-200 overflow-hidden flex items-center justify-center">
+        <div className="text-center text-gray-500">
+          <p className="text-sm">Unable to load graph</p>
+          <button 
+            onClick={() => setHasError(false)}
+            className="text-xs text-purple-600 hover:text-purple-700 mt-1"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div 
       className="relative w-full h-48 bg-gray-50 rounded-lg border border-gray-200 overflow-hidden"
@@ -147,6 +235,16 @@ const ArticleClusterGraphObsidian = ({ article }) => {
       onWheel={(e) => e.stopPropagation()}
       onPointerDown={(e) => e.stopPropagation()}
     >
+      {/* Loading indicator */}
+      {!isInitialized && (
+        <div className="absolute inset-0 bg-gray-50 bg-opacity-75 flex items-center justify-center z-20">
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <div className="w-3 h-3 border-2 border-gray-300 border-t-purple-600 rounded-full animate-spin"></div>
+            <span>Loading graph...</span>
+          </div>
+        </div>
+      )}
+
       {/* Interaction hints */}
       <div className="absolute top-2 right-2 z-10 flex items-center gap-2 text-xs text-gray-400">
         <span>click</span>
@@ -154,70 +252,101 @@ const ArticleClusterGraphObsidian = ({ article }) => {
         <span>drag</span>
       </div>
 
-      <ForceGraph2D
-        ref={graphRef}
-        graphData={graphData}
-        nodeCanvasObject={nodeCanvasObject}
-        width={300}
-        height={192}
-        nodeRelSize={2} // Increase hover detection area
-        backgroundColor="#f9fafb"
-        linkColor={(link) => {
-          const opacity = linkOpacities.get(link) || 0
-          if (opacity > 0) {
-            // Interpolate between gray and purple based on opacity
-            const r = Math.round(229 + (124 - 229) * opacity) // E5 -> 7C
-            const g = Math.round(231 + (58 - 231) * opacity)   // E7 -> 3A
-            const b = Math.round(235 + (237 - 235) * opacity)  // EB -> ED
-            return `rgb(${r}, ${g}, ${b})`
-          }
-          return '#E5E7EB'
-        }}
-        linkWidth={1.5}
-        enableZoomInteraction={true}
-        enablePointerInteraction={true}
-        enablePanInteraction={true}
-        enableNodeDrag={true}
-        showNavInfo={false}
-        cooldownTicks={100}
-        d3AlphaDecay={0.02} // Slower decay for nice jiggling
-        d3VelocityDecay={0.3} // Less velocity decay for more bounce
-        nodeLabel={() => ''} // Remove hover labels
-        onNodeHover={(node) => {
-          document.body.style.cursor = node ? 'pointer' : 'default'
-        }}
-        onNodeClick={(node) => {
-          if (node && node.type === 'stock') {
-            // Open Yahoo Finance page for the stock ticker
-            const yahooUrl = `https://finance.yahoo.com/quote/${node.name}`
-            window.open(yahooUrl, '_blank')
-          } else if (node && node.type === 'article' && article?.url) {
-            // Open the original article URL
-            window.open(article.url, '_blank')
-          }
-        }}
-        nodePointerAreaPaint={(node, color, ctx) => {
-          // Create larger invisible hover area
-          ctx.fillStyle = color
-          ctx.beginPath()
-          ctx.arc(node.x, node.y, node.val * 1.5, 0, 2 * Math.PI, false) // 1.5x larger hover area
-          ctx.fill()
-        }}
-        onNodeDrag={(node) => {
-          // Add some dampening for smooth dragging
-          if (node) {
-            node.fx = node.x
-            node.fy = node.y
-          }
-        }}
-        onNodeDragEnd={(node) => {
-          // Release fixed position after drag
-          if (node) {
-            node.fx = undefined
-            node.fy = undefined
-          }
-        }}
-      />
+      {(() => {
+        try {
+          return (
+            <ForceGraph2D
+              ref={graphRef}
+              graphData={graphData}
+              nodeCanvasObject={nodeCanvasObject}
+              width={300}
+              height={192}
+              nodeRelSize={2} // Increase hover detection area
+              backgroundColor="#f9fafb"
+              linkColor={(link) => {
+                const opacity = linkOpacities.get(link) || 0
+                if (opacity > 0) {
+                  // Interpolate between gray and purple based on opacity
+                  const r = Math.round(229 + (124 - 229) * opacity) // E5 -> 7C
+                  const g = Math.round(231 + (58 - 231) * opacity)   // E7 -> 3A
+                  const b = Math.round(235 + (237 - 235) * opacity)  // EB -> ED
+                  return `rgb(${r}, ${g}, ${b})`
+                }
+                return '#E5E7EB'
+              }}
+              linkWidth={1.5}
+              enableZoomInteraction={true}
+              enablePointerInteraction={true}
+              enablePanInteraction={true}
+              enableNodeDrag={true}
+              showNavInfo={false}
+              cooldownTicks={isInitialized ? 100 : 300}
+              d3AlphaDecay={isInitialized ? 0.02 : 0.05} // Faster initial settling
+              d3VelocityDecay={isInitialized ? 0.3 : 0.4} // More damping initially
+              nodeLabel={() => ''} // Remove hover labels
+              onNodeHover={(node) => {
+                try {
+                  setHoveredNode(node)
+                  document.body.style.cursor = node ? 'pointer' : 'default'
+                } catch (error) {
+                  console.error('Error in onNodeHover:', error)
+                }
+              }}
+              onNodeClick={(node) => {
+                try {
+                  if (node && node.type === 'stock') {
+                    // Open Yahoo Finance page for the stock ticker
+                    const yahooUrl = `https://finance.yahoo.com/quote/${node.name}`
+                    window.open(yahooUrl, '_blank')
+                  } else if (node && node.type === 'article' && article?.url) {
+                    // Open the original article URL
+                    window.open(article.url, '_blank')
+                  }
+                } catch (error) {
+                  console.error('Error in onNodeClick:', error)
+                }
+              }}
+              nodePointerAreaPaint={(node, color, ctx) => {
+                try {
+                  // Create larger invisible hover area
+                  ctx.fillStyle = color
+                  ctx.beginPath()
+                  ctx.arc(node.x, node.y, node.val * 1.5, 0, 2 * Math.PI, false) // 1.5x larger hover area
+                  ctx.fill()
+                } catch (error) {
+                  console.error('Error in nodePointerAreaPaint:', error)
+                }
+              }}
+              onNodeDrag={(node) => {
+                try {
+                  // Add some dampening for smooth dragging
+                  if (node) {
+                    node.fx = node.x
+                    node.fy = node.y
+                  }
+                } catch (error) {
+                  console.error('Error in onNodeDrag:', error)
+                }
+              }}
+              onNodeDragEnd={(node) => {
+                try {
+                  // Release fixed position after drag
+                  if (node) {
+                    node.fx = undefined
+                    node.fy = undefined
+                  }
+                } catch (error) {
+                  console.error('Error in onNodeDragEnd:', error)
+                }
+              }}
+            />
+          )
+        } catch (error) {
+          console.error('Error rendering ForceGraph2D:', error)
+          setHasError(true)
+          return null
+        }
+      })()}
     </div>
   )
 }

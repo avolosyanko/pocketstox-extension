@@ -1,5 +1,5 @@
 import React, { memo, useState, useRef, useEffect } from 'react'
-import { Star, User, Menu, X, Settings, HelpCircle, ExternalLink, Download, History } from 'lucide-react'
+import { Star, User, Menu, X, HelpCircle } from 'lucide-react'
 import { semanticTypography, componentSpacing } from '@/styles/typography'
 import { cn } from '@/lib/utils'
 
@@ -11,7 +11,7 @@ const NavigationHeader = memo(({ activeTab, onTabChange }) => {
     {
       id: 'articles',
       label: 'Discover',
-      description: 'Market awareness for your reading habits.',
+      description: 'Market awareness for your reading',
       icon: Star
     },
     {
@@ -125,13 +125,13 @@ const NavigationHeader = memo(({ activeTab, onTabChange }) => {
                       key={tab.id}
                       onClick={() => handleNavTabChange(tab.id)}
                       className={cn(
-                        "w-full flex items-center gap-3 px-3 py-3 text-left rounded-lg transition-colors",
+                        "w-full flex items-start gap-3 px-3 py-3 text-left rounded-lg transition-colors",
                         isActive 
                           ? 'bg-purple-50 text-purple-700 border border-purple-200'
                           : 'text-gray-700 hover:bg-gray-50 border border-transparent'
                       )}
                     >
-                      <Icon size={18} strokeWidth={2} className="flex-shrink-0" />
+                      <Icon size={18} strokeWidth={2} className="flex-shrink-0 mt-1" />
                       <div className="min-w-0 flex-1">
                         <div className={cn("text-sm font-medium", isActive ? "text-purple-700" : "text-gray-900")}>
                           {tab.label}
@@ -161,9 +161,9 @@ const NavigationHeader = memo(({ activeTab, onTabChange }) => {
                         action.action()
                         setIsMenuOpen(false)
                       }}
-                      className="w-full flex items-center gap-3 px-3 py-3 text-left rounded-lg transition-colors border border-transparent text-gray-700 hover:bg-gray-50"
+                      className="w-full flex items-start gap-3 px-3 py-3 text-left rounded-lg transition-colors border border-transparent text-gray-700 hover:bg-gray-50"
                     >
-                      <Icon size={18} strokeWidth={2} className="flex-shrink-0" />
+                      <Icon size={18} strokeWidth={2} className="flex-shrink-0 mt-1" />
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium text-gray-900">
                           {action.label}

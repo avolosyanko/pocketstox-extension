@@ -1,10 +1,35 @@
-import React, { memo } from 'react'
+import React, { memo, useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { User, Check, BarChart3, TrendingUp, Moon, Activity } from 'lucide-react'
+import { User, Check, BarChart3, TrendingUp, Layers, PieChart } from 'lucide-react'
 import { semanticTypography } from '@/styles/typography'
 import { cn } from '@/lib/utils'
 
 const AccountTab = memo(() => {
+  const [remainingAnalyses, setRemainingAnalyses] = useState(5)
+  const [usageStats, setUsageStats] = useState({ today: 0, total: 0 })
+  
+  // Load usage statistics
+  useEffect(() => {
+    const loadUsageData = async () => {
+      try {
+        if (window.extensionServices && window.extensionServices.storage) {
+          const stats = await window.extensionServices.storage.getUsageStats()
+          setUsageStats(stats)
+          const remaining = Math.max(0, 5 - (stats.today || 0))
+          setRemainingAnalyses(remaining)
+        }
+      } catch (error) {
+        console.error('Failed to load usage data:', error)
+      }
+    }
+    
+    loadUsageData()
+    
+    // Set up interval to refresh usage data periodically
+    const interval = setInterval(loadUsageData, 5000) // Refresh every 5 seconds
+    
+    return () => clearInterval(interval)
+  }, [])
   return (
     <div>
       {/* User Details Header */}
@@ -84,63 +109,51 @@ const AccountTab = memo(() => {
             </div>
             <div className="flex-1">
               <h3 className="text-sm font-medium text-gray-900">Daily Usage</h3>
-              <p className={`${semanticTypography.secondaryText}`}>5 analyses remaining today</p>
+              <p className={`${semanticTypography.secondaryText}`}>{remainingAnalyses} analyses remaining today</p>
             </div>
           </div>
           {/* Progress bar under both icon and text */}
           <div className="w-full">
             <div className="w-full bg-gray-200 rounded-full h-1.5">
-              <div className="bg-purple-600 h-1.5 rounded-full w-0"></div>
+              <div 
+                className="bg-purple-600 h-1.5 rounded-full transition-all duration-300" 
+                style={{ width: `${(usageStats.today / 5) * 100}%` }}
+              ></div>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Coming Soon Header */}
-      <div className="mt-1 mb-3 flex items-center px-1">
+      <div className="mt-4 mb-3 flex items-center px-1">
         <h2 className={cn(semanticTypography.cardTitle)}>Coming Soon</h2>
       </div>
+      
+      {/* Pattern Analytics */}
+      <Card className="bg-transparent border border-gray-200 mb-3">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+              <Layers size={16} className="text-gray-500" strokeWidth={2} />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-gray-900">Pattern Detection</h3>
+              <p className={`${semanticTypography.secondaryText}`}>Analytics across your entire reading history</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
       
       {/* Portfolio Tracking */}
       <Card className="bg-transparent border border-gray-200 mb-3">
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
-              <TrendingUp size={16} className="text-gray-500" strokeWidth={2} />
+              <PieChart size={16} className="text-gray-500" strokeWidth={2} />
             </div>
             <div className="flex-1">
               <h3 className="text-sm font-medium text-gray-900">Portfolio Tracking</h3>
               <p className={`${semanticTypography.secondaryText}`}>Connect your portfolio with Pocketstox</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      
-      {/* Dark Mode */}
-      <Card className="bg-transparent border border-gray-200 mb-3">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
-              <Moon size={16} className="text-gray-500" strokeWidth={2} />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-medium text-gray-900">Dark Mode</h3>
-              <p className={`${semanticTypography.secondaryText}`}>Switch between light and dark themes</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      
-      {/* Pattern Analytics */}
-      <Card className="bg-transparent border border-gray-200">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
-              <Activity size={16} className="text-gray-500" strokeWidth={2} />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-medium text-gray-900">Pattern Analytics</h3>
-              <p className={`${semanticTypography.secondaryText}`}>Advanced chart pattern recognition</p>
             </div>
           </div>
         </CardContent>

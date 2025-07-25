@@ -1,7 +1,7 @@
 import React, { useState, useEffect, memo, useImperativeHandle, forwardRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
-import { FileText, X, Sparkles, Search, Edit2, Save, XCircle, Info } from 'lucide-react'
+import { FileText, Search, Edit2, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { semanticTypography, componentSpacing, spacing } from '@/styles/typography'
 
@@ -12,6 +12,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   const [expandedArticle, setExpandedArticle] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [identifiedArticle, setIdentifiedArticle] = useState(null)
+  const [extractedContent, setExtractedContent] = useState(null)
   const [isEditing, setIsEditing] = useState(false)
   const [editedTitle, setEditedTitle] = useState('')
   const [editedContent, setEditedContent] = useState('')
@@ -23,6 +24,23 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   const [loadMoreCount, setLoadMoreCount] = useState(10) // Initial load count
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [remainingAnalyses, setRemainingAnalyses] = useState(5)
+  
+  // Load remaining analyses from storage
+  useEffect(() => {
+    const loadUsageStats = async () => {
+      try {
+        if (window.extensionServices && window.extensionServices.storage) {
+          const stats = await window.extensionServices.storage.getUsageStats()
+          const remaining = Math.max(0, 5 - (stats.today || 0))
+          setRemainingAnalyses(remaining)
+        }
+      } catch (error) {
+        console.error('Failed to load usage stats:', error)
+      }
+    }
+    
+    loadUsageStats()
+  }, [])
   
   // Detect platform for keyboard shortcut display
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
@@ -246,8 +264,14 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   }, [])
 
   // Handle manual step progression
-  const handleRunStep = () => {
+  const handleRunStep = async () => {
     if (currentStep === 0) {
+      // Check usage limit before starting analysis
+      if (remainingAnalyses <= 0) {
+        alert('Daily analysis limit reached. You have 0 analyses remaining today.')
+        return
+      }
+      
       // Run Parse Input Article
       setDetectionState('scanning')
       setExtractionStages(prev => ({
@@ -255,49 +279,126 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         parsing: { ...prev.parsing, status: 'active' }
       }))
       
-      // Mock article identification
-      const mockIdentifiedArticle = {
-        title: "Tesla Reports Strong Q4 Earnings Beat",
-        content: "Tesla Inc. reported fourth-quarter earnings that exceeded Wall Street expectations, driven by strong vehicle deliveries and improved margins. The company delivered 484,507 vehicles in Q4, up 20% year-over-year, while automotive gross margins improved to 18.9%. CEO Elon Musk highlighted the company's progress in autonomous driving technology and energy storage solutions during the earnings call. The electric vehicle manufacturer also announced plans for expanding production capacity and reducing costs through manufacturing improvements.",
-        url: "https://example.com/tesla-q4-earnings",
-        domain: "example.com",
-        pageTitle: "Tesla Q4 2024 Earnings: Strong Performance Despite Market Challenges",
-        favicon: "https://www.google.com/s2/favicons?sz=16&domain=example.com",
-        wordCount: 142,
-        readingTime: 1,
-        confidenceScore: 92,
-        entities: ['Tesla', 'Elon Musk', 'Q4 2024'],
-        detectedAt: new Date(),
-        identified: true
-      }
-      
-      // Simulate parsing completion
-      setTimeout(() => {
+      // Extract content only (no API call, no token usage)
+      try {
+        if (window.extensionServices && window.extensionServices.api) {
+          console.log('Starting content extraction...')
+          const result = await window.extensionServices.api.extractContent()
+          
+          console.log('Content extracted:', result)
+          
+          if (result && result.title) {
+            // Store extracted content for later analysis
+            setExtractedContent(result)
+            
+            // Create article preview from extracted content
+            const previewArticle = {
+              title: result.title,
+              content: result.content || result.title || "Article content",
+              url: window.currentArticleUrl || "",
+              domain: window.currentArticleUrl ? window.currentArticleUrl.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '') : "unknown",
+              pageTitle: result.title,
+              favicon: window.currentArticleUrl ? `https://www.google.com/s2/favicons?sz=16&domain=${window.currentArticleUrl.replace(/^https?:\/\//, '').split('/')[0]}` : null,
+              wordCount: result.content ? result.content.split(' ').length : 0,
+              readingTime: result.content ? Math.ceil(result.content.split(' ').length / 200) : 1,
+              confidenceScore: 95,
+              entities: [],
+              detectedAt: new Date(),
+              identified: true,
+              matches: []
+            }
+            
+            setExtractionStages(prev => ({
+              ...prev,
+              parsing: { ...prev.parsing, status: 'completed' }
+            }))
+            setDetectionState('hold')
+            setIdentifiedArticle(previewArticle)
+            setCurrentStep(1)
+          } else {
+            throw new Error('No content extracted')
+          }
+        } else {
+          throw new Error('Extension services not available')
+        }
+      } catch (error) {
+        console.error('Content extraction failed:', error)
+        
+        // Show error state
         setExtractionStages(prev => ({
           ...prev,
-          parsing: { ...prev.parsing, status: 'completed' }
+          parsing: { ...prev.parsing, status: 'error' }
         }))
-        setDetectionState('hold')
-        setIdentifiedArticle(mockIdentifiedArticle)
-        setCurrentStep(1)
-      }, 2000)
+        setDetectionState('error')
+        
+        // Show error message to user
+        alert(`Content extraction failed: ${error.message}`)
+      }
     } else if (currentStep === 1) {
-      // Run Analysis Generation
+      // Check usage limit before starting analysis
+      if (remainingAnalyses <= 0) {
+        alert('Daily analysis limit reached. You have 0 analyses remaining today.')
+        return
+      }
+      
+      // Run actual analysis with extracted content (this will use a token)
       setDetectionState('scanning')
       setExtractionStages(prev => ({
         ...prev,
         analysis: { ...prev.analysis, status: 'active' }
       }))
       
-      // Simulate analysis completion
-      setTimeout(() => {
+      try {
+        if (window.extensionServices && window.extensionServices.api && extractedContent) {
+          console.log('Starting analysis generation...')
+          const result = await window.extensionServices.api.analyzeArticle(extractedContent.title, extractedContent.content)
+          
+          console.log('Analysis result:', result)
+          
+          if (result) {
+            // Update article with analysis results
+            const analyzedArticle = {
+              ...identifiedArticle,
+              matches: result.matches || [],
+              entities: result.matches ? result.matches.map(m => m.company || m.ticker) : []
+            }
+            
+            setExtractionStages(prev => ({
+              ...prev,
+              analysis: { ...prev.analysis, status: 'completed' }
+            }))
+            setDetectionState('ready')
+            setIdentifiedArticle(analyzedArticle)
+            setCurrentStep(2)
+            
+            // Update remaining analyses count after token usage
+            const updatedStats = await window.extensionServices.storage.getUsageStats()
+            const remaining = Math.max(0, 5 - (updatedStats.today || 0))
+            setRemainingAnalyses(remaining)
+            
+            // Refresh articles list to show new analysis
+            const updatedArticles = await window.extensionServices.storage.getArticles()
+            setArticles(updatedArticles || [])
+            setDisplayedArticles(updatedArticles?.slice(0, loadMoreCount) || [])
+          } else {
+            throw new Error('No analysis results returned')
+          }
+        } else {
+          throw new Error('Extension services not available or no extracted content')
+        }
+      } catch (error) {
+        console.error('Analysis generation failed:', error)
+        
+        // Show error state
         setExtractionStages(prev => ({
           ...prev,
-          analysis: { ...prev.analysis, status: 'completed' }
+          analysis: { ...prev.analysis, status: 'error' }
         }))
-        setDetectionState('ready')
-        setCurrentStep(2)
-      }, 2000)
+        setDetectionState('error')
+        
+        // Show error message to user
+        alert(`Analysis generation failed: ${error.message}`)
+      }
     }
   }
 

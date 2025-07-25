@@ -140,14 +140,28 @@ class StorageManager {
     }
 
     async getUsageData() {
-        const result = await chrome.storage.local.get([this.USAGE_KEY]);
-        const today = new Date().toDateString();
+        // Check both local and sync storage
+        const [localResult, syncResult] = await Promise.all([
+            chrome.storage.local.get([this.USAGE_KEY]),
+            chrome.storage.sync.get([`${this.USAGE_KEY}_backup`])
+        ]);
         
-        if (!result[this.USAGE_KEY] || result[this.USAGE_KEY].date !== today) {
-            return { date: today, count: 0 };
+        const today = new Date().toDateString();
+        const localUsage = localResult[this.USAGE_KEY];
+        const syncUsage = syncResult[`${this.USAGE_KEY}_backup`];
+        
+        // Use the higher count from either storage (prevents easy reset)
+        let usage = { date: today, count: 0 };
+        
+        if (localUsage && localUsage.date === today) {
+            usage = localUsage;
         }
         
-        return result[this.USAGE_KEY];
+        if (syncUsage && syncUsage.date === today && syncUsage.count > usage.count) {
+            usage = syncUsage;
+        }
+        
+        return usage;
     }
 
     async canAnalyze() {
@@ -158,13 +172,20 @@ class StorageManager {
     async incrementUsage() {
         const usage = await this.getUsageData();
         const today = new Date().toDateString();
+        const installId = await this.getInstallId();
         
         const newUsage = {
             date: today,
-            count: usage.date === today ? usage.count + 1 : 1
+            count: usage.date === today ? usage.count + 1 : 1,
+            installId: installId // Link usage to install
         };
         
-        await chrome.storage.local.set({ [this.USAGE_KEY]: newUsage });
+        // Store in both local and sync for redundancy
+        await Promise.all([
+            chrome.storage.local.set({ [this.USAGE_KEY]: newUsage }),
+            chrome.storage.sync.set({ [`${this.USAGE_KEY}_backup`]: newUsage })
+        ]);
+        
         return newUsage;
     }
 

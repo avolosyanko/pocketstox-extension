@@ -49,76 +49,72 @@ window.extensionServices = {
         }
     },
     api: {
-        analyzeArticle: async () => {
-            try {
-                // Check usage limit first
-                if (storageManager) {
-                    const stats = await storageManager.getUsageStats();
-                    if (stats.limitReached) {
-                        throw new Error('Daily limit reached. Please upgrade to continue.');
+        extractContent: async () => {
+            // Content extraction without token usage
+            return new Promise((resolve, reject) => {
+                // Set up message listener for content extraction
+                const messageListener = (message, sender, sendResponse) => {
+                    if (message.action === 'contentExtracted') {
+                        chrome.runtime.onMessage.removeListener(messageListener);
+                        
+                        const { title, content } = message;
+                        console.log('Content extracted:', { 
+                            titleLength: title ? title.length : 0, 
+                            contentLength: content ? content.length : 0 
+                        });
+                        
+                        // Return extracted content without API call
+                        resolve({ title, content });
                     }
-                }
+                };
                 
-                return new Promise((resolve, reject) => {
-                    // Set up message listener for content extraction
-                    const messageListener = (message, sender, sendResponse) => {
-                        if (message.action === 'contentExtracted') {
-                            chrome.runtime.onMessage.removeListener(messageListener);
-                            
-                            const { title, content } = message;
-                            console.log('Content extracted:', { 
-                                titleLength: title ? title.length : 0, 
-                                contentLength: content ? content.length : 0 
-                            });
-                            
-                            // Call the API with extracted content
-                            if (typeof analyzeArticle !== 'undefined') {
-                                analyzeArticle(title, content).then(async (result) => {
-                                    // Save the analysis using StorageManager
-                                    if (storageManager && result) {
-                                        await storageManager.saveAnalysis({
-                                            title: title,
-                                            url: window.currentArticleUrl || '',
-                                            matches: result.matches || [],
-                                            content: content
-                                        });
-                                        // Increment usage count
-                                        await storageManager.incrementUsage();
-                                    }
-                                    resolve(result);
-                                }).catch(reject);
-                            } else {
-                                reject(new Error('analyzeArticle function not found'));
-                            }
-                        }
-                    };
-                    
-                    chrome.runtime.onMessage.addListener(messageListener);
-                    
-                    // Execute content extraction scripts
-                    chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-                        if (tabs[0]) {
-                            window.currentArticleUrl = tabs[0].url;
-                            window.currentArticleTitle = tabs[0].title;
-                            
-                            chrome.scripting.executeScript({
+                chrome.runtime.onMessage.addListener(messageListener);
+                
+                // Execute content extraction scripts
+                chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+                    if (tabs[0]) {
+                        window.currentArticleUrl = tabs[0].url;
+                        window.currentArticleTitle = tabs[0].title;
+                        
+                        chrome.scripting.executeScript({
+                            target: {tabId: tabs[0].id},
+                            files: ['src/lib/Readability.min.js']
+                        }).then(() => {
+                            return chrome.scripting.executeScript({
                                 target: {tabId: tabs[0].id},
-                                files: ['src/lib/Readability.min.js']
-                            }).then(() => {
-                                return chrome.scripting.executeScript({
-                                    target: {tabId: tabs[0].id},
-                                    files: ['src/content/content.js']
-                                });
-                            }).catch((error) => {
-                                chrome.runtime.onMessage.removeListener(messageListener);
-                                reject(error);
+                                files: ['src/content/content.js']
                             });
-                        } else {
+                        }).catch((error) => {
                             chrome.runtime.onMessage.removeListener(messageListener);
-                            reject(new Error('No active tab found'));
-                        }
-                    });
+                            reject(error);
+                        });
+                    } else {
+                        chrome.runtime.onMessage.removeListener(messageListener);
+                        reject(new Error('No active tab found'));
+                    }
                 });
+            });
+        },
+        analyzeArticle: async (title, content) => {
+            try {
+                // Call the API with provided content (will increment usage)
+                if (typeof analyzeArticle !== 'undefined') {
+                    const result = await analyzeArticle(title, content, true);
+                    
+                    // Save the analysis using StorageManager
+                    if (storageManager && result) {
+                        await storageManager.saveAnalysis({
+                            title: title,
+                            url: window.currentArticleUrl || '',
+                            matches: result.matches || [],
+                            content: content
+                        });
+                    }
+                    
+                    return result;
+                } else {
+                    throw new Error('analyzeArticle function not found');
+                }
             } catch (error) {
                 console.error('Article analysis failed:', error);
                 throw error;
@@ -215,6 +211,51 @@ window.extensionServices = {
             } catch (error) {
                 console.error('Get usage count failed:', error);
                 return 0;
+            }
+        },
+        getUsageStats: async () => {
+            try {
+                if (storageManager) {
+                    return await storageManager.getUsageStats();
+                }
+                
+                // Mock usage stats for development
+                return {
+                    total: 15,
+                    today: 2,
+                    remaining: 3,
+                    limitReached: false,
+                    isPremium: false
+                };
+            } catch (error) {
+                console.error('Get usage stats failed:', error);
+                return {
+                    total: 0,
+                    today: 0,
+                    remaining: 5,
+                    limitReached: false,
+                    isPremium: false
+                };
+            }
+        },
+        resetDailyUsage: async () => {
+            try {
+                if (storageManager) {
+                    // Reset usage to 0 for today using the correct storage key
+                    const today = new Date().toDateString();
+                    await chrome.storage.local.set({
+                        'pocketstox_usage': {
+                            count: 0,
+                            date: today
+                        }
+                    });
+                    console.log('Daily usage reset to 0 for', today);
+                    return true;
+                }
+                return false;
+            } catch (error) {
+                console.error('Reset daily usage failed:', error);
+                return false;
             }
         }
     }
