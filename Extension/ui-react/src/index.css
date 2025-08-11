@@ -38,6 +38,13 @@
       transform: scale(1);
     }
   }
+  
+  .jump {
+    animation: jump 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    animation-fill-mode: both;
+    animation-iteration-count: 1;
+    will-change: transform;
+  }
 }
 
 /* Chrome Extension specific styles */

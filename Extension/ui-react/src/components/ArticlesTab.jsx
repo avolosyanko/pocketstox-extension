@@ -24,6 +24,9 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   const [loadMoreCount, setLoadMoreCount] = useState(10) // Initial load count
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [remainingAnalyses, setRemainingAnalyses] = useState(5)
+  const [parsingCancelled, setParsingCancelled] = useState(false)
+  const [parsingTimeoutId, setParsingTimeoutId] = useState(null)
+  const [analysisCancelled, setAnalysisCancelled] = useState(false)
   
   // Load remaining analyses from storage
   useEffect(() => {
@@ -236,15 +239,9 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         
         const articleData = await window.extensionServices.storage.getArticles()
         
-        // Add mock sentiment data for demonstration
-        const articlesWithMockData = (articleData || []).map((article, idx) => ({
-          ...article,
-          sentiment: idx % 3 === 0 ? 'positive' : idx % 3 === 1 ? 'negative' : 'neutral'
-        }))
-        
         if (isMounted) {
-          setArticles(articlesWithMockData)
-          setDisplayedArticles(articlesWithMockData.slice(0, loadMoreCount))
+          setArticles(articleData || [])
+          setDisplayedArticles((articleData || []).slice(0, loadMoreCount))
           setIsLoading(false)
         }
       } catch (error) {
@@ -263,6 +260,15 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     }
   }, [])
 
+  // Cleanup parsing timeout on component unmount
+  useEffect(() => {
+    return () => {
+      if (parsingTimeoutId) {
+        clearTimeout(parsingTimeoutId)
+      }
+    }
+  }, [parsingTimeoutId])
+
   // Handle manual step progression
   const handleRunStep = async () => {
     if (currentStep === 0) {
@@ -272,68 +278,81 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         return
       }
       
-      // Run Parse Input Article
+      // Run Parse Input Article with 3-second loading animation
       setDetectionState('scanning')
+      setParsingCancelled(false)
       setExtractionStages(prev => ({
         ...prev,
         parsing: { ...prev.parsing, status: 'active' }
       }))
       
-      // Extract content only (no API call, no token usage)
-      try {
-        if (window.extensionServices && window.extensionServices.api) {
-          console.log('Starting content extraction...')
-          const result = await window.extensionServices.api.extractContent()
-          
-          console.log('Content extracted:', result)
-          
-          if (result && result.title) {
-            // Store extracted content for later analysis
-            setExtractedContent(result)
-            
-            // Create article preview from extracted content
-            const previewArticle = {
-              title: result.title,
-              content: result.content || result.title || "Article content",
-              url: window.currentArticleUrl || "",
-              domain: window.currentArticleUrl ? window.currentArticleUrl.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '') : "unknown",
-              pageTitle: result.title,
-              favicon: window.currentArticleUrl ? `https://www.google.com/s2/favicons?sz=16&domain=${window.currentArticleUrl.replace(/^https?:\/\//, '').split('/')[0]}` : null,
-              wordCount: result.content ? result.content.split(' ').length : 0,
-              readingTime: result.content ? Math.ceil(result.content.split(' ').length / 200) : 1,
-              confidenceScore: 95,
-              entities: [],
-              detectedAt: new Date(),
-              identified: true,
-              matches: []
-            }
-            
-            setExtractionStages(prev => ({
-              ...prev,
-              parsing: { ...prev.parsing, status: 'completed' }
-            }))
-            setDetectionState('hold')
-            setIdentifiedArticle(previewArticle)
-            setCurrentStep(1)
-          } else {
-            throw new Error('No content extracted')
-          }
-        } else {
-          throw new Error('Extension services not available')
+      // Start the 3-second loading animation
+      const timeoutId = setTimeout(async () => {
+        // Check if parsing was cancelled during the timeout
+        if (parsingCancelled) {
+          return
         }
-      } catch (error) {
-        console.error('Content extraction failed:', error)
         
-        // Show error state
-        setExtractionStages(prev => ({
-          ...prev,
-          parsing: { ...prev.parsing, status: 'error' }
-        }))
-        setDetectionState('error')
-        
-        // Show error message to user
-        alert(`Content extraction failed: ${error.message}`)
-      }
+        // Extract content only (no API call, no token usage)
+        try {
+          if (window.extensionServices && window.extensionServices.api) {
+            console.log('Starting content extraction...')
+            const result = await window.extensionServices.api.extractContent()
+            
+            console.log('Content extracted:', result)
+            
+            if (result && result.title) {
+              // Store extracted content for later analysis
+              setExtractedContent(result)
+              
+              // Create article preview from extracted content
+              const previewArticle = {
+                title: result.title,
+                content: result.content || result.title || "Article content",
+                url: window.currentArticleUrl || "",
+                domain: window.currentArticleUrl ? window.currentArticleUrl.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '') : "unknown",
+                pageTitle: result.title,
+                favicon: window.currentArticleUrl ? `https://www.google.com/s2/favicons?sz=16&domain=${window.currentArticleUrl.replace(/^https?:\/\//, '').split('/')[0]}` : null,
+                wordCount: result.content ? result.content.split(' ').length : 0,
+                readingTime: result.content ? Math.ceil(result.content.split(' ').length / 200) : 1,
+                confidenceScore: 95,
+                entities: [],
+                detectedAt: new Date(),
+                identified: true,
+                matches: []
+              }
+              
+              setExtractionStages(prev => ({
+                ...prev,
+                parsing: { ...prev.parsing, status: 'completed' }
+              }))
+              setDetectionState('hold')
+              setIdentifiedArticle(previewArticle)
+              setCurrentStep(1)
+              setParsingTimeoutId(null)
+            } else {
+              throw new Error('No content extracted')
+            }
+          } else {
+            throw new Error('Extension services not available')
+          }
+        } catch (error) {
+          console.error('Content extraction failed:', error)
+          
+          // Show error state
+          setExtractionStages(prev => ({
+            ...prev,
+            parsing: { ...prev.parsing, status: 'error' }
+          }))
+          setDetectionState('error')
+          setParsingTimeoutId(null)
+          
+          // Show error message to user
+          alert(`Content extraction failed: ${error.message}`)
+        }
+      }, 3000) // 3 second delay
+      
+      setParsingTimeoutId(timeoutId)
     } else if (currentStep === 1) {
       // Check usage limit before starting analysis
       if (remainingAnalyses <= 0) {
@@ -343,10 +362,14 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       
       // Run actual analysis with extracted content (this will use a token)
       setDetectionState('scanning')
+      setAnalysisCancelled(false)
       setExtractionStages(prev => ({
         ...prev,
         analysis: { ...prev.analysis, status: 'active' }
       }))
+      
+      // Ensure minimum 3-second loading duration for consistent UX
+      const startTime = Date.now()
       
       try {
         if (window.extensionServices && window.extensionServices.api && extractedContent) {
@@ -354,6 +377,20 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
           const result = await window.extensionServices.api.analyzeArticle(extractedContent.title, extractedContent.content)
           
           console.log('Analysis result:', result)
+          
+          // Calculate remaining time to ensure 3-second minimum
+          const elapsedTime = Date.now() - startTime
+          const remainingTime = Math.max(0, 3000 - elapsedTime)
+          
+          // Wait for remaining time if needed
+          if (remainingTime > 0) {
+            await new Promise(resolve => setTimeout(resolve, remainingTime))
+          }
+          
+          // Check if analysis was cancelled during the wait
+          if (analysisCancelled) {
+            return
+          }
           
           if (result) {
             // Update article with analysis results
@@ -388,6 +425,14 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         }
       } catch (error) {
         console.error('Analysis generation failed:', error)
+        
+        // Ensure minimum 3-second loading duration even on error
+        const elapsedTime = Date.now() - startTime
+        const remainingTime = Math.max(0, 3000 - elapsedTime)
+        
+        if (remainingTime > 0) {
+          await new Promise(resolve => setTimeout(resolve, remainingTime))
+        }
         
         // Show error state
         setExtractionStages(prev => ({
@@ -500,7 +545,35 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     )
   }
 
+  const handleCancelParsing = () => {
+    if (parsingTimeoutId) {
+      clearTimeout(parsingTimeoutId)
+      setParsingTimeoutId(null)
+    }
+    setParsingCancelled(true)
+    setDetectionState('hold')
+    setExtractionStages(prev => ({
+      ...prev,
+      parsing: { ...prev.parsing, status: 'waiting' }
+    }))
+  }
+
+  const handleCancelAnalysis = () => {
+    setAnalysisCancelled(true)
+    setDetectionState('hold')
+    setExtractionStages(prev => ({
+      ...prev,
+      analysis: { ...prev.analysis, status: 'waiting' }
+    }))
+  }
+
   const handleReset = () => {
+    // Clear any parsing timeout
+    if (parsingTimeoutId) {
+      clearTimeout(parsingTimeoutId)
+      setParsingTimeoutId(null)
+    }
+    
     // Clear sessionStorage
     sessionStorage.removeItem('pipelineState')
     
@@ -511,6 +584,8 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     setIsEditing(false)
     setEditedTitle('')
     setEditedContent('')
+    setParsingCancelled(false)
+    setAnalysisCancelled(false)
     
     // Reset extraction stages to initial state
     setExtractionStages({
@@ -867,51 +942,71 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                     
                     <div className="flex items-start gap-4 p-3 relative">
                       {/* Stage Icon */}
-                      <div className={cn(
-                        "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 relative z-10 transition-colors",
-                        isCompleted && "bg-green-500",
-                        isActive && "bg-purple-600",
-                        isReady && "bg-green-500",
-                        isError && "bg-red-500",
-                        isWaiting && "bg-gray-300",
-                        // Show pause icon for next step when waiting
-                        detectionState === 'hold' && index === currentStep && "cursor-pointer hover:brightness-110"
-                      )}
-                      onClick={detectionState === 'hold' && index === currentStep ? handleRunStep : undefined}
-                      style={{
-                        cursor: detectionState === 'hold' && index === currentStep ? 'pointer' : 'default',
-                        backgroundColor: detectionState === 'hold' && index === currentStep ? '#9333EA' : undefined
-                      }}
-                      >
-                        {isCompleted && (
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                            <path d="M9 12l2 2 4-4" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        )}
+                      <div className="relative w-8 h-8 flex items-center justify-center flex-shrink-0">
+                        {/* Spinning border for active state - perfectly centered */}
                         {isActive && (
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <div className="absolute inset-0 w-8 h-8 border-2 border-transparent border-t-purple-600 rounded-full animate-spin"></div>
                         )}
-                        {isReady && (
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                            <path d="M9 12l2 2 4-4" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
+                        
+                        {/* Main node - centered within the container */}
+                        <div className={cn(
+                          "rounded-full flex items-center justify-center absolute inset-0 transition-all duration-300",
+                          isActive ? "w-6 h-6 m-1 cursor-pointer hover:brightness-110" : "w-8 h-8", // Shrink when active with margin to center
+                          isCompleted && "bg-green-500",
+                          isActive && "bg-purple-600",
+                          isReady && "bg-green-500",
+                          isError && "bg-red-500",
+                          isWaiting && "bg-gray-300",
+                          // Show pause icon for next step when waiting
+                          detectionState === 'hold' && index === currentStep && "cursor-pointer hover:brightness-110"
                         )}
-                        {isError && (
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                            <path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-                          </svg>
-                        )}
-                        {/* Show pause icon when ready to run current step */}
-                        {detectionState === 'hold' && index === currentStep && (
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                            <path d="M6 4h4v16H6V4zM14 4h4v16h-4V4z" fill="white"/>
-                          </svg>
-                        )}
-                        {isWaiting && !(detectionState === 'hold' && index === currentStep) && (
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                            <circle cx="12" cy="12" r="8" stroke="#6B7280" strokeWidth="2"/>
-                          </svg>
-                        )}
+                        onClick={isActive ? (e) => {
+                          e.stopPropagation()
+                          if (key === 'parsing') {
+                            handleCancelParsing()
+                          } else if (key === 'analysis') {
+                            handleCancelAnalysis()
+                          }
+                        } : (detectionState === 'hold' && index === currentStep ? handleRunStep : undefined)}
+                        style={{
+                          cursor: isActive ? 'pointer' : (detectionState === 'hold' && index === currentStep ? 'pointer' : 'default'),
+                          backgroundColor: detectionState === 'hold' && index === currentStep ? '#9333EA' : undefined
+                        }}
+                        title={isActive ? "Cancel" : undefined}
+                        >
+                          {isCompleted && (
+                            <svg width={isActive ? "16" : "20"} height={isActive ? "16" : "20"} viewBox="0 0 24 24" fill="none">
+                              <path d="M9 12l2 2 4-4" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          )}
+                          {isActive && (
+                            // Cancel X icon for active/loading nodes
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+                              <path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+                            </svg>
+                          )}
+                          {isReady && (
+                            <svg width={isActive ? "16" : "20"} height={isActive ? "16" : "20"} viewBox="0 0 24 24" fill="none">
+                              <path d="M9 12l2 2 4-4" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                          )}
+                          {isError && (
+                            <svg width={isActive ? "12" : "16"} height={isActive ? "12" : "16"} viewBox="0 0 24 24" fill="none">
+                              <path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+                            </svg>
+                          )}
+                          {/* Show pause icon when ready to run current step */}
+                          {detectionState === 'hold' && index === currentStep && (
+                            <svg width={isActive ? "12" : "16"} height={isActive ? "12" : "16"} viewBox="0 0 24 24" fill="none">
+                              <path d="M6 4h4v16H6V4zM14 4h4v16h-4V4z" fill="white"/>
+                            </svg>
+                          )}
+                          {isWaiting && !(detectionState === 'hold' && index === currentStep) && (
+                            <svg width={isActive ? "12" : "16"} height={isActive ? "12" : "16"} viewBox="0 0 24 24" fill="none">
+                              <circle cx="12" cy="12" r="8" stroke="#6B7280" strokeWidth="2"/>
+                            </svg>
+                          )}
+                        </div>
                       </div>
                       
                       {/* Stage Content */}
