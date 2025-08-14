@@ -850,29 +850,26 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
           {/* Content */}
           <div className="flex-1 min-w-0">
             {/* Title */}
-            <h3 className={cn(semanticTypography.caption, "mb-1 line-clamp-2 font-medium")}>
+            <h3 className={cn(semanticTypography.caption, "mb-2 line-clamp-2 font-medium")}>
               {article.title}
             </h3>
 
             {/* Meta info */}
-            <div className={cn("flex items-center gap-2", semanticTypography.metadata)}>
+            <div className={cn("space-y-1", semanticTypography.metadata)}>
               {article.url && (
-                <>
-                  <div className="flex items-center gap-1">
-                    {getFaviconUrl(article.url) && (
-                      <img 
-                        src={getFaviconUrl(article.url)} 
-                        alt=""
-                        className="w-2.5 h-2.5"
-                        onError={(e) => e.target.style.display = 'none'}
-                      />
-                    )}
-                    <span>{extractDomain(article.url)}</span>
-                  </div>
-                  <span>•</span>
-                </>
+                <div className="flex items-center gap-1">
+                  {getFaviconUrl(article.url) && (
+                    <img 
+                      src={getFaviconUrl(article.url)} 
+                      alt=""
+                      className="w-2.5 h-2.5"
+                      onError={(e) => e.target.style.display = 'none'}
+                    />
+                  )}
+                  <span className="truncate">{extractDomain(article.url)}</span>
+                </div>
               )}
-              <span>{formatDate(article.timestamp)}</span>
+              <span className="text-xs text-gray-500">{formatDate(article.timestamp)}</span>
             </div>
 
           </div>

@@ -338,22 +338,19 @@ function App() {
                     )}
 
                     {/* Article Meta Info */}
-                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                    <div className="space-y-1 text-xs text-gray-600">
                       {selectedArticle.url && (
-                        <>
-                          <div className="flex items-center gap-1">
-                            <img 
-                              src={`https://www.google.com/s2/favicons?sz=16&domain=${selectedArticle.url.replace(/^https?:\/\//, '').split('/')[0]}`}
-                              alt=""
-                              className="w-3 h-3"
-                              onError={(e) => e.target.style.display = 'none'}
-                            />
-                            <span>{selectedArticle.url.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '')}</span>
-                          </div>
-                          <span>•</span>
-                        </>
+                        <div className="flex items-center gap-1">
+                          <img 
+                            src={`https://www.google.com/s2/favicons?sz=16&domain=${selectedArticle.url.replace(/^https?:\/\//, '').split('/')[0]}`}
+                            alt=""
+                            className="w-3 h-3"
+                            onError={(e) => e.target.style.display = 'none'}
+                          />
+                          <span className="truncate">{selectedArticle.url.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '')}</span>
+                        </div>
                       )}
-                      <span>
+                      <span className="text-xs text-gray-500">
                         {selectedArticle.timestamp ? 
                           formatDate(selectedArticle.timestamp) : 
                           'Recent'
