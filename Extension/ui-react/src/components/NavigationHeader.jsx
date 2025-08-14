@@ -28,7 +28,7 @@ const NavigationHeader = memo(({ activeTab, onTabChange }) => {
       label: 'Getting Started',
       description: 'Learn how to use Pocketstox',
       icon: HelpCircle,
-      action: () => window.open('https://pocketstox.com/help', '_blank')
+      action: () => window.open('https://pocketstox.com/getting-started', '_blank')
     }
   ]
 

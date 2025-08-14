@@ -5,6 +5,38 @@ chrome.runtime.onInstalled.addListener(() => {
     console.log('Pocketstox extension installed');
 });
 
+// Handle keyboard commands
+chrome.commands.onCommand.addListener(async (command) => {
+    console.log('Command triggered:', command);
+    
+    if (command === 'run-pipeline') {
+        // Get the current active tab
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tabs.length > 0) {
+            const tab = tabs[0];
+            
+            // Open side panel if not already open
+            try {
+                await chrome.sidePanel.open({ windowId: tab.windowId });
+                sidePanelStates.set(tab.windowId, true);
+            } catch (error) {
+                console.log('Side panel might already be open');
+            }
+            
+            // Wait a moment for panel to load, then trigger the pipeline
+            setTimeout(() => {
+                chrome.runtime.sendMessage({
+                    action: 'runPipeline',
+                    tabId: tab.id,
+                    windowId: tab.windowId
+                }).catch((error) => {
+                    console.log('Side panel not ready for pipeline command yet');
+                });
+            }, 300);
+        }
+    }
+});
+
 // Handle extension icon click
 chrome.action.onClicked.addListener(async (tab) => {
     await toggleSidePanel(tab.windowId);

@@ -12,6 +12,15 @@
     "side_panel": {
         "default_path": "popup.html"
     },
+    "commands": {
+        "run-pipeline": {
+            "suggested_key": {
+                "default": "Ctrl+E",
+                "mac": "Command+E"
+            },
+            "description": "Run content extraction pipeline"
+        }
+    },
     "permissions": ["activeTab", "scripting", "storage", "sidePanel"],
     "host_permissions": [
         "<all_urls>"

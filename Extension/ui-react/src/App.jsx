@@ -3,7 +3,8 @@ import NavigationHeader from './components/NavigationHeader'
 import ArticlesTab from './components/ArticlesTab'
 import CommunityTab from './components/CommunityTab'
 import AccountTab from './components/AccountTab'
-import ArticleClusterGraphObsidian from './components/ArticleClusterGraphObsidian'
+import { FileText } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { semanticTypography, componentSpacing } from '@/styles/typography'
 import './index.css'
 
@@ -14,10 +15,46 @@ function App() {
   const [overlayOpen, setOverlayOpen] = useState(false)
   const [selectedArticle, setSelectedArticle] = useState(null)
 
+  // Format date function - consistent with ArticlesTab
+  const formatDate = (dateString) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffMs = now - date
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    
+    // Check if it's today
+    const isToday = date.toDateString() === now.toDateString()
+    
+    if (isToday) {
+      // Use relative time for today
+      if (diffMins < 1) return 'Just now'
+      if (diffMins === 1) return '1 min ago'
+      if (diffMins < 60) return `${diffMins} mins ago`
+      if (diffHours === 1) return '1 hour ago'
+      return `${diffHours} hours ago`
+    }
+    
+    // Use formatted date for all other days
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const month = months[date.getMonth()]
+    const day = date.getDate()
+    const hours = date.getHours().toString().padStart(2, '0')
+    const minutes = date.getMinutes().toString().padStart(2, '0')
+    
+    return `${day} ${month}, ${hours}:${minutes}`
+  }
+
 
   const handleArticleClick = (article) => {
     try {
       console.log('Article clicked:', article)
+      console.log('Article content fields:', {
+        content: article.content,
+        text: article.text,
+        pageTitle: article.pageTitle,
+        allKeys: Object.keys(article)
+      })
       if (!article) {
         console.error('Article is null or undefined')
         return
@@ -62,6 +99,19 @@ function App() {
           console.log('Closing side panel with window.close()');
           window.close();
           break;
+        case 'runPipeline':
+          console.log('Running pipeline from keyboard shortcut');
+          // Switch to articles tab if not already there
+          if (activeTab !== 'articles') {
+            setActiveTab('articles');
+          }
+          // Trigger the pipeline by calling handleRunStep through ref
+          setTimeout(() => {
+            if (articlesTabRef.current && articlesTabRef.current.runPipeline) {
+              articlesTabRef.current.runPipeline();
+            }
+          }, 100);
+          break;
         default:
           break;
       }
@@ -75,7 +125,7 @@ function App() {
         chrome.runtime.onMessage.removeListener(handleMessage);
       };
     }
-  }, []);
+  }, [activeTab]);
 
   // Handle Escape key for overlay
   useEffect(() => {
@@ -244,250 +294,184 @@ function App() {
           <div className="fixed inset-0 z-50 flex flex-col bg-white">
             {/* Custom Header Bar */}
             <div className="flex-shrink-0 bg-white border-b border-gray-200">
-              <div className="px-4 py-3 flex items-center gap-3">
-                <button
-                  onClick={() => setOverlayOpen(false)}
-                  className="flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
-                >
-                  ←
-                </button>
-                <div className="flex-1 min-w-0">
-                  <h1 className="text-sm font-semibold text-gray-900 line-clamp-1">
-                    {selectedArticle.title}
-                  </h1>
-                  <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
-                    {selectedArticle.url && (
-                      <>
-                        <span>{selectedArticle.url.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '')}</span>
-                        <span>•</span>
-                      </>
-                    )}
-                    <span>
-                      {selectedArticle.timestamp ? 
-                        new Date(selectedArticle.timestamp).toLocaleDateString() : 
-                        'Recent'
-                      }
-                    </span>
+              <div className={componentSpacing.navPadding}>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => setOverlayOpen(false)}
+                    className="flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+                  >
+                    ←
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <h1 className={cn(semanticTypography.cardTitle)}>
+                      Pocketstox
+                    </h1>
                   </div>
                 </div>
               </div>
             </div>
 
+
             {/* Analysis Content */}
             <div className="flex-1 overflow-y-auto">
-              <div className="px-4 py-4 space-y-6">
-                {/* Enhanced Stock Suggestions Header */}
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-gray-900">Stock Suggestions</h3>
-                  <div className="flex items-center gap-2">
-                    <select className="text-xs border border-gray-300 rounded-md px-2 py-1 bg-white">
-                      <option>Relevance</option>
-                      <option>Confidence</option>
-                      <option>Alphabetical</option>
-                    </select>
+              <div className={componentSpacing.contentPadding}>
+                
+                {/* Input Section */}
+                <div className="mb-6">
+                  <div className="mb-3 px-1">
+                    <h2 className={cn(semanticTypography.cardTitle)}>Input</h2>
+                  </div>
+                  
+                  <div className="ml-2 space-y-3">
+                    {/* Article Content Preview */}
+                    {selectedArticle && (
+                      <div className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-md font-mono">
+                        <div className="font-semibold mb-1">{selectedArticle.title}</div>
+                        <div>
+                          {(() => {
+                            const content = selectedArticle.content || selectedArticle.text || '';
+                            if (!content) return 'No content available';
+                            return content.length > 300 ? `${content.substring(0, 300)}...` : content;
+                          })()}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Article Meta Info */}
+                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                      {selectedArticle.url && (
+                        <>
+                          <div className="flex items-center gap-1">
+                            <img 
+                              src={`https://www.google.com/s2/favicons?sz=16&domain=${selectedArticle.url.replace(/^https?:\/\//, '').split('/')[0]}`}
+                              alt=""
+                              className="w-3 h-3"
+                              onError={(e) => e.target.style.display = 'none'}
+                            />
+                            <span>{selectedArticle.url.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '')}</span>
+                          </div>
+                          <span>•</span>
+                        </>
+                      )}
+                      <span>
+                        {selectedArticle.timestamp ? 
+                          formatDate(selectedArticle.timestamp) : 
+                          'Recent'
+                        }
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Enhanced Stock Cards Grid */}
-                <div className="grid gap-3">
+                {/* Related Stocks Header */}
+                <div className="mb-3 px-1">
+                  <h2 className={cn(semanticTypography.cardTitle)}>Related Stocks</h2>
+                </div>
+                
+                {/* Stock List */}
+                <div className="mb-4 ml-2">
                   {selectedArticle.matches && selectedArticle.matches.length > 0 ? (
-                    selectedArticle.matches.slice(0, 6).map((match, index) => {
-                      const confidence = match.score || Math.random() * 0.4 + 0.6; // Mock confidence if not available
-                      const confidenceLevel = confidence > 0.8 ? 'high' : confidence > 0.6 ? 'medium' : 'low';
-                      const mockPrice = (Math.random() * 200 + 50).toFixed(2);
-                      const mockChange = (Math.random() * 10 - 5).toFixed(2);
-                      const isPositive = parseFloat(mockChange) > 0;
-                      
-                      return (
-                        <div key={index} className="bg-white border border-gray-200 rounded-lg p-4 hover:border-purple-300 hover:shadow-sm transition-all cursor-pointer group">
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h4 className="text-sm font-semibold text-gray-900 truncate">
-                                  {match.ticker}
-                                </h4>
-                                <div className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                                  confidenceLevel === 'high' ? 'bg-green-100 text-green-700' :
-                                  confidenceLevel === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                                  'bg-gray-100 text-gray-600'
-                                }`}>
-                                  {(confidence * 100).toFixed(0)}%
+                    <div className="bg-white rounded-lg border border-gray-200">
+                      {selectedArticle.matches.slice(0, 3).map((match, index) => {
+                        const confidence = match.score || Math.random() * 0.4 + 0.6;
+                        
+                        return (
+                          <div key={index}>
+                            <div 
+                              className="relative cursor-pointer transition-all duration-300 group hover:bg-gray-50 border-transparent rounded-lg"
+                              onClick={() => window.open(`https://finance.yahoo.com/quote/${match.ticker}`, '_blank')}
+                            >
+                              <div className="px-4 py-3">
+                                <div className="flex-1 min-w-0">
+                                  {/* Stock Ticker */}
+                                  <div className="flex items-center justify-between mb-1">
+                                    <h3 className={cn(semanticTypography.cardTitle, "font-medium")}>
+                                      {match.ticker}
+                                    </h3>
+                                    <div className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                                      {(confidence * 100).toFixed(0)}%
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Company name */}
+                                  <p className={cn(semanticTypography.secondaryText, "mb-1")}>
+                                    {match.company || match.ticker}
+                                  </p>
+                                  
+                                  {/* Source */}
+                                  <div className={cn("flex items-center gap-2", semanticTypography.metadata)}>
+                                    <span>Source: Financial news vectorstore</span>
+                                  </div>
                                 </div>
                               </div>
-                              <p className="text-xs text-gray-600 truncate">
-                                {match.company || match.ticker}
-                              </p>
                             </div>
-                            <div className="text-right ml-3">
-                              <div className="text-sm font-semibold text-gray-900">${mockPrice}</div>
-                              <div className={`text-xs font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                                {isPositive ? '+' : ''}{mockChange}
-                              </div>
-                            </div>
+                            {index < selectedArticle.matches.slice(0, 3).length - 1 && (
+                              <div className="border-b border-gray-100 mx-6" />
+                            )}
                           </div>
-                          
-                          {/* Confidence Bar */}
-                          <div className="mb-3">
-                            <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
-                              <span>Relevance Score</span>
-                              <span>{(confidence * 100).toFixed(1)}%</span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-1.5">
-                              <div 
-                                className={`h-1.5 rounded-full ${
-                                  confidenceLevel === 'high' ? 'bg-green-500' :
-                                  confidenceLevel === 'medium' ? 'bg-yellow-500' :
-                                  'bg-gray-400'
-                                }`}
-                                style={{ width: `${confidence * 100}%` }}
-                              ></div>
-                            </div>
-                          </div>
-
-                          {/* Key Insights */}
-                          <div className="space-y-1.5">
-                            <div className="flex justify-between text-xs">
-                              <span className="text-gray-600">Exchange</span>
-                              <span className="text-gray-900 font-medium">{match.exchange || 'NASDAQ'}</span>
-                            </div>
-                            <div className="flex justify-between text-xs">
-                              <span className="text-gray-600">Sector Impact</span>
-                              <span className={`font-medium ${
-                                selectedArticle.sentiment === 'positive' ? 'text-green-600' :
-                                selectedArticle.sentiment === 'negative' ? 'text-red-600' :
-                                'text-gray-600'
-                              }`}>
-                                {selectedArticle.sentiment?.charAt(0).toUpperCase() + selectedArticle.sentiment?.slice(1) || 'Neutral'}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Action Buttons - Show on Hover */}
-                          <div className="mt-3 pt-3 border-t border-gray-100 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <div className="flex gap-2">
-                              <button className="flex-1 px-3 py-1.5 text-xs font-medium text-purple-600 border border-purple-200 rounded-md hover:bg-purple-50 transition-colors">
-                                View Details
-                              </button>
-                              <button className="flex-1 px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors">
-                                Add to List
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })
+                        )
+                      })}
+                    </div>
                   ) : (
-                    <div className="flex items-center justify-center p-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
-                      <div className="text-center">
-                        <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-3">
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-gray-400">
-                            <path d="M7 10l5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
+                    <div className="border-dashed border-2 border-gray-200 bg-white rounded-lg">
+                      <div className="flex flex-col items-center justify-center py-12 text-center">
+                        <div className="rounded-full bg-gray-100 p-3 mb-4">
+                          <FileText size={24} className="text-gray-400" />
                         </div>
-                        <p className="text-sm text-gray-600 font-medium mb-1">No stock matches found</p>
-                        <p className="text-xs text-gray-500">This article may not contain specific company mentions</p>
+                        <h3 className={semanticTypography.emptyStateTitle}>No stock matches found</h3>
+                        <p className={cn(semanticTypography.emptyStateDescription, "max-w-xs")}>
+                          This article may not contain specific company mentions
+                        </p>
                       </div>
                     </div>
                   )}
                 </div>
 
-                {/* Enhanced Summary Section */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Market Impact Analysis</h3>
-                  <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg p-4 border border-purple-200">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-purple-600">
-                          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="text-sm font-semibold text-gray-900 mb-2">AI-Generated Insights</h4>
-                        <p className="text-sm text-gray-700 leading-relaxed">
-                          {selectedArticle.content && selectedArticle.content.length > 200 
-                            ? selectedArticle.content.substring(0, 250) + '...'
-                            : selectedArticle.content || 'This analysis examines the potential market impact of the article content, identifying key companies and sectors that may be affected by the discussed events or trends.'
-                          }
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Interactive Graph Section */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Relationship Network</h3>
-                  <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                    <div className="min-h-[200px]">
-                      {(() => {
-                        try {
-                          return <ArticleClusterGraphObsidian key={selectedArticle?.id || selectedArticle?.title} article={selectedArticle} />
-                        } catch (error) {
-                          console.error('Error rendering ArticleClusterGraphObsidian:', error)
-                          return (
-                            <div className="flex items-center justify-center h-48 text-gray-500 bg-gray-50">
-                              <div className="text-center">
-                                <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-3">
-                                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-gray-400">
-                                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                                    <path d="m9 12 2 2 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                  </svg>
-                                </div>
-                                <p className="text-sm text-gray-600 font-medium mb-1">Graph temporarily unavailable</p>
-                                <p className="text-xs text-gray-500">Stock relationships are being processed</p>
-                              </div>
-                            </div>
-                          )
-                        }
-                      })()}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Enhanced Action Footer */}
-            <div className="flex-shrink-0 border-t border-gray-200 bg-white px-4 py-3">
-              <div className="space-y-3">
-                {/* Quick Stats Bar */}
-                <div className="flex items-center justify-between text-xs text-gray-600 bg-gray-50 rounded-lg px-3 py-2">
-                  <div className="flex items-center gap-1">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-gray-400">
-                      <path d="M22 12h-4l-3 9L9 3l-3 9H2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    <span>{selectedArticle.matches ? selectedArticle.matches.length : 0} stocks identified</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-gray-400">
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                      <polyline points="12,6 12,12 16,14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    <span>Analyzed {selectedArticle.timestamp ? new Date(selectedArticle.timestamp).toLocaleDateString() : 'today'}</span>
-                  </div>
+                {/* Model Summary Header */}
+                <div className="mb-3 px-1">
+                  <h2 className={cn(semanticTypography.cardTitle)}>Model Summary</h2>
                 </div>
                 
-                {/* Action Buttons */}
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => selectedArticle.url && window.open(selectedArticle.url, '_blank')}
-                    className="flex-1 px-4 py-2.5 text-sm font-medium text-purple-600 bg-purple-50 border border-purple-200 hover:bg-purple-100 rounded-lg transition-colors flex items-center justify-center gap-2"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <polyline points="15,3 21,3 21,9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <line x1="10" y1="14" x2="21" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    Read Article
-                  </button>
-                  <button className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors flex items-center justify-center gap-2">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    Save Analysis
-                  </button>
+                {/* Model Summary Content */}
+                <div className="ml-2">
+                  <div className="space-y-3">
+                    {selectedArticle.matches && selectedArticle.matches.length > 0 ? (
+                      selectedArticle.matches.slice(0, 3).map((match, index) => {
+                        const summaryVariations = [
+                          {
+                            text: `shows strong correlation with article themes. Key developments could significantly impact stock performance and warrant monitoring.`,
+                            highlight: `strong correlation`
+                          },
+                          {
+                            text: `demonstrates moderate relevance to market conditions discussed. Consider tracking for potential trading opportunities.`,
+                            highlight: `moderate relevance`
+                          },
+                          {
+                            text: `may be influenced by trends highlighted in this content. Watch for related market movements and sector developments.`,
+                            highlight: null
+                          }
+                        ];
+                        
+                        const variation = summaryVariations[index % summaryVariations.length];
+                        
+                        return (
+                          <p key={index} className="text-xs text-gray-700 leading-relaxed">
+                            <span className="bg-purple-100 text-purple-700 px-1 py-0.5 rounded font-medium">{match.ticker}</span> {variation.text}
+                          </p>
+                        )
+                      })
+                    ) : (
+                      <p className="text-xs text-gray-700 leading-relaxed">
+                        Analysis identifies market themes and trends relevant to investment research. 
+                        Consider exploring related opportunities for further investigation.
+                      </p>
+                    )}
+                  </div>
                 </div>
+
               </div>
             </div>
+
           </div>
         </>
       )}

@@ -39,6 +39,15 @@
     }
   }
   
+  @keyframes draw-circle {
+    0% { 
+      stroke-dashoffset: 87.96;
+    }
+    100% { 
+      stroke-dashoffset: 0;
+    }
+  }
+  
   .jump {
     animation: jump 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     animation-fill-mode: both;

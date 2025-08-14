@@ -28,6 +28,9 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   const [parsingTimeoutId, setParsingTimeoutId] = useState(null)
   const [analysisCancelled, setAnalysisCancelled] = useState(false)
   
+  // Persistent cache for article content
+  const [contentCache, setContentCache] = useState(new Map())
+  
   // Load remaining analyses from storage
   useEffect(() => {
     const loadUsageStats = async () => {
@@ -117,6 +120,11 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       // Search in title
       const titleMatch = article.title?.toLowerCase().includes(query)
       
+      // Search in domain/source
+      const domainMatch = article.url ? 
+        article.url.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '').toLowerCase().includes(query) 
+        : false
+      
       // Search in tickers/companies
       const tickerMatch = article.companies?.some(company => 
         company.symbol?.toLowerCase().includes(query) ||
@@ -125,7 +133,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         (typeof company === 'string' && company.toLowerCase().includes(query))
       )
       
-      return titleMatch || tickerMatch
+      return titleMatch || domainMatch || tickerMatch
     })
     
     const allArticleIds = new Set(filteredArticles.map(article => article.id || article.title))
@@ -207,11 +215,12 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   }
 
   useImperativeHandle(ref, () => {
-    console.log('ArticlesTab: useImperativeHandle called, exposing clearSelection, selectAll, and deleteSelected')
+    console.log('ArticlesTab: useImperativeHandle called, exposing clearSelection, selectAll, deleteSelected, and runPipeline')
     return {
       clearSelection: handleClearSelection,
       selectAll: handleSelectAll,
-      deleteSelected: handleDeleteSelected
+      deleteSelected: handleDeleteSelected,
+      runPipeline: handleRunStep
     }
   })
 
@@ -220,7 +229,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     let retryCount = 0
     const maxRetries = 10
 
-    const fetchArticles = async () => {
+    const fetchArticles = async (cache = contentCache) => {
       try {
         // Check if services are available with retry limit
         if (!window.extensionServices) {
@@ -240,8 +249,24 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         const articleData = await window.extensionServices.storage.getArticles()
         
         if (isMounted) {
-          setArticles(articleData || [])
-          setDisplayedArticles((articleData || []).slice(0, loadMoreCount))
+          // Restore content from cache for all articles on initial load
+          const articlesWithContent = (articleData || []).map(article => {
+            const cacheKey = `${article.title}-${article.url}`
+            const cachedContent = cache.get(cacheKey)
+            
+            // If article is missing content but we have it cached, restore it
+            if ((!article.content || !article.text) && cachedContent) {
+              return {
+                ...article,
+                content: cachedContent.content,
+                text: cachedContent.text
+              }
+            }
+            return article
+          })
+          
+          setArticles(articlesWithContent)
+          setDisplayedArticles(articlesWithContent.slice(0, loadMoreCount))
           setIsLoading(false)
         }
       } catch (error) {
@@ -258,7 +283,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [contentCache])
 
   // Cleanup parsing timeout on component unmount
   useEffect(() => {
@@ -350,7 +375,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
           // Show error message to user
           alert(`Content extraction failed: ${error.message}`)
         }
-      }, 3000) // 3 second delay
+      }, 2000) // 2 second delay
       
       setParsingTimeoutId(timeoutId)
     } else if (currentStep === 1) {
@@ -378,9 +403,9 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
           
           console.log('Analysis result:', result)
           
-          // Calculate remaining time to ensure 3-second minimum
+          // Calculate remaining time to ensure 2-second minimum
           const elapsedTime = Date.now() - startTime
-          const remainingTime = Math.max(0, 3000 - elapsedTime)
+          const remainingTime = Math.max(0, 2000 - elapsedTime)
           
           // Wait for remaining time if needed
           if (remainingTime > 0) {
@@ -393,12 +418,21 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
           }
           
           if (result) {
-            // Update article with analysis results
+            // Update article with analysis results - ensure content is preserved
             const analyzedArticle = {
               ...identifiedArticle,
+              content: extractedContent.content || identifiedArticle.content,
+              text: extractedContent.content || identifiedArticle.content || identifiedArticle.text,
               matches: result.matches || [],
               entities: result.matches ? result.matches.map(m => m.company || m.ticker) : []
             }
+            
+            // Cache the content for this article
+            const cacheKey = `${analyzedArticle.title}-${analyzedArticle.url}`
+            setContentCache(prev => new Map(prev.set(cacheKey, {
+              content: analyzedArticle.content,
+              text: analyzedArticle.text
+            })))
             
             setExtractionStages(prev => ({
               ...prev,
@@ -415,8 +449,25 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
             
             // Refresh articles list to show new analysis
             const updatedArticles = await window.extensionServices.storage.getArticles()
-            setArticles(updatedArticles || [])
-            setDisplayedArticles(updatedArticles?.slice(0, loadMoreCount) || [])
+            
+            // Restore content for all articles from cache
+            const articlesWithContent = (updatedArticles || []).map(article => {
+              const cacheKey = `${article.title}-${article.url}`
+              const cachedContent = contentCache.get(cacheKey)
+              
+              // If article is missing content but we have it cached, restore it
+              if ((!article.content || !article.text) && cachedContent) {
+                return {
+                  ...article,
+                  content: cachedContent.content,
+                  text: cachedContent.text
+                }
+              }
+              return article
+            })
+            
+            setArticles(articlesWithContent)
+            setDisplayedArticles(articlesWithContent?.slice(0, loadMoreCount) || [])
           } else {
             throw new Error('No analysis results returned')
           }
@@ -426,9 +477,9 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       } catch (error) {
         console.error('Analysis generation failed:', error)
         
-        // Ensure minimum 3-second loading duration even on error
+        // Ensure minimum 2-second loading duration even on error
         const elapsedTime = Date.now() - startTime
-        const remainingTime = Math.max(0, 3000 - elapsedTime)
+        const remainingTime = Math.max(0, 2000 - elapsedTime)
         
         if (remainingTime > 0) {
           await new Promise(resolve => setTimeout(resolve, remainingTime))
@@ -484,7 +535,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     sessionStorage.setItem('pipelineState', JSON.stringify(pipelineState))
   }, [currentStep, detectionState, extractionStages, identifiedArticle])
 
-  // Add keyboard shortcut for Cmd/Ctrl + Enter
+  // Add keyboard shortcut for Cmd/Ctrl + E
   useEffect(() => {
     const handleKeyDown = (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key === 'e') {
@@ -509,14 +560,24 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       // When searching, show all articles that match the search
       const searchResults = articles.filter(article => {
         const query = searchQuery.toLowerCase()
+        
+        // Search in title
         const titleMatch = article.title?.toLowerCase().includes(query)
+        
+        // Search in domain/source
+        const domainMatch = article.url ? 
+          article.url.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '').toLowerCase().includes(query) 
+          : false
+        
+        // Search in ticker symbols (keeping existing functionality)
         const tickerMatch = article.companies?.some(company => 
           company.symbol?.toLowerCase().includes(query) ||
           company.ticker?.toLowerCase().includes(query) ||
           company.company?.toLowerCase().includes(query) ||
           (typeof company === 'string' && company.toLowerCase().includes(query))
         )
-        return titleMatch || tickerMatch
+        
+        return titleMatch || domainMatch || tickerMatch
       })
       setDisplayedArticles(searchResults)
     } else {
@@ -639,8 +700,8 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     </Card>
   )
 
-  // No search results state
-  if (searchQuery.trim() && filteredArticles.length === 0) {
+  // No search results state  
+  if (searchQuery.trim() && displayedArticles.length === 0) {
     return (
       <Card className="border-dashed border-2 border-gray-200 bg-white">
         <CardContent className="flex flex-col items-center justify-center py-12 text-center">
@@ -847,25 +908,6 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
             })()
           }}>
             <div className="flex items-center gap-2">
-              {/* Dynamic icon based on current state */}
-              {detectionState === 'scanning' && (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              )}
-              {detectionState === 'hold' && (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path d="M6 4h4v16H6V4zM14 4h4v16h-4V4z" fill="white"/>
-                </svg>
-              )}
-              {detectionState === 'error' && (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-                </svg>
-              )}
-              {(detectionState === 'idle' || detectionState === 'ready') && (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <path d="M9 12l2 2 4-4" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              )}
               <span className="text-sm font-medium">
                 {detectionState === 'idle' && 'Ready'}
                 {detectionState === 'scanning' && 'Processing'}
@@ -885,16 +927,14 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                     {currentStep === 0 ? 'Start' : 'Continue'}
                     <div className="flex items-center gap-0.5 ml-1">
                       <kbd className="text-[10px] bg-white/20 px-1 py-0.5 rounded border border-white/20">{modifierKey}</kbd>
-                      <span className="text-[10px]">+</span>
                       <kbd className="text-[10px] bg-white/20 px-1 py-0.5 rounded border border-white/20">E</kbd>
                     </div>
                   </>
                 ) : detectionState === 'ready' ? (
                   <>
-                    Rerun
+                    Restart
                     <div className="flex items-center gap-0.5 ml-1">
                       <kbd className="text-[10px] bg-white/20 px-1 py-0.5 rounded border border-white/20">{modifierKey}</kbd>
-                      <span className="text-[10px]">+</span>
                       <kbd className="text-[10px] bg-white/20 px-1 py-0.5 rounded border border-white/20">E</kbd>
                     </div>
                   </>
@@ -945,7 +985,25 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                       <div className="relative w-8 h-8 flex items-center justify-center flex-shrink-0">
                         {/* Spinning border for active state - perfectly centered */}
                         {isActive && (
-                          <div className="absolute inset-0 w-8 h-8 border-2 border-transparent border-t-purple-600 rounded-full animate-spin"></div>
+                          <div className="absolute inset-0 w-8 h-8">
+                            <svg className="w-full h-full" viewBox="0 0 32 32">
+                              <circle
+                                cx="16"
+                                cy="16"
+                                r="14"
+                                fill="none"
+                                stroke="#9333EA"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeDasharray="87.96"
+                                strokeDashoffset="87.96"
+                                transform="rotate(-90 16 16)"
+                                style={{
+                                  animation: 'draw-circle 2s linear forwards'
+                                }}
+                              />
+                            </svg>
+                          </div>
                         )}
                         
                         {/* Main node - centered within the container */}
@@ -1147,7 +1205,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
               <Search size={14} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500" />
               <input
                 type="text"
-                placeholder="Search articles and tickers..."
+                placeholder="Search by title, domain, or ticker..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className={`w-full pl-10 pr-4 py-2.5 ${semanticTypography.primaryText} bg-transparent border-0 focus:outline-none placeholder:text-xs placeholder:text-gray-600 rounded-lg`}
