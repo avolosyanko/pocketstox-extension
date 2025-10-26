@@ -1,0 +1,10 @@
+{
+  "total": 451,
+  "successful": 450,
+  "failed": 1,
+  "failed_tickers": [
+    "TDG"
+  ],
+  "elapsed_minutes": 35.40086239973704,
+  "completed_at": "2025-10-18T18:04:04.997064"
+}
