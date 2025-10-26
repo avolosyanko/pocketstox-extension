@@ -1,5 +1,5 @@
 import React, { memo, useState, useRef, useEffect } from 'react'
-import { Star, User, Menu, X, HelpCircle } from 'lucide-react'
+import { Star, User, Menu, X, Info } from 'lucide-react'
 import { semanticTypography, componentSpacing } from '@/styles/typography'
 import { cn } from '@/lib/utils'
 
@@ -27,7 +27,7 @@ const NavigationHeader = memo(({ activeTab, onTabChange }) => {
       id: 'help',
       label: 'Getting Started',
       description: 'Learn how to use Pocketstox',
-      icon: HelpCircle,
+      icon: Info,
       action: () => window.open('https://pocketstox.com/getting-started', '_blank')
     }
   ]
@@ -107,7 +107,7 @@ const NavigationHeader = memo(({ activeTab, onTabChange }) => {
       {isMenuOpen && (
         <>
           {/* Backdrop */}
-          <div className="fixed inset-0 bg-black bg-opacity-25 z-40" style={{top: '44px'}}></div>
+          <div className="fixed inset-0 bg-black/25 z-40" style={{top: '44px'}}></div>
           {/* Menu Panel */}
           <div className="navigation-menu-panel fixed top-[44px] left-0 right-0 bg-white border-b border-gray-200 shadow-lg z-50">
           <div className="px-4 py-4 space-y-4">
@@ -127,13 +127,13 @@ const NavigationHeader = memo(({ activeTab, onTabChange }) => {
                       className={cn(
                         "w-full flex items-start gap-3 px-3 py-3 text-left rounded-lg transition-colors",
                         isActive 
-                          ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                          ? 'bg-brand-50 text-brand-800 border border-brand-200'
                           : 'text-gray-700 hover:bg-gray-50 border border-transparent'
                       )}
                     >
                       <Icon size={18} strokeWidth={2} className="flex-shrink-0 mt-1" />
                       <div className="min-w-0 flex-1">
-                        <div className={cn("text-sm font-medium", isActive ? "text-purple-700" : "text-gray-900")}>
+                        <div className={cn("text-sm font-medium", isActive ? "text-brand-800" : "text-gray-900")}>
                           {tab.label}
                         </div>
                         <div className="text-xs text-gray-500 mt-0.5">

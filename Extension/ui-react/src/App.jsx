@@ -315,61 +315,17 @@ function App() {
             {/* Analysis Content */}
             <div className="flex-1 overflow-y-auto">
               <div className={componentSpacing.contentPadding}>
-                
-                {/* Input Section */}
+
+                {/* Related Stock Section (Singular) */}
                 <div className="mb-6">
                   <div className="mb-3 px-1">
-                    <h2 className={cn(semanticTypography.cardTitle)}>Input</h2>
+                    <h2 className={cn(semanticTypography.cardTitle)}>Related Stock</h2>
                   </div>
-                  
-                  <div className="ml-2 space-y-3">
-                    {/* Article Content Preview */}
-                    {selectedArticle && (
-                      <div className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-md font-mono">
-                        <div className="font-semibold mb-1">{selectedArticle.title}</div>
-                        <div>
-                          {(() => {
-                            const content = selectedArticle.content || selectedArticle.text || '';
-                            if (!content) return 'No content available';
-                            return content.length > 300 ? `${content.substring(0, 300)}...` : content;
-                          })()}
-                        </div>
-                      </div>
-                    )}
 
-                    {/* Article Meta Info */}
-                    <div className="space-y-1 text-xs text-gray-600">
-                      {selectedArticle.url && (
-                        <div className="flex items-center gap-1">
-                          <img 
-                            src={`https://www.google.com/s2/favicons?sz=16&domain=${selectedArticle.url.replace(/^https?:\/\//, '').split('/')[0]}`}
-                            alt=""
-                            className="w-3 h-3"
-                            onError={(e) => e.target.style.display = 'none'}
-                          />
-                          <span className="truncate">{selectedArticle.url.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '')}</span>
-                        </div>
-                      )}
-                      <span className="text-xs text-gray-500">
-                        {selectedArticle.timestamp ? 
-                          formatDate(selectedArticle.timestamp) : 
-                          'Recent'
-                        }
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Related Stocks Header */}
-                <div className="mb-3 px-1">
-                  <h2 className={cn(semanticTypography.cardTitle)}>Related Stocks</h2>
-                </div>
-                
-                {/* Stock List */}
-                <div className="mb-4 ml-2">
-                  {selectedArticle.matches && selectedArticle.matches.length > 0 ? (
-                    <div className="bg-white rounded-lg border border-gray-200">
-                      {selectedArticle.matches.slice(0, 3).map((match, index) => {
+                  <div className="ml-2">
+                    {selectedArticle.matches && selectedArticle.matches.length > 0 ? (
+                      <div className="bg-white rounded-lg border border-gray-200">
+                        {selectedArticle.matches.slice(0, 1).map((match, index) => {
                         const confidence = match.score || Math.random() * 0.4 + 0.6;
                         
                         return (
@@ -385,7 +341,7 @@ function App() {
                                     <h3 className={cn(semanticTypography.cardTitle, "font-medium")}>
                                       {match.ticker}
                                     </h3>
-                                    <div className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                                    <div className="px-2 py-0.5 bg-brand-100 text-brand-800 rounded-full text-xs font-medium">
                                       {(confidence * 100).toFixed(0)}%
                                     </div>
                                   </div>
@@ -402,9 +358,6 @@ function App() {
                                 </div>
                               </div>
                             </div>
-                            {index < selectedArticle.matches.slice(0, 3).length - 1 && (
-                              <div className="border-b border-gray-100 mx-6" />
-                            )}
                           </div>
                         )
                       })}
@@ -423,52 +376,124 @@ function App() {
                     </div>
                   )}
                 </div>
-
-                {/* Model Summary Header */}
-                <div className="mb-3 px-1">
-                  <h2 className={cn(semanticTypography.cardTitle)}>Model Summary</h2>
                 </div>
-                
-                {/* Model Summary Content */}
-                <div className="ml-2">
-                  <div className="space-y-3">
-                    {selectedArticle.matches && selectedArticle.matches.length > 0 ? (
-                      selectedArticle.matches.slice(0, 3).map((match, index) => {
-                        const summaryVariations = [
-                          {
-                            text: `shows strong correlation with article themes. Key developments could significantly impact stock performance and warrant monitoring.`,
-                            highlight: `strong correlation`
-                          },
-                          {
-                            text: `demonstrates moderate relevance to market conditions discussed. Consider tracking for potential trading opportunities.`,
-                            highlight: `moderate relevance`
-                          },
-                          {
-                            text: `may be influenced by trends highlighted in this content. Watch for related market movements and sector developments.`,
-                            highlight: null
+
+                {/* Sources Section */}
+                <div className="mb-6">
+                  <div className="mb-3 px-1">
+                    <h2 className={cn(semanticTypography.cardTitle)}>Sources</h2>
+                  </div>
+
+                  <div className="ml-2">
+                    <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
+                      {/* Document Excerpt */}
+                      <div>
+                        <div className="text-sm font-medium text-gray-900 mb-1">Document Excerpt:</div>
+                        <div className="bg-gray-50 px-3 py-2 rounded text-xs text-gray-600 italic">
+                          {(() => {
+                            const content = selectedArticle.content || selectedArticle.text || '';
+                            if (!content) return 'No source content available';
+                            return content.length > 150 ? `${content.substring(0, 150)}...` : content;
+                          })()}
+                        </div>
+                      </div>
+
+                      {/* Document Details */}
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Document Type:</span>
+                          <span className="text-gray-900 font-medium">Financial Article</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Source:</span>
+                          <span className="text-gray-900 font-medium">
+                            {selectedArticle.url ?
+                              selectedArticle.url.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '') :
+                              'Unknown'
+                            }
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Publication Date:</span>
+                          <span className="text-gray-900 font-medium">
+                            {selectedArticle.timestamp ?
+                              new Date(selectedArticle.timestamp).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              }) :
+                              'Unknown'
+                            }
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Content Length:</span>
+                          <span className="text-gray-900 font-medium">
+                            {(() => {
+                              const content = selectedArticle.content || selectedArticle.text || '';
+                              const wordCount = content.trim().split(/\s+/).length;
+                              return `${wordCount} word${wordCount !== 1 ? 's' : ''}`;
+                            })()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Input Section */}
+                <div className="mb-6">
+                  <div className="mb-3 px-1">
+                    <h2 className={cn(semanticTypography.cardTitle)}>Input</h2>
+                  </div>
+
+                  <div className="ml-2">
+                    <div className="bg-gray-50 rounded-lg border border-gray-200 p-3">
+                      {/* Article Title */}
+                      <div className="text-sm font-semibold text-gray-900 mb-2">
+                        {selectedArticle.title || 'Untitled Article'}
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        {(() => {
+                          const content = selectedArticle.content || selectedArticle.text || '';
+                          if (!content) return 'No content available';
+                          return 'No content available';
+                        })()}
+                      </div>
+
+                      {/* Article Meta Info */}
+                      <div className="flex items-center gap-2 mt-3 text-xs text-gray-600">
+                        {selectedArticle.url && (
+                          <>
+                            <img
+                              src={`https://www.google.com/s2/favicons?sz=16&domain=${selectedArticle.url.replace(/^https?:\/\//, '').split('/')[0]}`}
+                              alt=""
+                              className="w-3 h-3"
+                              onError={(e) => e.target.style.display = 'none'}
+                            />
+                            <span>{selectedArticle.url.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '')}</span>
+                          </>
+                        )}
+                        <span className="text-gray-400">•</span>
+                        <span>
+                          {selectedArticle.timestamp ?
+                            new Date(selectedArticle.timestamp).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            }) :
+                            'Recent'
                           }
-                        ];
-                        
-                        const variation = summaryVariations[index % summaryVariations.length];
-                        
-                        return (
-                          <p key={index} className="text-xs text-gray-700 leading-relaxed">
-                            <span className="bg-purple-100 text-purple-700 px-1 py-0.5 rounded font-medium">{match.ticker}</span> {variation.text}
-                          </p>
-                        )
-                      })
-                    ) : (
-                      <p className="text-xs text-gray-700 leading-relaxed">
-                        Analysis identifies market themes and trends relevant to investment research. 
-                        Consider exploring related opportunities for further investigation.
-                      </p>
-                    )}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
               </div>
             </div>
-
           </div>
         </>
       )}

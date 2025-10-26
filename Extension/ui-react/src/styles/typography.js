@@ -17,7 +17,7 @@ export const typography = {
   link: "text-sm font-medium text-blue-600 leading-5",                       // Links (14px)
   
   // BRAND & SPECIAL ELEMENTS
-  accent: "text-sm font-medium text-purple-600 leading-5",                   // Purple accent text (14px)
+  accent: "text-sm font-medium text-brand-800 leading-5",                   // Brand accent text (14px)
   mono: "text-xs font-mono text-gray-700 leading-4",                         // Code/symbols (12px)
 }
 
@@ -73,10 +73,10 @@ export const semanticTypography = {
 // COLOR OVERRIDES - For status messages and special cases
 export const colorOverrides = {
   success: "text-green-600",
-  warning: "text-yellow-600", 
+  warning: "text-yellow-600",
   error: "text-red-600",
   muted: "text-gray-400",
-  accent: "text-purple-600",
+  accent: "text-brand-800",
   primary: "text-gray-900",
   secondary: "text-gray-700",
   tertiary: "text-gray-500",

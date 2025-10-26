@@ -26,7 +26,7 @@ import hashlib
 from pathlib import Path
 
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv('../.env')  # Load from parent directory
 
 # ========================
 # CONFIGURATION
@@ -440,11 +440,10 @@ def run_pipeline(
     print("="*70)
     
     batch_size = config.BATCH_SIZE
-    total_batches = len(chunks_to_process) // batch_size + (1 if len(chunks_to_process) % batch_size else 0)
+    total_uploaded = 0
     
-    all_points = []
-    
-    for i in tqdm(range(0, len(chunks_to_process), batch_size), desc="Embedding", unit="batch"):
+    # ✅ CRITICAL FIX: Upload batch-by-batch, not all at once!
+    for i in tqdm(range(0, len(chunks_to_process), batch_size), desc="Embedding & Upload", unit="batch"):
         batch_chunks = chunks_to_process[i:i+batch_size]
         
         # Extract texts
@@ -463,11 +462,19 @@ def run_pipeline(
             for chunk, emb in zip(batch_chunks, embeddings)
         ]
         
-        all_points.extend(batch_points)
-        
-        # Mark processed
-        chunk_ids = [c['chunk_id'] for c in batch_chunks]
-        embedder.checkpoint.mark_processed(chunk_ids)
+        # ✅ UPSERT IMMEDIATELY (don't accumulate!)
+        try:
+            qdrant.upsert_points(batch_points, batch_size=50)
+            total_uploaded += len(batch_points)
+            
+            # ✅ Only mark as processed AFTER successful upsert
+            chunk_ids = [c['chunk_id'] for c in batch_chunks]
+            embedder.checkpoint.mark_processed(chunk_ids)
+            
+        except Exception as e:
+            print(f"❌ Upsert failed for batch {i//batch_size + 1}: {e}")
+            print("Stopping pipeline. Re-run to resume from checkpoint.")
+            break
         
         # Save checkpoint every 10 batches
         if (i // batch_size + 1) % 10 == 0:
@@ -478,17 +485,11 @@ def run_pipeline(
     embedder.checkpoint.save()
     embedder.cost_tracker.save()
     
-    # Upsert to Qdrant
-    if all_points:
-        print(f"\n📤 Upserting {len(all_points):,} points to Qdrant...")
-        qdrant.upsert_points(all_points, batch_size=50)
-        print("✅ Upsert complete")
-    
     # Final summary
     print("\n" + "="*70)
     print("✅ PIPELINE COMPLETE")
     print("="*70)
-    print(f"Processed: {len(all_points):,} chunks")
+    print(f"Processed: {total_uploaded:,} chunks")
     print(f"Cost: {embedder.cost_tracker.get_summary()}")
     print(f"Collection: {config.COLLECTION_NAME}")
     print(f"Checkpoint: {config.CHECKPOINT_FILE}")
