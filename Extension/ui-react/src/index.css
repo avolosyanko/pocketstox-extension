@@ -1,6 +1,18 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: oklch(98% .01 285);
+  --color-brand-100: oklch(96% .02 285);
+  --color-brand-200: oklch(92% .04 285);
+  --color-brand-300: oklch(86% .06 285);
+  --color-brand-400: oklch(72% .12 285);
+  --color-brand-500: oklch(60% .15 285);
+  --color-brand-600: oklch(50% .16 285);
+  --color-brand-700: oklch(42% .14 285);
+  --color-brand-800: #2e1f5b;
+  --color-brand-900: oklch(20% .08 285);
+  --color-brand-950: oklch(12% .05 285);
+}
 
 @layer base {
   body {

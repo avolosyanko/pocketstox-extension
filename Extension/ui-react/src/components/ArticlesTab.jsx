@@ -824,7 +824,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         className={cn(
           "relative cursor-pointer transition-all duration-300 group border rounded-lg",
           selectedArticles.has(articleId) 
-            ? "bg-purple-50 text-purple-700 border-purple-200" 
+            ? "bg-brand-50 text-brand-800 border-brand-200" 
             : "hover:bg-gray-50 border-transparent"
         )}
         onClick={handleCardClick}
@@ -844,7 +844,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
             <Checkbox
               checked={selectedArticles.has(articleId)}
               onCheckedChange={() => handleSelectArticle(articleId)}
-              className="data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-600 data-[state=checked]:text-white bg-white border-gray-300 h-4 w-4 [&_svg]:h-3 [&_svg]:w-3"
+              className="data-[state=checked]:bg-brand-800 data-[state=checked]:border-brand-800 data-[state=checked]:text-white bg-white border-gray-300 h-4 w-4 [&_svg]:h-3 [&_svg]:w-3"
             />
           </div>
           {/* Content */}
@@ -880,31 +880,32 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
 
   return (
     <div className="h-full flex flex-col">
-      
-      {/* Actions Header */}
-      <div className="mt-1 mb-3 flex items-center px-1">
-        <h2 className={cn(semanticTypography.cardTitle)}>Actions</h2>
-      </div>
-      
+
       {/* Actions Section - Combined Pipeline UI */}
       <div className="mb-4 ml-2 pr-1 space-y-3">
         {/* Pipeline Window */}
         <div className="border border-gray-200 rounded-lg bg-white">
           {/* Dynamic Header Bar - Purple for active/waiting, Green for ready/completed, Red for error */}
-          <div className="flex items-center justify-between px-4 py-3 rounded-t-lg text-white"
+          <div className="flex items-center justify-between px-4 py-3 rounded-t-lg text-white relative overflow-hidden"
           style={{
             backgroundColor: (() => {
               switch(detectionState) {
-                case 'hold': return '#9333EA' // Purple-600 (waiting)
-                case 'error': return '#EF4444' // Red
-                case 'scanning': return '#9333EA' // Purple-600 (active/loading)
-                case 'ready': return '#22C55E' // Green (completed)
-                case 'idle': return '#9333EA' // Purple-600 (idle/waiting)
-                default: return '#22C55E' // Green (default)
+                case 'hold': return '#2e1f5b' // Brand-800 (waiting)
+                case 'error': return '#b91c1c' // Red-700 (darker red)
+                case 'scanning': return '#2e1f5b' // Brand-800 (active/loading)
+                case 'ready': return '#15803d' // Green-700 (darker green)
+                case 'idle': return '#2e1f5b' // Brand-800 (idle/waiting)
+                default: return '#15803d' // Green-700 (default)
               }
             })()
           }}>
-            <div className="flex items-center gap-2">
+            {/* Subtle white gradient overlay */}
+            <div className="absolute top-0 right-0 w-32 h-32 opacity-10 pointer-events-none"
+              style={{
+                background: "radial-gradient(circle at top right, white 0%, transparent 70%)"
+              }}
+            ></div>
+            <div className="flex items-center gap-2 relative z-10">
               <span className="text-sm font-medium">
                 {detectionState === 'idle' && 'Ready'}
                 {detectionState === 'scanning' && 'Processing'}
@@ -913,7 +914,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                 {detectionState === 'error' && 'Error'}
               </span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 relative z-10">
               <button 
                 onClick={detectionState === 'hold' && (currentStep === 0 || currentStep === 1) ? handleRunStep : handleReset}
                 disabled={detectionState === 'scanning'}
@@ -962,14 +963,14 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                   <div key={key} className="relative">
                     {/* Vertical Line */}
                     {!isLast && (
-                      <div 
+                      <div
                         className={cn(
                           "absolute left-7 w-0.5 top-8",
-                          isCompleted && "bg-green-500",
-                          isActive && "bg-purple-600",
-                          isReady && "bg-green-500",
-                          isError && "bg-red-500",
-                          isWaiting && "bg-gray-300"
+                          isCompleted && "bg-green-700",
+                          isActive && "bg-brand-800",
+                          isReady && "bg-green-700",
+                          isError && "bg-red-700",
+                          isWaiting && "bg-gray-200"
                         )}
                         style={{
                           height: 'calc(100% + 0.5rem)'  // Extend to connect with next circle
@@ -989,7 +990,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                                 cy="16"
                                 r="14"
                                 fill="none"
-                                stroke="#9333EA"
+                                stroke="#2e1f5b"
                                 strokeWidth="2"
                                 strokeLinecap="round"
                                 strokeDasharray="87.96"
@@ -1007,11 +1008,11 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                         <div className={cn(
                           "rounded-full flex items-center justify-center absolute inset-0 transition-all duration-300",
                           isActive ? "w-6 h-6 m-1 cursor-pointer hover:brightness-110" : "w-8 h-8", // Shrink when active with margin to center
-                          isCompleted && "bg-green-500",
-                          isActive && "bg-purple-600",
-                          isReady && "bg-green-500",
-                          isError && "bg-red-500",
-                          isWaiting && "bg-gray-300",
+                          isCompleted && "bg-green-700",
+                          isActive && "bg-brand-800",
+                          isReady && "bg-green-700",
+                          isError && "bg-red-700",
+                          isWaiting && "bg-gray-200",
                           // Show pause icon for next step when waiting
                           detectionState === 'hold' && index === currentStep && "cursor-pointer hover:brightness-110"
                         )}
@@ -1025,7 +1026,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                         } : (detectionState === 'hold' && index === currentStep ? handleRunStep : undefined)}
                         style={{
                           cursor: isActive ? 'pointer' : (detectionState === 'hold' && index === currentStep ? 'pointer' : 'default'),
-                          backgroundColor: detectionState === 'hold' && index === currentStep ? '#9333EA' : undefined
+                          backgroundColor: detectionState === 'hold' && index === currentStep ? '#2e1f5b' : undefined
                         }}
                         title={isActive ? "Cancel" : undefined}
                         >
@@ -1069,10 +1070,10 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                         <div className="flex items-center gap-2 mb-1">
                           <h4 className={cn(
                             "text-sm font-medium",
-                            isCompleted && "text-green-600",
-                            isActive && "text-purple-600",
-                            isReady && "text-green-600",
-                            isError && "text-red-600",
+                            isCompleted && "text-green-700",
+                            isActive && "text-brand-800",
+                            isReady && "text-green-700",
+                            isError && "text-red-700",
                             isWaiting && "text-gray-600"
                           )}>
                             {stage.title}
@@ -1096,10 +1097,10 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                         </p>
                         <p className={cn(
                           "text-xs",
-                          isCompleted && "text-green-500",
-                          isActive && "text-purple-600",
-                          isReady && "text-green-500",
-                          isError && "text-red-500",
+                          isCompleted && "text-green-700",
+                          isActive && "text-brand-800",
+                          isReady && "text-green-700",
+                          isError && "text-red-700",
                           isWaiting && "text-gray-500"
                         )}>
                           {isCompleted && (key === 'parsing' ? 'Article parsed and structured successfully' : 
@@ -1124,7 +1125,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                                 type="text"
                                 value={editedTitle}
                                 onChange={(e) => setEditedTitle(e.target.value)}
-                                className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
                               />
                             </div>
                             <div>
@@ -1133,7 +1134,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                                 value={editedContent}
                                 onChange={(e) => setEditedContent(e.target.value)}
                                 rows={12}
-                                className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                                className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent resize-none"
                               />
                             </div>
                             <div className="flex items-center gap-1 pt-2">
