@@ -16,8 +16,8 @@ const NavigationHeader = memo(({ activeTab, onTabChange }) => {
     },
     {
       id: 'account',
-      label: 'Account',
-      description: 'Manage your profile and preferences',
+      label: 'Tracker',
+      description: 'Track companies and document research',
       icon: User
     }
   ]
@@ -110,7 +110,7 @@ const NavigationHeader = memo(({ activeTab, onTabChange }) => {
           <div className="fixed inset-0 bg-black/25 z-40" style={{top: '44px'}}></div>
           {/* Menu Panel */}
           <div className="navigation-menu-panel fixed top-[44px] left-0 right-0 bg-white border-b border-gray-200 shadow-lg z-50">
-          <div className="px-4 py-4 space-y-4">
+          <div className="px-4 py-3.5 space-y-3.5">
             {/* Navigation Section */}
             <div>
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 px-3">
@@ -125,15 +125,15 @@ const NavigationHeader = memo(({ activeTab, onTabChange }) => {
                       key={tab.id}
                       onClick={() => handleNavTabChange(tab.id)}
                       className={cn(
-                        "w-full flex items-start gap-3 px-3 py-3 text-left rounded-lg transition-colors",
-                        isActive 
-                          ? 'bg-brand-50 text-brand-800 border border-brand-200'
+                        "w-full flex items-start gap-2.5 px-3 py-2.5 text-left rounded-lg transition-colors",
+                        isActive
+                          ? 'bg-gray-50 text-gray-900 border border-gray-200'
                           : 'text-gray-700 hover:bg-gray-50 border border-transparent'
                       )}
                     >
                       <Icon size={18} strokeWidth={2} className="flex-shrink-0 mt-1" />
                       <div className="min-w-0 flex-1">
-                        <div className={cn("text-sm font-medium", isActive ? "text-brand-800" : "text-gray-900")}>
+                        <div className={cn("text-sm font-medium", isActive ? "text-gray-900" : "text-gray-900")}>
                           {tab.label}
                         </div>
                         <div className="text-xs text-gray-500 mt-0.5">
@@ -161,7 +161,7 @@ const NavigationHeader = memo(({ activeTab, onTabChange }) => {
                         action.action()
                         setIsMenuOpen(false)
                       }}
-                      className="w-full flex items-start gap-3 px-3 py-3 text-left rounded-lg transition-colors border border-transparent text-gray-700 hover:bg-gray-50"
+                      className="w-full flex items-start gap-2.5 px-3 py-2.5 text-left rounded-lg transition-colors border border-transparent text-gray-700 hover:bg-gray-50"
                     >
                       <Icon size={18} strokeWidth={2} className="flex-shrink-0 mt-1" />
                       <div className="min-w-0 flex-1">

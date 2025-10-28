@@ -3,7 +3,7 @@ import NavigationHeader from './components/NavigationHeader'
 import ArticlesTab from './components/ArticlesTab'
 import CommunityTab from './components/CommunityTab'
 import AccountTab from './components/AccountTab'
-import { FileText } from 'lucide-react'
+import { FileText, ThumbsUp, ThumbsDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { semanticTypography, componentSpacing } from '@/styles/typography'
 import './index.css'
@@ -14,6 +14,8 @@ function App() {
   const articlesTabRef = useRef(null)
   const [overlayOpen, setOverlayOpen] = useState(false)
   const [selectedArticle, setSelectedArticle] = useState(null)
+  const [articleFeedback, setArticleFeedback] = useState({})
+  const [showFeedbackThanks, setShowFeedbackThanks] = useState({})
 
   // Format date function - consistent with ArticlesTab
   const formatDate = (dateString) => {
@@ -327,10 +329,10 @@ function App() {
                       <div className="bg-white rounded-lg border border-gray-200">
                         {selectedArticle.matches.slice(0, 1).map((match, index) => {
                         const confidence = match.score || Math.random() * 0.4 + 0.6;
-                        
+
                         return (
                           <div key={index}>
-                            <div 
+                            <div
                               className="relative cursor-pointer transition-all duration-300 group hover:bg-gray-50 border-transparent rounded-lg"
                               onClick={() => window.open(`https://finance.yahoo.com/quote/${match.ticker}`, '_blank')}
                             >
@@ -341,20 +343,96 @@ function App() {
                                     <h3 className={cn(semanticTypography.cardTitle, "font-medium")}>
                                       {match.ticker}
                                     </h3>
-                                    <div className="px-2 py-0.5 bg-brand-100 text-brand-800 rounded-full text-xs font-medium">
+                                    <div className="px-2 py-0.5 bg-gray-100 text-gray-900 rounded-full text-xs font-medium">
                                       {(confidence * 100).toFixed(0)}%
                                     </div>
                                   </div>
-                                  
+
                                   {/* Company name */}
                                   <p className={cn(semanticTypography.secondaryText, "mb-1")}>
                                     {match.company || match.ticker}
                                   </p>
-                                  
+
                                   {/* Source */}
                                   <div className={cn("flex items-center gap-2", semanticTypography.metadata)}>
                                     <span>Source: Financial news vectorstore</span>
                                   </div>
+
+                                  {/* How this works link */}
+                                  <div className="mt-2">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        window.open('https://pocketstox.com/how-it-works', '_blank')
+                                      }}
+                                      className="text-xs text-gray-600 hover:text-gray-900 underline hover:no-underline transition-colors"
+                                    >
+                                      How this works?
+                                    </button>
+                                  </div>
+
+                                  {/* Feedback Section */}
+                                  {showFeedbackThanks[selectedArticle.id || selectedArticle.title] === 'thanks' ? (
+                                    <div className="mt-3 pt-3 border-t border-gray-100">
+                                      <div className="text-xs text-green-700 text-center">
+                                        Thanks for your feedback.
+                                      </div>
+                                    </div>
+                                  ) : showFeedbackThanks[selectedArticle.id || selectedArticle.title] === 'hidden' ? null : (
+                                    <div className="mt-3 pt-3 border-t border-gray-100">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs text-gray-600">Was this helpful?</span>
+                                        <div className="flex items-center gap-2">
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              const articleId = selectedArticle.id || selectedArticle.title
+                                              setArticleFeedback(prev => ({
+                                                ...prev,
+                                                [articleId]: 'up'
+                                              }))
+                                              setShowFeedbackThanks(prev => ({
+                                                ...prev,
+                                                [articleId]: 'thanks'
+                                              }))
+                                              setTimeout(() => {
+                                                setShowFeedbackThanks(prev => ({
+                                                  ...prev,
+                                                  [articleId]: 'hidden'
+                                                }))
+                                              }, 2000)
+                                            }}
+                                            className="p-1.5 rounded-md transition-all text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                                          >
+                                            <ThumbsUp size={14} />
+                                          </button>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              const articleId = selectedArticle.id || selectedArticle.title
+                                              setArticleFeedback(prev => ({
+                                                ...prev,
+                                                [articleId]: 'down'
+                                              }))
+                                              setShowFeedbackThanks(prev => ({
+                                                ...prev,
+                                                [articleId]: 'thanks'
+                                              }))
+                                              setTimeout(() => {
+                                                setShowFeedbackThanks(prev => ({
+                                                  ...prev,
+                                                  [articleId]: 'hidden'
+                                                }))
+                                              }, 2000)
+                                            }}
+                                            className="p-1.5 rounded-md transition-all text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                                          >
+                                            <ThumbsDown size={14} />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>

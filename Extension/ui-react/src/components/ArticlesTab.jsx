@@ -1,7 +1,7 @@
 import React, { useState, useEffect, memo, useImperativeHandle, forwardRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
-import { FileText, Search, Edit2, Info } from 'lucide-react'
+import { FileText, Search, Edit2, Info, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { semanticTypography, componentSpacing, spacing } from '@/styles/typography'
 
@@ -66,20 +66,20 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   }
 
   const [extractionStages, setExtractionStages] = useState({
-    parsing: { 
-      status: 'waiting', 
-      title: 'Parse Input Article', 
-      subtitle: 'Extracting and structuring article content',
+    parsing: {
+      status: 'waiting',
+      title: 'Parse Input Article',
+      subtitle: 'Extract active tab content',
       details: {
         description: 'Process and parse article content',
         info: 'Clean and structure the extracted content',
         action: 'View processing details'
       }
     },
-    analysis: { 
-      status: 'waiting', 
-      title: 'Analysis Generation', 
-      subtitle: 'Ready to process content for AI analysis',
+    analysis: {
+      status: 'waiting',
+      title: 'Analysis Generation',
+      subtitle: 'Process extracted content',
       details: {
         description: 'Generate AI-powered analysis',
         info: 'Content ready for comprehensive analysis',
@@ -253,7 +253,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
           const articlesWithContent = (articleData || []).map(article => {
             const cacheKey = `${article.title}-${article.url}`
             const cachedContent = cache.get(cacheKey)
-            
+
             // If article is missing content but we have it cached, restore it
             if ((!article.content || !article.text) && cachedContent) {
               return {
@@ -264,9 +264,79 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
             }
             return article
           })
-          
-          setArticles(articlesWithContent)
-          setDisplayedArticles(articlesWithContent.slice(0, loadMoreCount))
+
+          // Add placeholder articles for demo purposes if no real articles exist
+          const finalArticles = articlesWithContent.length === 0 ? [
+            {
+              id: 'placeholder-1',
+              title: 'Apple Announces Record Q4 Earnings, Beats Analyst Expectations',
+              url: 'https://finance.yahoo.com/news/apple-earnings-q4-2024',
+              content: 'Apple Inc. reported record-breaking fourth quarter earnings today, surpassing analyst expectations with revenue of $123.5 billion...',
+              timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
+              companies: ['AAPL'],
+              matches: [
+                { ticker: 'AAPL', company: 'Apple Inc.', score: 0.95 }
+              ]
+            },
+            {
+              id: 'placeholder-2',
+              title: 'Tesla Unveils New AI-Powered Manufacturing Process',
+              url: 'https://techcrunch.com/tesla-ai-manufacturing',
+              content: 'Tesla has announced a revolutionary AI-powered manufacturing process that could reduce production costs by 30%...',
+              timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(), // 5 hours ago
+              companies: ['TSLA'],
+              matches: [
+                { ticker: 'TSLA', company: 'Tesla, Inc.', score: 0.92 }
+              ]
+            },
+            {
+              id: 'placeholder-3',
+              title: 'Microsoft Azure Revenue Surges 50% Year-Over-Year',
+              url: 'https://reuters.com/microsoft-azure-growth',
+              content: 'Microsoft reported strong growth in its Azure cloud services division, with revenue increasing 50% compared to last year...',
+              timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // Yesterday
+              companies: ['MSFT'],
+              matches: [
+                { ticker: 'MSFT', company: 'Microsoft Corporation', score: 0.89 }
+              ]
+            },
+            {
+              id: 'placeholder-4',
+              title: 'NVIDIA Stock Rallies on Strong AI Chip Demand',
+              url: 'https://cnbc.com/nvidia-ai-chips',
+              content: 'NVIDIA shares jumped 8% after the company reported unprecedented demand for its AI processing chips...',
+              timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // Yesterday
+              companies: ['NVDA'],
+              matches: [
+                { ticker: 'NVDA', company: 'NVIDIA Corporation', score: 0.94 }
+              ]
+            },
+            {
+              id: 'placeholder-5',
+              title: 'Amazon Expands Same-Day Delivery to 50 New Cities',
+              url: 'https://bloomberg.com/amazon-delivery-expansion',
+              content: 'Amazon announced a major expansion of its same-day delivery service, now covering 50 additional metropolitan areas...',
+              timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
+              companies: ['AMZN'],
+              matches: [
+                { ticker: 'AMZN', company: 'Amazon.com Inc.', score: 0.91 }
+              ]
+            },
+            {
+              id: 'placeholder-6',
+              title: 'Meta Platforms Reports User Growth Acceleration',
+              url: 'https://wsj.com/meta-user-growth',
+              content: 'Meta Platforms Inc. reported accelerating user growth across its family of apps, with daily active users reaching 3.2 billion...',
+              timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
+              companies: ['META'],
+              matches: [
+                { ticker: 'META', company: 'Meta Platforms Inc.', score: 0.88 }
+              ]
+            }
+          ] : articlesWithContent
+
+          setArticles(finalArticles)
+          setDisplayedArticles(finalArticles.slice(0, loadMoreCount))
           setIsLoading(false)
         }
       } catch (error) {
@@ -823,8 +893,8 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       <div 
         className={cn(
           "relative cursor-pointer transition-all duration-300 group border rounded-lg",
-          selectedArticles.has(articleId) 
-            ? "bg-brand-50 text-brand-800 border-brand-200" 
+          selectedArticles.has(articleId)
+            ? "bg-gray-50 text-gray-900 border-gray-200"
             : "hover:bg-gray-50 border-transparent"
         )}
         onClick={handleCardClick}
@@ -844,7 +914,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
             <Checkbox
               checked={selectedArticles.has(articleId)}
               onCheckedChange={() => handleSelectArticle(articleId)}
-              className="data-[state=checked]:bg-brand-800 data-[state=checked]:border-brand-800 data-[state=checked]:text-white bg-white border-gray-300 h-4 w-4 [&_svg]:h-3 [&_svg]:w-3"
+              className="data-[state=checked]:bg-gray-900 data-[state=checked]:border-gray-900 data-[state=checked]:text-white bg-white border-gray-300 h-4 w-4 [&_svg]:h-3 [&_svg]:w-3"
             />
           </div>
           {/* Content */}
@@ -885,16 +955,16 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       <div className="mb-4 ml-2 pr-1 space-y-3">
         {/* Pipeline Window */}
         <div className="border border-gray-200 rounded-lg bg-white">
-          {/* Dynamic Header Bar - Purple for active/waiting, Green for ready/completed, Red for error */}
+          {/* Dynamic Header Bar - Gray for active/waiting, Green for ready/completed, Red for error */}
           <div className="flex items-center justify-between px-4 py-3 rounded-t-lg text-white relative overflow-hidden"
           style={{
             backgroundColor: (() => {
               switch(detectionState) {
-                case 'hold': return '#2e1f5b' // Brand-800 (waiting)
+                case 'hold': return '#111827' // Gray-900 (waiting)
                 case 'error': return '#b91c1c' // Red-700 (darker red)
-                case 'scanning': return '#2e1f5b' // Brand-800 (active/loading)
+                case 'scanning': return '#111827' // Gray-900 (active/loading)
                 case 'ready': return '#15803d' // Green-700 (darker green)
-                case 'idle': return '#2e1f5b' // Brand-800 (idle/waiting)
+                case 'idle': return '#111827' // Gray-900 (idle/waiting)
                 default: return '#15803d' // Green-700 (default)
               }
             })()
@@ -967,7 +1037,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                         className={cn(
                           "absolute left-7 w-0.5 top-8",
                           isCompleted && "bg-green-700",
-                          isActive && "bg-brand-800",
+                          isActive && "bg-gray-900",
                           isReady && "bg-green-700",
                           isError && "bg-red-700",
                           isWaiting && "bg-gray-200"
@@ -990,7 +1060,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                                 cy="16"
                                 r="14"
                                 fill="none"
-                                stroke="#2e1f5b"
+                                stroke="#111827"
                                 strokeWidth="2"
                                 strokeLinecap="round"
                                 strokeDasharray="87.96"
@@ -1009,7 +1079,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                           "rounded-full flex items-center justify-center absolute inset-0 transition-all duration-300",
                           isActive ? "w-6 h-6 m-1 cursor-pointer hover:brightness-110" : "w-8 h-8", // Shrink when active with margin to center
                           isCompleted && "bg-green-700",
-                          isActive && "bg-brand-800",
+                          isActive && "bg-gray-900",
                           isReady && "bg-green-700",
                           isError && "bg-red-700",
                           isWaiting && "bg-gray-200",
@@ -1026,7 +1096,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                         } : (detectionState === 'hold' && index === currentStep ? handleRunStep : undefined)}
                         style={{
                           cursor: isActive ? 'pointer' : (detectionState === 'hold' && index === currentStep ? 'pointer' : 'default'),
-                          backgroundColor: detectionState === 'hold' && index === currentStep ? '#2e1f5b' : undefined
+                          backgroundColor: detectionState === 'hold' && index === currentStep ? '#111827' : undefined
                         }}
                         title={isActive ? "Cancel" : undefined}
                         >
@@ -1071,7 +1141,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                           <h4 className={cn(
                             "text-sm font-medium",
                             isCompleted && "text-green-700",
-                            isActive && "text-brand-800",
+                            isActive && "text-gray-900",
                             isReady && "text-green-700",
                             isError && "text-red-700",
                             isWaiting && "text-gray-600"
@@ -1098,7 +1168,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                         <p className={cn(
                           "text-xs",
                           isCompleted && "text-green-700",
-                          isActive && "text-brand-800",
+                          isActive && "text-gray-900",
                           isReady && "text-green-700",
                           isError && "text-red-700",
                           isWaiting && "text-gray-500"
@@ -1186,6 +1256,30 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         </div>
 
       </div>
+
+      {/* Daily Usage */}
+      <Card className="bg-transparent border border-gray-200 mb-3 ml-2 mr-1">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+              <Plus size={16} className="text-gray-900" strokeWidth={2} />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-gray-900">Daily Usage</h3>
+              <p className={`${semanticTypography.secondaryText}`}>{remainingAnalyses} analyses remaining today</p>
+            </div>
+          </div>
+          {/* Progress bar under both icon and text */}
+          <div className="w-full">
+            <div className="w-full bg-gray-200 rounded-full h-1.5">
+              <div
+                className="bg-gray-900 h-1.5 rounded-full transition-all duration-300"
+                style={{ width: `${((5 - remainingAnalyses) / 5) * 100}%` }}
+              ></div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Recents Header */}
       <div className="mt-1 mb-3 flex items-center px-1">

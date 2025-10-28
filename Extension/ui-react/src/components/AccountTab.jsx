@@ -1,33 +1,27 @@
-import React, { memo, useState, useEffect } from 'react'
+import React, { memo, useEffect, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Check, Plus, Layers, PieChart } from 'lucide-react'
+import { Check, Plus, TrendingUp, AlertCircle, X } from 'lucide-react'
 import { semanticTypography } from '@/styles/typography'
 import { cn } from '@/lib/utils'
 
 const AccountTab = memo(() => {
-  const [remainingAnalyses, setRemainingAnalyses] = useState(5)
-  const [usageStats, setUsageStats] = useState({ today: 0, total: 0 })
-  
-  // Load usage statistics and set up auth listener
+  const [trackedCompanies, setTrackedCompanies] = useState([])
+  const [showAddCompanyModal, setShowAddCompanyModal] = useState(false)
+  const [newCompany, setNewCompany] = useState({ ticker: '', company: '', reason: '' })
+
+  // Load tracked companies from storage
   useEffect(() => {
-    const loadUsageData = async () => {
-      try {
-        if (window.extensionServices && window.extensionServices.storage) {
-          const stats = await window.extensionServices.storage.getUsageStats()
-          setUsageStats(stats)
-          const remaining = Math.max(0, 5 - (stats.today || 0))
-          setRemainingAnalyses(remaining)
-        }
-      } catch (error) {
-        console.error('Failed to load usage data:', error)
+    const loadData = async () => {
+      if (window.extensionServices && window.extensionServices.storage) {
+        // Load tracked companies (placeholder for now)
+        const savedCompanies = []
+        setTrackedCompanies(savedCompanies)
       }
     }
-    
-    loadUsageData()
-    
-    // Set up interval to refresh usage data periodically
-    const interval = setInterval(loadUsageData, 5000) // Refresh every 5 seconds
-    
+    loadData()
+  }, [])
+  // Set up auth listener
+  useEffect(() => {
     // Listen for auth messages from landing page
     const handleMessage = (message, sender, sendResponse) => {
       if (message.type === 'AUTH_SUCCESS' && message.source === 'pocketstox-landing') {
@@ -44,18 +38,15 @@ const AccountTab = memo(() => {
             lastSignIn: new Date().toISOString()
           })
         }
-        // Refresh component state
-        loadUsageData()
       }
     }
-    
+
     // Add message listener
     if (chrome && chrome.runtime && chrome.runtime.onMessage) {
       chrome.runtime.onMessage.addListener(handleMessage)
     }
-    
+
     return () => {
-      clearInterval(interval)
       if (chrome && chrome.runtime && chrome.runtime.onMessage) {
         chrome.runtime.onMessage.removeListener(handleMessage)
       }
@@ -63,30 +54,6 @@ const AccountTab = memo(() => {
   }, [])
   return (
     <div>
-      {/* Daily Usage */}
-      <Card className="bg-transparent border border-gray-200 mb-3">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center">
-              <Plus size={16} className="text-brand-800" strokeWidth={2} />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-medium text-gray-900">Daily Usage</h3>
-              <p className={`${semanticTypography.secondaryText}`}>{remainingAnalyses} analyses remaining today</p>
-            </div>
-          </div>
-          {/* Progress bar under both icon and text */}
-          <div className="w-full">
-            <div className="w-full bg-gray-200 rounded-full h-1.5">
-              <div
-                className="bg-brand-800 h-1.5 rounded-full transition-all duration-300"
-                style={{ width: `${(usageStats.today / 5) * 100}%` }}
-              ></div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Profile Card */}
       <Card className="bg-transparent border border-gray-200 mb-3">
         <CardContent className="p-5">
@@ -95,9 +62,9 @@ const AccountTab = memo(() => {
             onClick={() => {
               chrome.tabs.create({ url: 'https://pocketstox.com/auth?source=extension' })
             }}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 border border-brand-800 rounded-md transition-all duration-200 select-none hover:opacity-90 relative overflow-hidden mb-4"
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 border border-gray-900 rounded-md transition-all duration-200 select-none hover:opacity-90 relative overflow-hidden mb-4"
             style={{
-              background: "linear-gradient(135deg, #2e1f5b 0%, #1e1b4b 100%)",
+              background: "linear-gradient(135deg, #111827 0%, #1f2937 100%)",
               userSelect: "none",
               WebkitUserSelect: "none",
               MozUserSelect: "none",
@@ -132,55 +99,146 @@ const AccountTab = memo(() => {
           {/* Sign In Benefits */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Check size={14} className="text-brand-800" strokeWidth={2.5} />
-              <span className={semanticTypography.secondaryText}>Priority access at high traffic times</span>
+              <Check size={14} className="text-gray-900" strokeWidth={2.5} />
+              <span className={semanticTypography.secondaryText}>Track companies & document thesis</span>
             </div>
             <div className="flex items-center gap-2">
-              <Check size={14} className="text-brand-800" strokeWidth={2.5} />
-              <span className={semanticTypography.secondaryText}>Sync data across all devices</span>
+              <Check size={14} className="text-gray-900" strokeWidth={2.5} />
+              <span className={semanticTypography.secondaryText}>Sync data across devices</span>
             </div>
             <div className="flex items-center gap-2">
-              <Check size={14} className="text-brand-800" strokeWidth={2.5} />
-              <span className={semanticTypography.secondaryText}>Access extended article history</span>
+              <Check size={14} className="text-gray-900" strokeWidth={2.5} />
+              <span className={semanticTypography.secondaryText}>Priority access to features</span>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Coming Soon Header */}
-      <div className="mt-4 mb-3 flex items-center px-1">
-        <h2 className={cn(semanticTypography.cardTitle)}>Coming Soon</h2>
+      {/* Tracked Companies Section */}
+      <div className="mt-4 mb-3 flex items-center justify-between px-1">
+        <h2 className={cn(semanticTypography.cardTitle)}>Tracked Companies</h2>
+        <button
+          onClick={() => setShowAddCompanyModal(true)}
+          className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+        >
+          <Plus size={14} />
+          Add
+        </button>
       </div>
-      
-      {/* Pattern Analytics */}
-      <Card className="bg-transparent border border-gray-200 mb-3">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-              <Layers size={16} className="text-gray-500" strokeWidth={2} />
+
+      {trackedCompanies.length === 0 ? (
+        <Card className="border-dashed border-2 border-gray-200 bg-white mb-3">
+          <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+            <div className="rounded-full bg-gray-100 p-3 mb-3">
+              <TrendingUp size={20} className="text-gray-500" />
             </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-medium text-gray-900">Pattern Detection</h3>
-              <p className={`${semanticTypography.secondaryText}`}>Analytics across your entire reading history</p>
-            </div>
+            <h3 className={`${semanticTypography.emptyStateTitle} mb-1`}>No tracked companies yet</h3>
+            <p className={semanticTypography.emptyStateDescription}>
+              Save companies from articles to track and monitor
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2 mb-3">
+          {trackedCompanies.map((company, index) => (
+            <Card key={index} className="bg-white border border-gray-200">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="text-sm font-semibold text-gray-900">{company.ticker}</h3>
+                      {company.hasAlert && (
+                        <div className="flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-800 rounded-full text-xs">
+                          <AlertCircle size={10} />
+                          Alert
+                        </div>
+                      )}
+                    </div>
+                    <p className={`${semanticTypography.secondaryText} mb-2`}>{company.company}</p>
+                  </div>
+                  <button
+                    onClick={() => setTrackedCompanies(prev => prev.filter((_, i) => i !== index))}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+                <div className="bg-gray-50 rounded p-2">
+                  <p className="text-xs text-gray-600 italic">"{company.reason}"</p>
+                </div>
+                {company.alert && (
+                  <div className="mt-2 pt-2 border-t border-gray-100">
+                    <p className="text-xs text-orange-700">{company.alert}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Add Company Modal */}
+      {showAddCompanyModal && (
+        <>
+          <div className="fixed inset-0 bg-black bg-opacity-25 z-40" onClick={() => setShowAddCompanyModal(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <Card className="w-full max-w-md bg-white">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-base font-semibold text-gray-900">Track Company</h3>
+                  <button onClick={() => setShowAddCompanyModal(false)} className="text-gray-400 hover:text-gray-600">
+                    <X size={18} />
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Ticker</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. AAPL"
+                      value={newCompany.ticker}
+                      onChange={(e) => setNewCompany({...newCompany, ticker: e.target.value.toUpperCase()})}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Apple Inc."
+                      value={newCompany.company}
+                      onChange={(e) => setNewCompany({...newCompany, company: e.target.value})}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Why are you interested?</label>
+                    <textarea
+                      placeholder="Document your investment thesis..."
+                      value={newCompany.reason}
+                      onChange={(e) => setNewCompany({...newCompany, reason: e.target.value})}
+                      rows={4}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
+                    />
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (newCompany.ticker && newCompany.company && newCompany.reason) {
+                        setTrackedCompanies([...trackedCompanies, { ...newCompany, hasAlert: false }])
+                        setNewCompany({ ticker: '', company: '', reason: '' })
+                        setShowAddCompanyModal(false)
+                      }
+                    }}
+                    className="w-full py-2.5 px-4 bg-gray-900 text-white text-sm font-medium rounded-md hover:bg-gray-800 transition-colors"
+                  >
+                    Add Company
+                  </button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </CardContent>
-      </Card>
-      
-      {/* Portfolio Tracking */}
-      <Card className="bg-transparent border border-gray-200 mb-3">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-              <PieChart size={16} className="text-gray-500" strokeWidth={2} />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-medium text-gray-900">Portfolio Tracking</h3>
-              <p className={`${semanticTypography.secondaryText}`}>Connect your portfolio with Pocketstox</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        </>
+      )}
 
     </div>
   )
