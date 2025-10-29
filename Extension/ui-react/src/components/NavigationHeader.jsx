@@ -1,5 +1,5 @@
 import React, { memo, useState, useRef, useEffect } from 'react'
-import { Star, User, Menu, X, Info } from 'lucide-react'
+import { Star, Heart, Menu, X, Info, LogIn } from 'lucide-react'
 import { semanticTypography, componentSpacing } from '@/styles/typography'
 import { cn } from '@/lib/utils'
 
@@ -16,13 +16,24 @@ const NavigationHeader = memo(({ activeTab, onTabChange }) => {
     },
     {
       id: 'account',
-      label: 'Account',
-      description: 'Manage your profile and preferences',
-      icon: User
+      label: 'Following',
+      description: 'Companies you follow and research',
+      icon: Heart
     }
   ]
 
   const menuActions = [
+    {
+      id: 'signin',
+      label: 'Sign In',
+      description: 'Connect your Pocketstox account',
+      icon: LogIn,
+      action: () => {
+        if (chrome && chrome.tabs) {
+          chrome.tabs.create({ url: 'https://pocketstox.com/auth?source=extension' })
+        }
+      }
+    },
     {
       id: 'help',
       label: 'Getting Started',
@@ -83,7 +94,7 @@ const NavigationHeader = memo(({ activeTab, onTabChange }) => {
             {/* Hamburger Menu */}
             <button
               onClick={toggleMenu}
-              className="flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors duration-200"
+              className="flex items-center justify-center w-8 h-8 text-gray-900 hover:bg-gray-100 rounded-md transition-colors duration-200"
               aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={isMenuOpen}
               aria-haspopup="true"
@@ -107,10 +118,10 @@ const NavigationHeader = memo(({ activeTab, onTabChange }) => {
       {isMenuOpen && (
         <>
           {/* Backdrop */}
-          <div className="fixed inset-0 bg-black/25 z-40" style={{top: '44px'}}></div>
+          <div className="fixed inset-0 bg-black/80 z-40" style={{top: '44px'}}></div>
           {/* Menu Panel */}
           <div className="navigation-menu-panel fixed top-[44px] left-0 right-0 bg-white border-b border-gray-200 shadow-lg z-50">
-          <div className="px-4 py-4 space-y-4">
+          <div className="px-4 py-3.5 space-y-3.5">
             {/* Navigation Section */}
             <div>
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 px-3">
@@ -125,15 +136,15 @@ const NavigationHeader = memo(({ activeTab, onTabChange }) => {
                       key={tab.id}
                       onClick={() => handleNavTabChange(tab.id)}
                       className={cn(
-                        "w-full flex items-start gap-3 px-3 py-3 text-left rounded-lg transition-colors",
-                        isActive 
-                          ? 'bg-brand-50 text-brand-800 border border-brand-200'
-                          : 'text-gray-700 hover:bg-gray-50 border border-transparent'
+                        "w-full flex items-start gap-2.5 px-3 py-2.5 text-left rounded-lg transition-colors",
+                        isActive
+                          ? 'bg-gray-50 border border-gray-200'
+                          : 'hover:bg-gray-50 border border-transparent'
                       )}
                     >
-                      <Icon size={18} strokeWidth={2} className="flex-shrink-0 mt-1" />
+                      <Icon size={18} strokeWidth={1.5} className="flex-shrink-0 mt-1 text-gray-900" />
                       <div className="min-w-0 flex-1">
-                        <div className={cn("text-sm font-medium", isActive ? "text-brand-800" : "text-gray-900")}>
+                        <div className={cn("text-sm font-medium", isActive ? "text-gray-900" : "text-gray-900")}>
                           {tab.label}
                         </div>
                         <div className="text-xs text-gray-500 mt-0.5">
@@ -161,9 +172,9 @@ const NavigationHeader = memo(({ activeTab, onTabChange }) => {
                         action.action()
                         setIsMenuOpen(false)
                       }}
-                      className="w-full flex items-start gap-3 px-3 py-3 text-left rounded-lg transition-colors border border-transparent text-gray-700 hover:bg-gray-50"
+                      className="w-full flex items-start gap-2.5 px-3 py-2.5 text-left rounded-lg transition-colors border border-transparent hover:bg-gray-50"
                     >
-                      <Icon size={18} strokeWidth={2} className="flex-shrink-0 mt-1" />
+                      <Icon size={18} strokeWidth={1.5} className="flex-shrink-0 mt-1 text-gray-900" />
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium text-gray-900">
                           {action.label}
