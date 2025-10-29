@@ -3,7 +3,7 @@ import NavigationHeader from './components/NavigationHeader'
 import ArticlesTab from './components/ArticlesTab'
 import CommunityTab from './components/CommunityTab'
 import AccountTab from './components/AccountTab'
-import { FileText, ThumbsUp, ThumbsDown } from 'lucide-react'
+import { FileText, ThumbsUp, ThumbsDown, Plus, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { semanticTypography, componentSpacing } from '@/styles/typography'
 import './index.css'
@@ -16,6 +16,7 @@ function App() {
   const [selectedArticle, setSelectedArticle] = useState(null)
   const [articleFeedback, setArticleFeedback] = useState({})
   const [showFeedbackThanks, setShowFeedbackThanks] = useState({})
+  const [addedToWatchlist, setAddedToWatchlist] = useState({})
 
   // Format date function - consistent with ArticlesTab
   const formatDate = (dateString) => {
@@ -208,6 +209,32 @@ function App() {
     }
   }
 
+  const handleAddToWatchlist = async (ticker, company, articleTitle) => {
+    try {
+      const watchlistItem = {
+        ticker: ticker,
+        company: company,
+        reason: `Added from article: "${articleTitle}"`,
+        hasAlert: false
+      }
+
+      // Store in extension storage
+      if (window.extensionServices && window.extensionServices.storage) {
+        await window.extensionServices.storage.addToWatchlist(watchlistItem)
+      }
+
+      // Update UI state
+      setAddedToWatchlist(prev => ({
+        ...prev,
+        [ticker]: true
+      }))
+
+      console.log('Added to watchlist:', ticker)
+    } catch (error) {
+      console.error('Failed to add to watchlist:', error)
+    }
+  }
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'articles':
@@ -358,8 +385,26 @@ function App() {
                                     <span>Source: Financial news vectorstore</span>
                                   </div>
 
-                                  {/* How this works link */}
-                                  <div className="mt-2">
+                                  {/* Action buttons */}
+                                  <div className="mt-3 flex items-center gap-3">
+                                    {addedToWatchlist[match.ticker] ? (
+                                      <div className="flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded text-xs">
+                                        <Check size={12} strokeWidth={2} />
+                                        <span>Added to watchlist</span>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleAddToWatchlist(match.ticker, match.company || match.ticker, selectedArticle.title)
+                                        }}
+                                        className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+                                      >
+                                        <Plus size={12} strokeWidth={2} />
+                                        <span>Watchlist</span>
+                                      </button>
+                                    )}
+
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation()

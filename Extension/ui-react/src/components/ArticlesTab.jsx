@@ -1,7 +1,7 @@
 import React, { useState, useEffect, memo, useImperativeHandle, forwardRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
-import { FileText, Search, Edit2, Info, Plus } from 'lucide-react'
+import { FileText, Search, Edit2, Info, Plus, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { semanticTypography, componentSpacing, spacing } from '@/styles/typography'
 
@@ -47,10 +47,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     
     loadUsageStats()
   }, [])
-  
-  // Detect platform for keyboard shortcut display
-  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
-  const modifierKey = isMac ? '⌘' : 'Ctrl'
+
   const [hoveredStage, setHoveredStage] = useState(null)
 
   // Helper function to get tooltip text for each stage
@@ -899,7 +896,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         )}
         onClick={handleCardClick}
       >
-          <div className={cn(componentSpacing.cardPadding, "pl-6")}>
+          <div className="px-3.5 py-2.5 pl-6">
           {/* Checkbox - positioned over the line */}
           <div 
             data-checkbox
@@ -952,11 +949,11 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     <div className="h-full flex flex-col">
 
       {/* Actions Section - Combined Pipeline UI */}
-      <div className="mb-4 ml-2 pr-1 space-y-3">
+      <div className="mb-3 ml-2 pr-1 space-y-3">
         {/* Pipeline Window */}
         <div className="border border-gray-200 rounded-lg bg-white">
           {/* Dynamic Header Bar - Gray for active/waiting, Green for ready/completed, Red for error */}
-          <div className="flex items-center justify-between px-4 py-3 rounded-t-lg text-white relative overflow-hidden"
+          <div className="flex items-center justify-between px-3.5 py-2.5 rounded-t-lg text-white relative overflow-hidden"
           style={{
             backgroundColor: (() => {
               switch(detectionState) {
@@ -985,41 +982,25 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
               </span>
             </div>
             <div className="flex items-center gap-2 relative z-10">
-              <button 
-                onClick={detectionState === 'hold' && (currentStep === 0 || currentStep === 1) ? handleRunStep : handleReset}
+              {/* Reset Button */}
+              <button
+                onClick={handleReset}
                 disabled={detectionState === 'scanning'}
-                className="text-xs px-3 py-1 bg-white/20 text-white rounded-md hover:bg-white/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm flex items-center gap-1.5"
+                className="p-1.5 bg-white/20 text-white rounded-md hover:bg-white/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm flex items-center justify-center"
+                title="Reset"
               >
-                {(currentStep === 0 || currentStep === 1) ? (
-                  <>
-                    {currentStep === 0 ? 'Start' : 'Continue'}
-                    <div className="flex items-center gap-0.5 ml-1">
-                      <kbd className="text-[10px] bg-white/20 px-1 py-0.5 rounded border border-white/20">{modifierKey}</kbd>
-                      <kbd className="text-[10px] bg-white/20 px-1 py-0.5 rounded border border-white/20">E</kbd>
-                    </div>
-                  </>
-                ) : detectionState === 'ready' ? (
-                  <>
-                    Restart
-                    <div className="flex items-center gap-0.5 ml-1">
-                      <kbd className="text-[10px] bg-white/20 px-1 py-0.5 rounded border border-white/20">{modifierKey}</kbd>
-                      <kbd className="text-[10px] bg-white/20 px-1 py-0.5 rounded border border-white/20">E</kbd>
-                    </div>
-                  </>
-                ) : (
-                  'Clear'
-                )}
+                <RotateCcw size={14} strokeWidth={2} />
               </button>
             </div>
           </div>
 
           {/* Pipeline Header */}
-          <div className="px-4 py-3 border-b border-gray-200">
+          <div className="px-3.5 py-2.5 border-b border-gray-200">
             <h3 className="text-sm font-medium text-gray-900">Content Extraction Pipeline</h3>
           </div>
-          
+
           {/* Pipeline Stages - Clean Timeline */}
-          <div className="p-4 rounded-b-lg">
+          <div className="p-3.5 rounded-b-lg">
             <div className="relative">
               {Object.entries(extractionStages).map(([key, stage], index) => {
                 const isActive = stage.status === 'active'
@@ -1035,7 +1016,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                     {!isLast && (
                       <div
                         className={cn(
-                          "absolute left-7 w-0.5 top-8",
+                          "absolute left-6 w-0.5 top-7",
                           isCompleted && "bg-green-700",
                           isActive && "bg-gray-900",
                           isReady && "bg-green-700",
@@ -1047,25 +1028,25 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                         }}
                       ></div>
                     )}
-                    
-                    <div className="flex items-start gap-4 p-3 relative">
+
+                    <div className="flex items-start gap-3 p-2.5 relative">
                       {/* Stage Icon */}
-                      <div className="relative w-8 h-8 flex items-center justify-center flex-shrink-0">
+                      <div className="relative w-7 h-7 flex items-center justify-center flex-shrink-0">
                         {/* Spinning border for active state - perfectly centered */}
                         {isActive && (
-                          <div className="absolute inset-0 w-8 h-8">
-                            <svg className="w-full h-full" viewBox="0 0 32 32">
+                          <div className="absolute inset-0 w-7 h-7">
+                            <svg className="w-full h-full" viewBox="0 0 28 28">
                               <circle
-                                cx="16"
-                                cy="16"
-                                r="14"
+                                cx="14"
+                                cy="14"
+                                r="12"
                                 fill="none"
                                 stroke="#111827"
                                 strokeWidth="2"
                                 strokeLinecap="round"
-                                strokeDasharray="87.96"
-                                strokeDashoffset="87.96"
-                                transform="rotate(-90 16 16)"
+                                strokeDasharray="75.4"
+                                strokeDashoffset="75.4"
+                                transform="rotate(-90 14 14)"
                                 style={{
                                   animation: 'draw-circle 2s linear forwards'
                                 }}
@@ -1077,7 +1058,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                         {/* Main node - centered within the container */}
                         <div className={cn(
                           "rounded-full flex items-center justify-center absolute inset-0 transition-all duration-300",
-                          isActive ? "w-6 h-6 m-1 cursor-pointer hover:brightness-110" : "w-8 h-8", // Shrink when active with margin to center
+                          isActive ? "w-5 h-5 m-1 cursor-pointer hover:brightness-110" : "w-7 h-7", // Shrink when active with margin to center
                           isCompleted && "bg-green-700",
                           isActive && "bg-gray-900",
                           isReady && "bg-green-700",
@@ -1098,11 +1079,11 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                           cursor: isActive ? 'pointer' : (detectionState === 'hold' && index === currentStep ? 'pointer' : 'default'),
                           backgroundColor: detectionState === 'hold' && index === currentStep ? '#111827' : undefined
                         }}
-                        title={isActive ? "Cancel" : undefined}
+                        title={isActive ? "Cancel" : (detectionState === 'hold' && index === currentStep ? "Click to start" : undefined)}
                         >
                           {isCompleted && (
-                            <svg width={isActive ? "16" : "20"} height={isActive ? "16" : "20"} viewBox="0 0 24 24" fill="none">
-                              <path d="M9 12l2 2 4-4" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                            <svg width={isActive ? "12" : "16"} height={isActive ? "12" : "16"} viewBox="0 0 24 24" fill="none">
+                              <path d="M20 6L9 17l-5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                           )}
                           {isActive && (
@@ -1112,8 +1093,8 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                             </svg>
                           )}
                           {isReady && (
-                            <svg width={isActive ? "16" : "20"} height={isActive ? "16" : "20"} viewBox="0 0 24 24" fill="none">
-                              <path d="M9 12l2 2 4-4" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                            <svg width={isActive ? "12" : "16"} height={isActive ? "12" : "16"} viewBox="0 0 24 24" fill="none">
+                              <path d="M20 6L9 17l-5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                             </svg>
                           )}
                           {isError && (
@@ -1121,10 +1102,10 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                               <path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth="2" strokeLinecap="round"/>
                             </svg>
                           )}
-                          {/* Show pause icon when ready to run current step */}
+                          {/* Show play icon when ready to run current step */}
                           {detectionState === 'hold' && index === currentStep && (
                             <svg width={isActive ? "12" : "16"} height={isActive ? "12" : "16"} viewBox="0 0 24 24" fill="none">
-                              <path d="M6 4h4v16H6V4zM14 4h4v16h-4V4z" fill="white"/>
+                              <path d="M8 5v14l11-7L8 5z" stroke="white" strokeWidth="2" fill="none"/>
                             </svg>
                           )}
                           {isWaiting && !(detectionState === 'hold' && index === currentStep) && (
@@ -1186,7 +1167,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                     
                     {/* Extracted Content - Show after Parse Input Article */}
                     {key === 'parsing' && identifiedArticle && extractionStages.parsing.status === 'completed' && (
-                      <div className="mt-1 mb-2 ml-12 group">
+                      <div className="mt-1 mb-2 ml-11 group">
                         {isEditing ? (
                           <div className="space-y-3">
                             <div>
@@ -1259,10 +1240,10 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
 
       {/* Daily Usage */}
       <Card className="bg-transparent border border-gray-200 mb-3 ml-2 mr-1">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-              <Plus size={16} className="text-gray-900" strokeWidth={2} />
+        <CardContent className="p-3.5">
+          <div className="flex items-center gap-2.5 mb-2.5">
+            <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center">
+              <Plus size={15} className="text-gray-900" strokeWidth={2} />
             </div>
             <div className="flex-1">
               <h3 className="text-sm font-medium text-gray-900">Daily Usage</h3>
@@ -1283,7 +1264,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
 
       {/* Recents Header */}
       <div className="mt-1 mb-3 flex items-center px-1">
-        <h2 className={cn(semanticTypography.cardTitle)}>Recents</h2>
+        <h2 className="text-sm font-medium text-gray-900">Recents</h2>
       </div>
       
       {/* Show empty state if no articles, otherwise show articles */}
@@ -1292,15 +1273,15 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       ) : (
         <>
           {/* Search Bar - always visible */}
-          <div className="mb-4 px-1">
+          <div className="mb-3 px-1">
             <div className="relative bg-gray-100 rounded-lg transition-colors duration-200">
-              <Search size={14} className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500" />
+              <Search size={14} className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-500" />
               <input
                 type="text"
                 placeholder="Search by title, domain, or ticker..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className={`w-full pl-10 pr-4 py-2.5 ${semanticTypography.primaryText} bg-transparent border-0 focus:outline-none placeholder:text-xs placeholder:text-gray-600 rounded-lg`}
+                className={`w-full pl-10 pr-3.5 py-2.5 ${semanticTypography.primaryText} bg-transparent border-0 focus:outline-none placeholder:text-xs placeholder:text-gray-600 rounded-lg`}
               />
             </div>
           </div>
@@ -1309,7 +1290,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       {/* Today */}
       {groupedArticles.today.length > 0 && (
         <div>
-          <div className="mb-4 px-1">
+          <div className="mb-3 px-1">
             <h3 className={cn(semanticTypography.groupTitle)}>Today</h3>
           </div>
           <div className="bg-white rounded-lg border border-gray-200 ml-2">
@@ -1328,7 +1309,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       {/* Yesterday */}
       {groupedArticles.yesterday.length > 0 && (
         <div>
-          <h3 className={cn(semanticTypography.groupTitle, "mb-4 px-1")}>Yesterday</h3>
+          <h3 className={cn(semanticTypography.groupTitle, "mb-3 px-1")}>Yesterday</h3>
           <div className="bg-white rounded-lg border border-gray-200 ml-2">
             {groupedArticles.yesterday.map((article, index) => (
               <div key={article.id || article.title}>
@@ -1345,7 +1326,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       {/* Last Week */}
       {groupedArticles.lastWeek.length > 0 && (
         <div>
-          <h3 className={cn(semanticTypography.groupTitle, "mb-4 px-1")}>Last Week</h3>
+          <h3 className={cn(semanticTypography.groupTitle, "mb-3 px-1")}>Last Week</h3>
           <div className="bg-white rounded-lg border border-gray-200 ml-2">
             {groupedArticles.lastWeek.map((article, index) => (
               <div key={article.id || article.title}>
@@ -1365,7 +1346,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         .map(([monthKey, monthArticles]) => (
           monthArticles.length > 0 && (
             <div key={monthKey}>
-              <h3 className={cn(semanticTypography.groupTitle, "mb-4 px-1")}>{monthKey}</h3>
+              <h3 className={cn(semanticTypography.groupTitle, "mb-3 px-1")}>{monthKey}</h3>
               <div className="bg-white rounded-lg border border-gray-200 ml-2">
                 {monthArticles.map((article, index) => (
                   <div key={article.id || article.title}>
