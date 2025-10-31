@@ -1,11 +1,11 @@
 import React, { useState, useEffect, memo, useImperativeHandle, forwardRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
-import { FileText, Search, Edit2, Info, Plus, RotateCcw } from 'lucide-react'
+import { FileText, Search, Edit2, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { semanticTypography, componentSpacing, spacing } from '@/styles/typography'
 
-const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onArticleClick, onGenerate }, ref) => {
+const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onArticleClick, onGenerate, activeTab }, ref) => {
   const [articles, setArticles] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedArticles, setSelectedArticles] = useState(new Set())
@@ -27,6 +27,81 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   const [parsingCancelled, setParsingCancelled] = useState(false)
   const [parsingTimeoutId, setParsingTimeoutId] = useState(null)
   const [analysisCancelled, setAnalysisCancelled] = useState(false)
+  const [currentBrowserTab, setCurrentBrowserTab] = useState(null)
+  const [parsedTabInfo, setParsedTabInfo] = useState(null)
+  const [faviconLoadErrors, setFaviconLoadErrors] = useState(new Set())
+  
+  // Helper function to truncate text
+  const truncateText = (text, maxLength = 20) => {
+    if (!text) return text
+    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text
+  }
+  
+  // Get current browser tab info and listen for tab changes
+  useEffect(() => {
+    const getCurrentTab = async () => {
+      try {
+        if (chrome && chrome.tabs) {
+          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+          if (tab) {
+            const domain = tab.url ? new URL(tab.url).hostname.replace('www.', '') : 'Unknown'
+            const newTabInfo = {
+              title: tab.title,
+              url: tab.url,
+              domain: domain,
+              favicon: tab.favIconUrl || `https://www.google.com/s2/favicons?sz=16&domain=${domain}`
+            }
+            setCurrentBrowserTab(newTabInfo)
+            // Clear favicon errors for new tab
+            setFaviconLoadErrors(prev => {
+              const newErrors = new Set(prev)
+              Array.from(newErrors).forEach(key => {
+                if (key.startsWith('current-')) {
+                  newErrors.delete(key)
+                }
+              })
+              return newErrors
+            })
+          }
+        }
+      } catch (error) {
+        console.error('Failed to get current tab:', error)
+        setCurrentBrowserTab({ 
+          title: 'Active Tab', 
+          domain: 'Unknown',
+          favicon: null
+        })
+      }
+    }
+    
+    // Get initial tab info
+    getCurrentTab()
+    
+    // Listen for tab changes
+    const handleTabUpdate = (tabId, changeInfo, tab) => {
+      if (changeInfo.status === 'complete' && tab.active) {
+        getCurrentTab()
+      }
+    }
+    
+    const handleTabActivated = () => {
+      getCurrentTab()
+    }
+    
+    // Add listeners
+    if (chrome && chrome.tabs) {
+      chrome.tabs.onUpdated.addListener(handleTabUpdate)
+      chrome.tabs.onActivated.addListener(handleTabActivated)
+    }
+    
+    // Cleanup listeners
+    return () => {
+      if (chrome && chrome.tabs) {
+        chrome.tabs.onUpdated.removeListener(handleTabUpdate)
+        chrome.tabs.onActivated.removeListener(handleTabActivated)
+      }
+    }
+  }, [])
   
   // Persistent cache for article content
   const [contentCache, setContentCache] = useState(new Map())
@@ -48,19 +123,6 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     loadUsageStats()
   }, [])
 
-  const [hoveredStage, setHoveredStage] = useState(null)
-
-  // Helper function to get tooltip text for each stage
-  const getStageTooltip = (stageKey) => {
-    switch (stageKey) {
-      case 'parsing':
-        return 'Reads and extracts the article content from the page, including headline, body text, and key details needed for analysis'
-      case 'analysis':
-        return 'Uses AI to analyze the article content and generate insights about stock market impact, sentiment, and key takeaways'
-      default:
-        return ''
-    }
-  }
 
   const [extractionStages, setExtractionStages] = useState({
     parsing: {
@@ -211,13 +273,45 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     setEditedContent('')
   }
 
+  const handleHighlightArticleByUrl = (targetUrl, fallbackTitle = null, fallbackTicker = null) => {
+    console.log('handleHighlightArticleByUrl called with:', { targetUrl, fallbackTitle, fallbackTicker })
+    console.log('Available articles:', articles.map(a => ({ url: a.url, title: a.title, id: a.id })))
+    
+    // First try to find by exact URL match
+    let targetArticle = articles.find(article => article.url === targetUrl)
+    
+    // If no URL match, try to find by title
+    if (!targetArticle && fallbackTitle) {
+      targetArticle = articles.find(article => 
+        article.title && article.title.toLowerCase().includes(fallbackTitle.toLowerCase())
+      )
+    }
+    
+    // If still no match, try to find by ticker in matches
+    if (!targetArticle && fallbackTicker) {
+      targetArticle = articles.find(article => 
+        article.matches && article.matches.some(match => 
+          match.ticker === fallbackTicker
+        )
+      )
+    }
+    
+    if (targetArticle && onArticleClick) {
+      console.log('Opening article:', targetArticle)
+      onArticleClick(targetArticle)
+    } else {
+      console.log('No matching article found, staying on Discovery tab')
+    }
+  }
+
   useImperativeHandle(ref, () => {
-    console.log('ArticlesTab: useImperativeHandle called, exposing clearSelection, selectAll, deleteSelected, and runPipeline')
+    console.log('ArticlesTab: useImperativeHandle called, exposing clearSelection, selectAll, deleteSelected, runPipeline, and highlightArticleByUrl')
     return {
       clearSelection: handleClearSelection,
       selectAll: handleSelectAll,
       deleteSelected: handleDeleteSelected,
-      runPipeline: handleRunStep
+      runPipeline: handleRunStep,
+      highlightArticleByUrl: handleHighlightArticleByUrl
     }
   })
 
@@ -396,6 +490,9 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
             if (result && result.title) {
               // Store extracted content for later analysis
               setExtractedContent(result)
+              
+              // Save current tab info for sticky pill
+              setParsedTabInfo(currentBrowserTab)
               
               // Create article preview from extracted content
               const previewArticle = {
@@ -714,6 +811,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     setEditedContent('')
     setParsingCancelled(false)
     setAnalysisCancelled(false)
+    setParsedTabInfo(null)
     
     // Reset extraction stages to initial state
     setExtractionStages({
@@ -1064,8 +1162,8 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                           isReady && "bg-green-700",
                           isError && "bg-red-700",
                           isWaiting && "bg-gray-200",
-                          // Show pause icon for next step when waiting
-                          detectionState === 'hold' && index === currentStep && "cursor-pointer hover:brightness-110"
+                          // Black background for next step to draw attention
+                          detectionState === 'hold' && index === currentStep && "cursor-pointer hover:bg-gray-800 bg-gray-900"
                         )}
                         onClick={isActive ? (e) => {
                           e.stopPropagation()
@@ -1076,8 +1174,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                           }
                         } : (detectionState === 'hold' && index === currentStep ? handleRunStep : undefined)}
                         style={{
-                          cursor: isActive ? 'pointer' : (detectionState === 'hold' && index === currentStep ? 'pointer' : 'default'),
-                          backgroundColor: detectionState === 'hold' && index === currentStep ? '#111827' : undefined
+                          cursor: isActive ? 'pointer' : (detectionState === 'hold' && index === currentStep ? 'pointer' : 'default')
                         }}
                         title={isActive ? "Cancel" : (detectionState === 'hold' && index === currentStep ? "Click to start" : undefined)}
                         >
@@ -1104,8 +1201,8 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                           )}
                           {/* Show play icon when ready to run current step */}
                           {detectionState === 'hold' && index === currentStep && (
-                            <svg width={isActive ? "12" : "16"} height={isActive ? "12" : "16"} viewBox="0 0 24 24" fill="none">
-                              <path d="M8 5v14l11-7L8 5z" stroke="white" strokeWidth="2" fill="none"/>
+                            <svg width={isActive ? "10" : "14"} height={isActive ? "10" : "14"} viewBox="0 0 24 24" fill="none">
+                              <path d="M8 5v14l11-7L8 5z" fill="white" stroke="none"/>
                             </svg>
                           )}
                           {isWaiting && !(detectionState === 'hold' && index === currentStep) && (
@@ -1129,19 +1226,6 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                           )}>
                             {stage.title}
                           </h4>
-                          <div className="relative">
-                            <Info 
-                              size={12} 
-                              className="text-gray-400 flex-shrink-0"
-                              onMouseEnter={() => setHoveredStage(key)}
-                              onMouseLeave={() => setHoveredStage(null)}
-                            />
-                            {hoveredStage === key && (
-                              <div className="absolute top-full right-0 mt-1 p-2 bg-gray-900 text-white text-xs rounded w-40 z-50 leading-tight">
-                                {getStageTooltip(key)}
-                              </div>
-                            )}
-                          </div>
                         </div>
                         <p className="text-xs text-gray-600 mb-1">
                           {stage.subtitle}
@@ -1154,12 +1238,47 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                           isError && "text-red-700",
                           isWaiting && "text-gray-500"
                         )}>
-                          {isCompleted && (key === 'parsing' ? 'Article parsed and structured successfully' : 
-                                         'Analysis generated successfully')}
+                          {isCompleted && (key === 'parsing' ? (
+                            parsedTabInfo ? (
+                              <span className="inline-flex items-center px-2 py-0.5 bg-gray-100 text-gray-900 rounded-full text-xs font-medium">
+                                {parsedTabInfo.favicon && !faviconLoadErrors.has(`parsed-${parsedTabInfo.favicon}`) ? (
+                                  <img 
+                                    src={parsedTabInfo.favicon} 
+                                    alt=""
+                                    className="w-3 h-3 mr-1.5 rounded-sm"
+                                    onError={(e) => {
+                                      setFaviconLoadErrors(prev => new Set([...prev, `parsed-${parsedTabInfo.favicon}`]))
+                                    }}
+                                  />
+                                ) : (
+                                  <span className="w-1.5 h-1.5 bg-gray-400 rounded-full mr-1.5"></span>
+                                )}
+                                {truncateText(parsedTabInfo.title) || 'Parsed Article'}
+                              </span>
+                            ) : 'Article parsed and structured successfully'
+                          ) : 'Analysis generated successfully')}
                           {isActive && 'Processing...'}
                           {isReady && 'Ready for API submission'}
                           {isError && 'Failed to process'}
-                          {isWaiting && (key === 'analysis' ? `${remainingAnalyses} analyses remaining` : 'Waiting')}
+                          {isWaiting && (key === 'analysis' ? `${remainingAnalyses} analyses remaining` : 
+                            (key === 'parsing' ? (
+                              <span className="inline-flex items-center px-2 py-0.5 bg-gray-100 text-gray-900 rounded-full text-xs font-medium">
+                                {currentBrowserTab?.favicon && !faviconLoadErrors.has(`current-${currentBrowserTab.favicon}`) ? (
+                                  <img 
+                                    src={currentBrowserTab.favicon} 
+                                    alt=""
+                                    className="w-3 h-3 mr-1.5 rounded-sm"
+                                    onError={(e) => {
+                                      setFaviconLoadErrors(prev => new Set([...prev, `current-${currentBrowserTab.favicon}`]))
+                                    }}
+                                  />
+                                ) : (
+                                  <span className="w-1.5 h-1.5 bg-gray-400 rounded-full mr-1.5"></span>
+                                )}
+                                {truncateText(currentBrowserTab?.title) || 'Active Tab'}
+                              </span>
+                            ) : 'Waiting')
+                          )}
                         </p>
                       </div>
                     </div>
@@ -1238,29 +1357,6 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
 
       </div>
 
-      {/* Daily Usage */}
-      <Card className="bg-transparent border border-gray-200 mb-3 ml-2 mr-1">
-        <CardContent className="p-3.5">
-          <div className="flex items-center gap-2.5 mb-2.5">
-            <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center">
-              <Plus size={15} className="text-gray-900" strokeWidth={2} />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-medium text-gray-900">Daily Usage</h3>
-              <p className={`${semanticTypography.secondaryText}`}>{remainingAnalyses} analyses remaining today</p>
-            </div>
-          </div>
-          {/* Progress bar under both icon and text */}
-          <div className="w-full">
-            <div className="w-full bg-gray-200 rounded-full h-1.5">
-              <div
-                className="bg-gray-900 h-1.5 rounded-full transition-all duration-300"
-                style={{ width: `${((5 - remainingAnalyses) / 5) * 100}%` }}
-              ></div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Recents Header */}
       <div className="mt-1 mb-3 flex items-center px-1">

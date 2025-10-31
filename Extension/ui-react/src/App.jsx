@@ -235,6 +235,19 @@ function App() {
     }
   }
 
+  const handleNavigateToArticle = (articleUrl, fallbackTitle = null, fallbackTicker = null) => {
+    console.log('handleNavigateToArticle called with:', { articleUrl, fallbackTitle, fallbackTicker })
+    // Switch to articles (discover) tab
+    setActiveTab('articles')
+    
+    // Trigger article highlighting/opening via ArticlesTab ref
+    setTimeout(() => {
+      if (articlesTabRef.current && articlesTabRef.current.highlightArticleByUrl) {
+        articlesTabRef.current.highlightArticleByUrl(articleUrl, fallbackTitle, fallbackTicker)
+      }
+    }, 100)
+  }
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'articles':
@@ -244,14 +257,15 @@ function App() {
             onArticleClick={handleArticleClick}
             onSelectionChange={setSelectedCount}
             onGenerate={handleGenerate}
+            activeTab={activeTab}
           />
         )
       case 'community':
         return <CommunityTab />
       case 'account':
-        return <AccountTab />
+        return <AccountTab onNavigateToArticle={handleNavigateToArticle} onTabChange={setActiveTab} />
       default:
-        return <ArticlesTab ref={articlesTabRef} onArticleClick={handleArticleClick} onSelectionChange={setSelectedCount} onGenerate={handleGenerate} />
+        return <ArticlesTab ref={articlesTabRef} onArticleClick={handleArticleClick} onSelectionChange={setSelectedCount} onGenerate={handleGenerate} activeTab={activeTab} />
     }
   }
 

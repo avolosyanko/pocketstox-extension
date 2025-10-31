@@ -20,15 +20,55 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Check, Plus, TrendingUp, AlertCircle, X, Edit2 } from 'lucide-react'
+import { Check, Plus, TrendingUp, AlertCircle, HeartOff, ChevronDown, Edit3 } from 'lucide-react'
 import { semanticTypography } from '@/styles/typography'
 import { cn } from '@/lib/utils'
 
-const AccountTab = memo(() => {
+const AccountTab = memo(({ onNavigateToArticle, onTabChange }) => {
   const [trackedCompanies, setTrackedCompanies] = useState([])
   const [showAddCompanyModal, setShowAddCompanyModal] = useState(false)
   const [newCompany, setNewCompany] = useState({ ticker: '', company: '', reason: '' })
   const [viewingNotes, setViewingNotes] = useState(null)
+  const [collapsedCards, setCollapsedCards] = useState(new Set())
+  const [quickNote, setQuickNote] = useState('')
+  const [selectedCompanyForNote, setSelectedCompanyForNote] = useState(null)
+
+  const toggleCardCollapse = (index) => {
+    setCollapsedCards(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(index)) {
+        newSet.delete(index)
+      } else {
+        newSet.add(index)
+      }
+      return newSet
+    })
+  }
+
+  const handleSaveQuickNote = () => {
+    if (!quickNote.trim() || !selectedCompanyForNote) return
+    
+    const companyIndex = trackedCompanies.findIndex(c => c.ticker === selectedCompanyForNote)
+    if (companyIndex === -1) return
+
+    const newNote = {
+      text: quickNote.trim(),
+      timestamp: new Date().toISOString()
+    }
+
+    setTrackedCompanies(prev => prev.map((company, index) => {
+      if (index === companyIndex) {
+        return {
+          ...company,
+          notes: [newNote, ...(company.notes || [])]
+        }
+      }
+      return company
+    }))
+
+    setQuickNote('')
+    setSelectedCompanyForNote(null)
+  }
 
   // Load tracked companies from storage
   useEffect(() => {
@@ -53,7 +93,22 @@ const AccountTab = memo(() => {
               { text: 'Initial investment based on AI chip leadership and gaming GPU dominance.', timestamp: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString() }
             ],
             hasAlert: true,
-            alert: 'Earnings call scheduled for next week'
+            alert: {
+              text: 'Earnings call scheduled for next week',
+              discoveryCard: {
+                articleTitle: 'NVIDIA Q3 2024 Earnings Preview: AI Chip Demand Expected to Drive Results',
+                articleUrl: 'https://finance.yahoo.com/news/nvidia-earnings-preview-q3-2024',
+                match: {
+                  ticker: 'NVDA',
+                  company: 'NVIDIA Corporation',
+                  score: 0.92,
+                  reasoning: 'Strong mention of AI chip demand and data center revenue growth, directly relevant to NVIDIA\'s core business'
+                },
+                sourceExcerpt: 'NVIDIA\'s data center business continues to see unprecedented demand as enterprises invest heavily in AI infrastructure...',
+                userNote: 'Initial investment based on AI chip leadership and gaming GPU dominance.',
+                addedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+              }
+            }
           },
           {
             ticker: 'MSFT',
@@ -87,10 +142,31 @@ const AccountTab = memo(() => {
               { text: 'Q3 earnings beat expectations. User growth accelerating in emerging markets.', timestamp: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString() }
             ],
             hasAlert: true,
-            alert: 'New VR headset launch announced'
+            alert: {
+              text: 'New VR headset launch announced',
+              discoveryCard: {
+                articleTitle: 'Meta Announces Next-Generation VR Headset with Advanced Features',
+                articleUrl: 'https://techcrunch.com/2024/10/30/meta-announces-new-vr-headset',
+                match: {
+                  ticker: 'META',
+                  company: 'Meta Platforms Inc.',
+                  score: 0.94,
+                  reasoning: 'Major product announcement in VR/AR space, directly impacts Reality Labs division and long-term metaverse strategy'
+                },
+                sourceExcerpt: 'Meta\'s latest VR headset features advanced hand tracking and mixed reality capabilities, positioning the company as a leader in the emerging metaverse market...',
+                userNote: 'Reels monetization improving, Reality Labs investments paying off. Strong ad business recovery.',
+                addedAt: new Date().toISOString()
+              }
+            }
           }
         ]
         setTrackedCompanies(savedCompanies)
+        // Start all cards in collapsed state
+        setCollapsedCards(new Set(savedCompanies.map((_, index) => index)))
+        // Set default selected company to first one
+        if (savedCompanies.length > 0) {
+          setSelectedCompanyForNote(savedCompanies[0].ticker)
+        }
       }
     }
     loadData()
@@ -129,69 +205,67 @@ const AccountTab = memo(() => {
   }, [])
   return (
     <div>
-      {/* Profile Card */}
-      <Card className="bg-transparent border border-gray-200 mb-3">
-        <CardContent className="p-5">
-          {/* Google Sign In Button */}
-          <button
-            onClick={() => {
-              chrome.tabs.create({ url: 'https://pocketstox.com/auth?source=extension' })
-            }}
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 border border-gray-900 rounded-md transition-all duration-200 select-none hover:opacity-90 relative overflow-hidden mb-4"
-            style={{
-              background: "linear-gradient(135deg, #111827 0%, #1f2937 100%)",
-              userSelect: "none",
-              WebkitUserSelect: "none",
-              MozUserSelect: "none",
-              msUserSelect: "none",
-              WebkitTouchCallout: "none",
-              WebkitTapHighlightColor: "transparent",
-              outline: "none"
-            }}>
-              {/* Subtle white gradient overlay */}
-              <div className="absolute top-0 right-0 w-24 h-24 opacity-10 pointer-events-none"
-                style={{
-                  background: "radial-gradient(circle at top right, white 0%, transparent 70%)"
-                }}
-              ></div>
-              <svg className="w-4 h-4 relative z-10" viewBox="0 0 24 24">
-                <path fill="white" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="white" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="white" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="white" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
-              <span className={`${semanticTypography.primaryButton} select-none relative z-10`} style={{
-                userSelect: "none",
-                WebkitUserSelect: "none",
-                MozUserSelect: "none",
-                msUserSelect: "none",
-                WebkitTouchCallout: "none",
-                WebkitTapHighlightColor: "transparent",
-                pointerEvents: "none"
-              }}>Sign in with Google</span>
-          </button>
 
-          {/* Sign In Benefits */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Check size={14} className="text-gray-900" strokeWidth={2.5} />
-              <span className={semanticTypography.secondaryText}>Track companies & document thesis</span>
+      {/* Quick Note Section */}
+      {trackedCompanies.length > 0 && (
+        <Card className="bg-white border border-gray-200 mb-3 rounded-lg overflow-hidden">
+          <CardContent className="p-0">
+            <div className="p-3 bg-gray-50">
+              <textarea
+                placeholder="Add a note about your investments..."
+                value={quickNote}
+                onChange={(e) => setQuickNote(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    handleSaveQuickNote()
+                  }
+                }}
+                className="w-full px-0 py-2 text-sm border-0 focus:outline-none resize-none placeholder:text-gray-400 bg-transparent"
+                rows={9}
+              />
             </div>
-            <div className="flex items-center gap-2">
-              <Check size={14} className="text-gray-900" strokeWidth={2.5} />
-              <span className={semanticTypography.secondaryText}>Sync data across devices</span>
+            <div className="border-t border-gray-200">
+              <div className="p-3 flex items-center gap-3">
+                <button
+                  onClick={handleSaveQuickNote}
+                  disabled={!quickNote.trim() || !selectedCompanyForNote}
+                  className={cn(
+                    "px-3 py-1.5 text-sm rounded-md transition-all font-medium",
+                    quickNote.trim() && selectedCompanyForNote
+                      ? "bg-gray-900 text-white hover:bg-gray-800 shadow-sm"
+                      : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                  )}
+                >
+                  Save note
+                </button>
+                <span className="text-xs text-gray-500">Enter</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Check size={14} className="text-gray-900" strokeWidth={2.5} />
-              <span className={semanticTypography.secondaryText}>Priority access to features</span>
+            <div className="border-t border-gray-200">
+              <div className="p-3 flex items-center gap-2">
+                <span className="text-sm text-gray-600 font-medium">Add to</span>
+                <div className="border-l border-gray-200 h-4 mx-1"></div>
+                <select
+                  value={selectedCompanyForNote || ''}
+                  onChange={(e) => setSelectedCompanyForNote(e.target.value)}
+                  className="text-sm border-0 focus:outline-none bg-transparent text-gray-900 font-medium cursor-pointer hover:bg-gray-50 rounded px-2 py-1 transition-colors"
+                >
+                  {trackedCompanies.map((company, index) => (
+                    <option key={index} value={company.ticker}>
+                      {company.ticker}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Following Section */}
       <div className="mt-4 mb-3 flex items-center justify-between px-1">
-        <h2 className="text-sm font-medium text-gray-900">Following</h2>
+        <h2 className="text-sm font-medium text-gray-900">Companies</h2>
         <button
           onClick={() => setShowAddCompanyModal(true)}
           className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
@@ -224,74 +298,110 @@ const AccountTab = memo(() => {
               return a.ticker.localeCompare(b.ticker)
             })
             .map((company, index) => (
-            <Card key={index} className="bg-white border border-gray-200">
+            <Card key={index} className="bg-white border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => toggleCardCollapse(index)}>
               <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-2">
+                <div className={cn(
+                  "flex items-start justify-between",
+                  !collapsedCards.has(index) ? "mb-2" : ""
+                )}>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="text-sm font-semibold text-gray-900">{company.ticker}</h3>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            className="text-gray-400 hover:text-gray-600"
+                            title="Remove"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <HeartOff size={14} />
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Unfollow {company.ticker}?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to unfollow {company.ticker}?
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-gray-900 text-white hover:bg-gray-800"
+                              onClick={() => setTrackedCompanies(prev => prev.filter((_, i) => i !== index))}
+                            >
+                              Unfollow
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                       {company.hasAlert && (
                         <div className="flex items-center justify-center p-1 bg-purple-100 text-purple-800 rounded-full">
                           <AlertCircle size={12} />
                         </div>
                       )}
                     </div>
-                    <p className={`${semanticTypography.secondaryText} mb-2`}>{company.company}</p>
+                    <p className={semanticTypography.secondaryText}>{company.company}</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                     <button
-                      onClick={() => {
-                        setNewCompany(company)
-                        setShowAddCompanyModal(true)
-                      }}
-                      className="text-gray-400 hover:text-gray-600"
-                      title="Edit"
+                      onClick={() => toggleCardCollapse(index)}
+                      className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
+                      title={collapsedCards.has(index) ? "Expand" : "Collapse"}
                     >
-                      <Edit2 size={14} />
+                      <ChevronDown 
+                        size={16} 
+                        className={cn(
+                          "transition-transform duration-200",
+                          !collapsedCards.has(index) ? "rotate-180" : ""
+                        )}
+                      />
                     </button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <button
-                          className="text-gray-400 hover:text-gray-600"
-                          title="Remove"
-                        >
-                          <X size={14} />
-                        </button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Unfollow {company.ticker}?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Are you sure you want to unfollow {company.ticker}?
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            className="bg-gray-900 text-white hover:bg-gray-800"
-                            onClick={() => setTrackedCompanies(prev => prev.filter((_, i) => i !== index))}
-                          >
-                            Unfollow
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
                   </div>
-                </div>
-                <div className="bg-gray-50 rounded p-2">
-                  <p className="text-xs text-gray-600 italic">"{company.notes?.[0]?.text || company.reason}"</p>
-                  {company.notes && company.notes.length > 1 && (
-                    <button
-                      onClick={() => setViewingNotes(company)}
-                      className="text-xs text-gray-500 hover:text-gray-900 mt-1 underline"
-                    >
-                      View {company.notes.length - 1} previous note{company.notes.length > 2 ? 's' : ''}
-                    </button>
-                  )}
                 </div>
                 {company.alert && (
-                  <div className="mt-2 pt-2 border-t border-gray-100">
-                    <p className="text-xs text-purple-700">{company.alert}</p>
+                  <div className={cn(
+                    "pt-1",
+                    !collapsedCards.has(index) ? "mt-1" : "mt-1"
+                  )}>
+                    {typeof company.alert === 'object' && company.alert.discoveryCard ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (onNavigateToArticle && company.alert.discoveryCard.articleUrl) {
+                            onNavigateToArticle(
+                              company.alert.discoveryCard.articleUrl,
+                              company.alert.discoveryCard.articleTitle,
+                              company.alert.discoveryCard.match.ticker
+                            )
+                          }
+                        }}
+                        className="text-xs text-purple-500 hover:text-purple-700 underline hover:no-underline transition-colors text-left"
+                        title="View original article in Discovery tab"
+                      >
+                        {company.alert.text}
+                      </button>
+                    ) : (
+                      <p className="text-xs text-purple-500">
+                        {typeof company.alert === 'object' ? company.alert.text : company.alert}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {!collapsedCards.has(index) && (
+                  <div className="bg-gray-50 rounded p-2 mt-2">
+                    <p className="text-xs text-gray-600 italic">"{company.notes?.[0]?.text || company.reason}"</p>
+                    {company.notes && company.notes.length > 1 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setViewingNotes(company)
+                        }}
+                        className="text-xs text-gray-500 hover:text-gray-900 mt-1 underline"
+                      >
+                        View {company.notes.length - 1} previous note{company.notes.length > 2 ? 's' : ''}
+                      </button>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -392,12 +502,19 @@ const AccountTab = memo(() => {
                     text: newCompany.reason,
                     timestamp: new Date().toISOString()
                   }
-                  setTrackedCompanies([...trackedCompanies, {
+                  const newCompanies = [...trackedCompanies, {
                     ticker: newCompany.ticker,
                     company: newCompany.company,
                     notes: [newNote],
                     hasAlert: false
-                  }])
+                  }]
+                  setTrackedCompanies(newCompanies)
+                  // Add the new company index to collapsed cards
+                  setCollapsedCards(prev => new Set([...prev, newCompanies.length - 1]))
+                  // Set new company as default selected for notes if none selected
+                  if (!selectedCompanyForNote) {
+                    setSelectedCompanyForNote(newCompany.ticker)
+                  }
                   setNewCompany({ ticker: '', company: '', reason: '' })
                   setShowAddCompanyModal(false)
                 }
@@ -408,6 +525,7 @@ const AccountTab = memo(() => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
 
     </div>
   )
