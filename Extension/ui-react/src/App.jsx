@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
+import { ServiceProvider, useAPI, useStorage } from './contexts/ServiceContext'
 import NavigationHeader from './components/NavigationHeader'
 import ArticlesTab from './components/ArticlesTab'
 import CommunityTab from './components/CommunityTab'
@@ -8,9 +9,26 @@ import { cn } from '@/lib/utils'
 import { semanticTypography, componentSpacing } from '@/styles/typography'
 import './index.css'
 
-function App() {
+function AppContent() {
   console.log('App component rendering')
   const [activeTab, setActiveTab] = useState('articles')
+  
+  // Search state management
+  const [searchQuery, setSearchQuery] = useState('')
+  const [showSearch, setShowSearch] = useState(false)
+  
+  // Clear search when switching tabs
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId)
+    if (tabId !== 'articles') {
+      setSearchQuery('')
+      setShowSearch(false)
+    }
+  }
+  
+  // Use modern service hooks
+  const api = useAPI()
+  const storage = useStorage()
   const articlesTabRef = useRef(null)
   const [overlayOpen, setOverlayOpen] = useState(false)
   const [selectedArticle, setSelectedArticle] = useState(null)
@@ -195,21 +213,17 @@ function App() {
     }
   }
 
-  const handleGenerate = async () => {
+  const handleGenerate = useCallback(async () => {
     try {
       console.log('Generate analysis clicked')
-      if (window.extensionServices && window.extensionServices.api) {
-        await window.extensionServices.api.analyzeArticle()
-        console.log('Analysis started')
-      } else {
-        console.log('Extension services not available')
-      }
+      await api.analyzeArticle()
+      console.log('Analysis started')
     } catch (error) {
       console.error('Failed to generate analysis:', error)
     }
-  }
+  }, [api])
 
-  const handleAddToWatchlist = async (ticker, company, articleTitle) => {
+  const handleAddToWatchlist = useCallback(async (ticker, company, articleTitle) => {
     try {
       const watchlistItem = {
         ticker: ticker,
@@ -218,10 +232,8 @@ function App() {
         hasAlert: false
       }
 
-      // Store in extension storage
-      if (window.extensionServices && window.extensionServices.storage) {
-        await window.extensionServices.storage.addToWatchlist(watchlistItem)
-      }
+      // Store in extension storage using modern service
+      await storage.addToWatchlist(watchlistItem)
 
       // Update UI state
       setAddedToWatchlist(prev => ({
@@ -233,7 +245,7 @@ function App() {
     } catch (error) {
       console.error('Failed to add to watchlist:', error)
     }
-  }
+  }, [storage])
 
   const handleNavigateToArticle = (articleUrl, fallbackTitle = null, fallbackTicker = null) => {
     console.log('handleNavigateToArticle called with:', { articleUrl, fallbackTitle, fallbackTicker })
@@ -258,14 +270,15 @@ function App() {
             onSelectionChange={setSelectedCount}
             onGenerate={handleGenerate}
             activeTab={activeTab}
+            searchQuery={searchQuery}
           />
         )
       case 'community':
         return <CommunityTab />
       case 'account':
-        return <AccountTab onNavigateToArticle={handleNavigateToArticle} onTabChange={setActiveTab} />
+        return <AccountTab onNavigateToArticle={handleNavigateToArticle} onTabChange={handleTabChange} />
       default:
-        return <ArticlesTab ref={articlesTabRef} onArticleClick={handleArticleClick} onSelectionChange={setSelectedCount} onGenerate={handleGenerate} activeTab={activeTab} />
+        return <ArticlesTab ref={articlesTabRef} onArticleClick={handleArticleClick} onSelectionChange={setSelectedCount} onGenerate={handleGenerate} activeTab={activeTab} searchQuery={searchQuery} />
     }
   }
 
@@ -277,8 +290,11 @@ function App() {
       <div className="flex-shrink-0">
         <NavigationHeader 
           activeTab={activeTab} 
-          onTabChange={setActiveTab}
-          onGenerate={handleGenerate}
+          onTabChange={handleTabChange}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          showSearch={showSearch}
+          onToggleSearch={setShowSearch}
         />
       </div>
 
@@ -635,6 +651,14 @@ function App() {
         </>
       )}
     </>
+  )
+}
+
+function App() {
+  return (
+    <ServiceProvider>
+      <AppContent />
+    </ServiceProvider>
   )
 }
 

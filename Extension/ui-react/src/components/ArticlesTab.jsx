@@ -1,16 +1,20 @@
-import React, { useState, useEffect, memo, useImperativeHandle, forwardRef } from 'react'
+import React, { useState, useEffect, memo, useImperativeHandle, forwardRef, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { FileText, Search, Edit2, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { semanticTypography, componentSpacing, spacing } from '@/styles/typography'
+import { useAPI, useStorage } from '@/contexts/ServiceContext'
 
-const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onArticleClick, onGenerate, activeTab }, ref) => {
+const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onArticleClick, onGenerate, activeTab, searchQuery }, ref) => {
+  // Modern service hooks
+  const api = useAPI()
+  const storage = useStorage()
+  
   const [articles, setArticles] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedArticles, setSelectedArticles] = useState(new Set())
   const [expandedArticle, setExpandedArticle] = useState(null)
-  const [searchQuery, setSearchQuery] = useState('')
   const [identifiedArticle, setIdentifiedArticle] = useState(null)
   const [extractedContent, setExtractedContent] = useState(null)
   const [isEditing, setIsEditing] = useState(false)
@@ -110,18 +114,16 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   useEffect(() => {
     const loadUsageStats = async () => {
       try {
-        if (window.extensionServices && window.extensionServices.storage) {
-          const stats = await window.extensionServices.storage.getUsageStats()
-          const remaining = Math.max(0, 5 - (stats.today || 0))
-          setRemainingAnalyses(remaining)
-        }
+        const stats = await storage.getUsageStats()
+        const remaining = Math.max(0, 5 - (stats.today || 0))
+        setRemainingAnalyses(remaining)
       } catch (error) {
         console.error('Failed to load usage stats:', error)
       }
     }
     
     loadUsageStats()
-  }, [])
+  }, [storage])
 
 
   const [extractionStages, setExtractionStages] = useState({
@@ -172,7 +174,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     console.log('ArticlesTab: handleSelectAll called')
     // Get ALL articles (including those not yet loaded), then filter if search is active
     const filteredArticles = articles.filter(article => {
-      if (!searchQuery.trim()) return true
+      if (!searchQuery || !searchQuery.trim()) return true
       
       const query = searchQuery.toLowerCase()
       
@@ -202,7 +204,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     console.log('ArticlesTab: All articles selected')
   }
 
-  const handleDeleteSelected = async () => {
+  const handleDeleteSelected = useCallback(async () => {
     console.log('ArticlesTab: handleDeleteSelected called')
     console.log('ArticlesTab: Selected articles to delete:', selectedArticles.size)
     
@@ -217,10 +219,8 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       
       // Delete each article from storage
       for (const article of articlesToDelete) {
-        if (window.extensionServices && window.extensionServices.storage) {
-          await window.extensionServices.storage.deleteArticle(article.id || article.title)
-          console.log('ArticlesTab: Deleted article:', article.title)
-        }
+        await storage.deleteArticle(article.id || article.title)
+        console.log('ArticlesTab: Deleted article:', article.title)
       }
       
       // Update local state - remove deleted articles
@@ -245,7 +245,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     } catch (error) {
       console.error('ArticlesTab: Error deleting articles:', error)
     }
-  }
+  }, [articles, selectedArticles, storage, onSelectionChange, onClearSelection, displayedArticles])
 
   const handleEditArticle = () => {
     if (identifiedArticle) {
@@ -322,22 +322,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
 
     const fetchArticles = async (cache = contentCache) => {
       try {
-        // Check if services are available with retry limit
-        if (!window.extensionServices) {
-          if (retryCount < maxRetries) {
-            retryCount++
-            setTimeout(fetchArticles, 100)
-            return
-          } else {
-            if (isMounted) {
-              setArticles([])
-              setIsLoading(false)
-            }
-            return
-          }
-        }
-        
-        const articleData = await window.extensionServices.storage.getArticles()
+        const articleData = await storage.getArticles()
         
         if (isMounted) {
           // Restore content from cache for all articles on initial load
@@ -358,6 +343,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
 
           // Add placeholder articles for demo purposes if no real articles exist
           const finalArticles = articlesWithContent.length === 0 ? [
+            // TODAY - Recent hours
             {
               id: 'placeholder-1',
               title: 'Apple Announces Record Q4 Earnings, Beats Analyst Expectations',
@@ -382,6 +368,19 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
             },
             {
               id: 'placeholder-3',
+              title: 'Google DeepMind Achieves Breakthrough in Quantum Computing',
+              url: 'https://techcrunch.com/google-quantum-breakthrough',
+              content: 'Google DeepMind researchers have achieved a major breakthrough in quantum error correction, bringing practical quantum computing closer to reality...',
+              timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(), // 8 hours ago
+              companies: ['GOOGL'],
+              matches: [
+                { ticker: 'GOOGL', company: 'Alphabet Inc.', score: 0.93 }
+              ]
+            },
+            
+            // YESTERDAY
+            {
+              id: 'placeholder-4',
               title: 'Microsoft Azure Revenue Surges 50% Year-Over-Year',
               url: 'https://reuters.com/microsoft-azure-growth',
               content: 'Microsoft reported strong growth in its Azure cloud services division, with revenue increasing 50% compared to last year...',
@@ -392,18 +391,20 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
               ]
             },
             {
-              id: 'placeholder-4',
+              id: 'placeholder-5',
               title: 'NVIDIA Stock Rallies on Strong AI Chip Demand',
               url: 'https://cnbc.com/nvidia-ai-chips',
               content: 'NVIDIA shares jumped 8% after the company reported unprecedented demand for its AI processing chips...',
-              timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // Yesterday
+              timestamp: new Date(Date.now() - 30 * 60 * 60 * 1000).toISOString(), // Yesterday
               companies: ['NVDA'],
               matches: [
                 { ticker: 'NVDA', company: 'NVIDIA Corporation', score: 0.94 }
               ]
             },
+            
+            // LAST WEEK
             {
-              id: 'placeholder-5',
+              id: 'placeholder-6',
               title: 'Amazon Expands Same-Day Delivery to 50 New Cities',
               url: 'https://bloomberg.com/amazon-delivery-expansion',
               content: 'Amazon announced a major expansion of its same-day delivery service, now covering 50 additional metropolitan areas...',
@@ -414,7 +415,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
               ]
             },
             {
-              id: 'placeholder-6',
+              id: 'placeholder-7',
               title: 'Meta Platforms Reports User Growth Acceleration',
               url: 'https://wsj.com/meta-user-growth',
               content: 'Meta Platforms Inc. reported accelerating user growth across its family of apps, with daily active users reaching 3.2 billion...',
@@ -422,6 +423,102 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
               companies: ['META'],
               matches: [
                 { ticker: 'META', company: 'Meta Platforms Inc.', score: 0.88 }
+              ]
+            },
+            {
+              id: 'placeholder-8',
+              title: 'Netflix Announces Password Sharing Crackdown Success',
+              url: 'https://variety.com/netflix-password-sharing',
+              content: 'Netflix reported that its password sharing crackdown has resulted in 6 million new subscribers in the last quarter...',
+              timestamp: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(), // 6 days ago
+              companies: ['NFLX'],
+              matches: [
+                { ticker: 'NFLX', company: 'Netflix Inc.', score: 0.90 }
+              ]
+            },
+            
+            // THIS MONTH (October 2025)
+            {
+              id: 'placeholder-9',
+              title: 'PayPal Launches Cryptocurrency Exchange',
+              url: 'https://coindesk.com/paypal-crypto-exchange',
+              content: 'PayPal has officially launched its own cryptocurrency exchange, allowing users to trade Bitcoin, Ethereum, and other major cryptocurrencies...',
+              timestamp: new Date(2025, 9, 15).toISOString(), // Oct 15, 2025
+              companies: ['PYPL'],
+              matches: [
+                { ticker: 'PYPL', company: 'PayPal Holdings Inc.', score: 0.87 }
+              ]
+            },
+            {
+              id: 'placeholder-10',
+              title: 'Adobe Unveils AI-Powered Video Editing Suite',
+              url: 'https://techcrunch.com/adobe-ai-video',
+              content: 'Adobe has announced a revolutionary AI-powered video editing suite that can automatically generate professional-quality videos from simple text prompts...',
+              timestamp: new Date(2025, 9, 10).toISOString(), // Oct 10, 2025
+              companies: ['ADBE'],
+              matches: [
+                { ticker: 'ADBE', company: 'Adobe Inc.', score: 0.92 }
+              ]
+            },
+            
+            // SEPTEMBER 2025
+            {
+              id: 'placeholder-11',
+              title: 'Salesforce Acquires Leading AI Startup for $8.5 Billion',
+              url: 'https://techcrunch.com/salesforce-ai-acquisition',
+              content: 'Salesforce has announced the acquisition of an AI startup specializing in customer relationship management automation for $8.5 billion...',
+              timestamp: new Date(2025, 8, 28).toISOString(), // Sep 28, 2025
+              companies: ['CRM'],
+              matches: [
+                { ticker: 'CRM', company: 'Salesforce Inc.', score: 0.89 }
+              ]
+            },
+            {
+              id: 'placeholder-12',
+              title: 'Intel Announces Next-Generation Chip Architecture',
+              url: 'https://anandtech.com/intel-new-architecture',
+              content: 'Intel has revealed its next-generation chip architecture, promising 40% better performance and 30% lower power consumption...',
+              timestamp: new Date(2025, 8, 20).toISOString(), // Sep 20, 2025
+              companies: ['INTC'],
+              matches: [
+                { ticker: 'INTC', company: 'Intel Corporation', score: 0.91 }
+              ]
+            },
+            
+            // AUGUST 2025
+            {
+              id: 'placeholder-13',
+              title: 'Spotify Reports Record Podcast Revenue Growth',
+              url: 'https://billboard.com/spotify-podcast-revenue',
+              content: 'Spotify reported that podcast advertising revenue grew by 150% year-over-year, driven by exclusive content deals and improved targeting...',
+              timestamp: new Date(2025, 7, 25).toISOString(), // Aug 25, 2025
+              companies: ['SPOT'],
+              matches: [
+                { ticker: 'SPOT', company: 'Spotify Technology S.A.', score: 0.88 }
+              ]
+            },
+            {
+              id: 'placeholder-14',
+              title: 'Uber Expands Autonomous Vehicle Fleet to 10 Cities',
+              url: 'https://reuters.com/uber-autonomous-expansion',
+              content: 'Uber has announced the expansion of its autonomous vehicle fleet to 10 major cities, marking a significant milestone in self-driving technology adoption...',
+              timestamp: new Date(2025, 7, 18).toISOString(), // Aug 18, 2025
+              companies: ['UBER'],
+              matches: [
+                { ticker: 'UBER', company: 'Uber Technologies Inc.', score: 0.90 }
+              ]
+            },
+            
+            // JULY 2025
+            {
+              id: 'placeholder-15',
+              title: 'Discord Files for IPO with $15 Billion Valuation',
+              url: 'https://techcrunch.com/discord-ipo-filing',
+              content: 'Discord has officially filed for an initial public offering, seeking a valuation of $15 billion based on its growing user base and revenue...',
+              timestamp: new Date(2025, 6, 30).toISOString(), // Jul 30, 2025
+              companies: ['DISCORD'],
+              matches: [
+                { ticker: 'DISCORD', company: 'Discord Inc.', score: 0.86 }
               ]
             }
           ] : articlesWithContent
@@ -444,7 +541,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     return () => {
       isMounted = false
     }
-  }, [contentCache])
+  }, [contentCache, storage])
 
   // Cleanup parsing timeout on component unmount
   useEffect(() => {
@@ -456,7 +553,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   }, [parsingTimeoutId])
 
   // Handle manual step progression
-  const handleRunStep = async () => {
+  const handleRunStep = useCallback(async () => {
     if (currentStep === 0) {
       // Check usage limit before starting analysis
       if (remainingAnalyses <= 0) {
@@ -481,9 +578,8 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         
         // Extract content only (no API call, no token usage)
         try {
-          if (window.extensionServices && window.extensionServices.api) {
-            console.log('Starting content extraction...')
-            const result = await window.extensionServices.api.extractContent()
+          console.log('Starting content extraction...')
+          const result = await api.extractContent()
             
             console.log('Content extracted:', result)
             
@@ -495,13 +591,14 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
               setParsedTabInfo(currentBrowserTab)
               
               // Create article preview from extracted content
+              const currentUrl = currentBrowserTab?.url || result.url || ""
               const previewArticle = {
                 title: result.title,
                 content: result.content || result.title || "Article content",
-                url: window.currentArticleUrl || "",
-                domain: window.currentArticleUrl ? window.currentArticleUrl.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '') : "unknown",
+                url: currentUrl,
+                domain: currentUrl ? currentUrl.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '') : "unknown",
                 pageTitle: result.title,
-                favicon: window.currentArticleUrl ? `https://www.google.com/s2/favicons?sz=16&domain=${window.currentArticleUrl.replace(/^https?:\/\//, '').split('/')[0]}` : null,
+                favicon: currentUrl ? `https://www.google.com/s2/favicons?sz=16&domain=${currentUrl.replace(/^https?:\/\//, '').split('/')[0]}` : null,
                 wordCount: result.content ? result.content.split(' ').length : 0,
                 readingTime: result.content ? Math.ceil(result.content.split(' ').length / 200) : 1,
                 confidenceScore: 95,
@@ -522,9 +619,6 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
             } else {
               throw new Error('No content extracted')
             }
-          } else {
-            throw new Error('Extension services not available')
-          }
         } catch (error) {
           console.error('Content extraction failed:', error)
           
@@ -561,9 +655,9 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       const startTime = Date.now()
       
       try {
-        if (window.extensionServices && window.extensionServices.api && extractedContent) {
+        if (extractedContent) {
           console.log('Starting analysis generation...')
-          const result = await window.extensionServices.api.analyzeArticle(extractedContent.title, extractedContent.content)
+          const result = await api.analyzeArticle(extractedContent.title, extractedContent.content)
           
           console.log('Analysis result:', result)
           
@@ -607,12 +701,12 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
             setCurrentStep(2)
             
             // Update remaining analyses count after token usage
-            const updatedStats = await window.extensionServices.storage.getUsageStats()
+            const updatedStats = await storage.getUsageStats()
             const remaining = Math.max(0, 5 - (updatedStats.today || 0))
             setRemainingAnalyses(remaining)
             
             // Refresh articles list to show new analysis
-            const updatedArticles = await window.extensionServices.storage.getArticles()
+            const updatedArticles = await storage.getArticles()
             
             // Restore content for all articles from cache
             const articlesWithContent = (updatedArticles || []).map(article => {
@@ -660,7 +754,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         alert(`Analysis generation failed: ${error.message}`)
       }
     }
-  }
+  }, [api, storage, currentStep, remainingAnalyses, parsingCancelled, extractedContent, analysisCancelled, currentBrowserTab, contentCache, loadMoreCount])
 
 
   // Initialize pipeline on component mount
@@ -720,7 +814,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
 
   // Update displayed articles when search changes
   useEffect(() => {
-    if (searchQuery.trim()) {
+    if (searchQuery && searchQuery.trim()) {
       // When searching, show all articles that match the search
       const searchResults = articles.filter(article => {
         const query = searchQuery.toLowerCase()
@@ -866,7 +960,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   )
 
   // No search results state  
-  if (searchQuery.trim() && displayedArticles.length === 0) {
+  if (searchQuery && searchQuery.trim() && displayedArticles.length === 0) {
     return (
       <Card className="border-dashed border-2 border-gray-200 bg-white">
         <CardContent className="flex flex-col items-center justify-center py-12 text-center">
@@ -1046,8 +1140,9 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   return (
     <div className="h-full flex flex-col">
 
-      {/* Actions Section - Combined Pipeline UI */}
-      <div className="mb-3 ml-2 pr-1 space-y-3">
+      {/* Actions Section - Combined Pipeline UI - Hide when searching */}
+      {(!searchQuery || !searchQuery.trim()) && (
+        <div className="mb-3 ml-2 pr-1 space-y-3">
         {/* Pipeline Window */}
         <div className="border border-gray-200 rounded-lg bg-white">
           {/* Dynamic Header Bar - Gray for active/waiting, Green for ready/completed, Red for error */}
@@ -1129,34 +1224,12 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
 
                     <div className="flex items-start gap-3 p-2.5 relative">
                       {/* Stage Icon */}
-                      <div className="relative w-7 h-7 flex items-center justify-center flex-shrink-0">
-                        {/* Spinning border for active state - perfectly centered */}
-                        {isActive && (
-                          <div className="absolute inset-0 w-7 h-7">
-                            <svg className="w-full h-full" viewBox="0 0 28 28">
-                              <circle
-                                cx="14"
-                                cy="14"
-                                r="12"
-                                fill="none"
-                                stroke="#111827"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeDasharray="75.4"
-                                strokeDashoffset="75.4"
-                                transform="rotate(-90 14 14)"
-                                style={{
-                                  animation: 'draw-circle 2s linear forwards'
-                                }}
-                              />
-                            </svg>
-                          </div>
-                        )}
+                      <div className="relative w-7 h-7 flex items-center justify-center flex-shrink-0 mt-0.5">
                         
-                        {/* Main node - centered within the container */}
+                        {/* Main node - centered within the container - ROUNDED SQUARES */}
                         <div className={cn(
-                          "rounded-full flex items-center justify-center absolute inset-0 transition-all duration-300",
-                          isActive ? "w-5 h-5 m-1 cursor-pointer hover:brightness-110" : "w-7 h-7", // Shrink when active with margin to center
+                          "rounded-lg flex items-center justify-center absolute inset-0 transition-all duration-300",
+                          "w-7 h-7 cursor-pointer hover:brightness-110", // No shrinkage - same size for all states
                           isCompleted && "bg-green-700",
                           isActive && "bg-gray-900",
                           isReady && "bg-green-700",
@@ -1184,10 +1257,33 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                             </svg>
                           )}
                           {isActive && (
-                            // Cancel X icon for active/loading nodes
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-                              <path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
-                            </svg>
+                            // Animated progress circle for active/loading nodes - matches waiting circle size
+                            <div className="relative w-4 h-4">
+                              <svg className="w-full h-full -rotate-90" viewBox="0 0 24 24">
+                                <circle
+                                  cx="12"
+                                  cy="12"
+                                  r="8"
+                                  fill="none"
+                                  stroke="rgba(255,255,255,0.3)"
+                                  strokeWidth="2"
+                                />
+                                <circle
+                                  cx="12"
+                                  cy="12"
+                                  r="8"
+                                  fill="none"
+                                  stroke="white"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeDasharray="50.3"
+                                  strokeDashoffset="50.3"
+                                  style={{
+                                    animation: 'progress-fill 2s ease-in-out infinite'
+                                  }}
+                                />
+                              </svg>
+                            </div>
                           )}
                           {isReady && (
                             <svg width={isActive ? "12" : "16"} height={isActive ? "12" : "16"} viewBox="0 0 24 24" fill="none">
@@ -1356,11 +1452,18 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         </div>
 
       </div>
+      )}
 
-
-      {/* Recents Header */}
+      {/* Dynamic Header - Recents or Search Results */}
       <div className="mt-1 mb-3 flex items-center px-1">
-        <h2 className="text-sm font-medium text-gray-900">Recents</h2>
+        <h2 className="text-sm font-medium text-gray-900">
+          {searchQuery && searchQuery.trim() ? 'Search Results' : 'Recents'}
+        </h2>
+        {searchQuery && searchQuery.trim() && (
+          <span className="ml-2 text-xs text-gray-500">
+            {displayedArticles.length} result{displayedArticles.length !== 1 ? 's' : ''}
+          </span>
+        )}
       </div>
       
       {/* Show empty state if no articles, otherwise show articles */}
@@ -1368,26 +1471,13 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         <EmptyState />
       ) : (
         <>
-          {/* Search Bar - always visible */}
-          <div className="mb-3 px-1">
-            <div className="relative bg-gray-100 rounded-lg transition-colors duration-200">
-              <Search size={14} className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-500" />
-              <input
-                type="text"
-                placeholder="Search by title, domain, or ticker..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className={`w-full pl-10 pr-3.5 py-2.5 ${semanticTypography.primaryText} bg-transparent border-0 focus:outline-none placeholder:text-xs placeholder:text-gray-600 rounded-lg`}
-              />
-            </div>
-          </div>
           
           <div className={componentSpacing.cardGroupSpacing}>
       {/* Today */}
       {groupedArticles.today.length > 0 && (
         <div>
           <div className="mb-3 px-1">
-            <h3 className={cn(semanticTypography.groupTitle)}>Today</h3>
+            <h3 className="text-xs text-gray-600">Today</h3>
           </div>
           <div className="bg-white rounded-lg border border-gray-200 ml-2">
             {groupedArticles.today.map((article, index) => (
@@ -1405,7 +1495,9 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       {/* Yesterday */}
       {groupedArticles.yesterday.length > 0 && (
         <div>
-          <h3 className={cn(semanticTypography.groupTitle, "mb-3 px-1")}>Yesterday</h3>
+          <div className="mb-3 px-1">
+            <h3 className="text-xs text-gray-600">Yesterday</h3>
+          </div>
           <div className="bg-white rounded-lg border border-gray-200 ml-2">
             {groupedArticles.yesterday.map((article, index) => (
               <div key={article.id || article.title}>
@@ -1422,7 +1514,9 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       {/* Last Week */}
       {groupedArticles.lastWeek.length > 0 && (
         <div>
-          <h3 className={cn(semanticTypography.groupTitle, "mb-3 px-1")}>Last Week</h3>
+          <div className="mb-3 px-1">
+            <h3 className="text-xs text-gray-600">Last Week</h3>
+          </div>
           <div className="bg-white rounded-lg border border-gray-200 ml-2">
             {groupedArticles.lastWeek.map((article, index) => (
               <div key={article.id || article.title}>
@@ -1442,7 +1536,9 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         .map(([monthKey, monthArticles]) => (
           monthArticles.length > 0 && (
             <div key={monthKey}>
-              <h3 className={cn(semanticTypography.groupTitle, "mb-3 px-1")}>{monthKey}</h3>
+              <div className="mb-3 px-1">
+                <h3 className="text-xs text-gray-600">{monthKey}</h3>
+              </div>
               <div className="bg-white rounded-lg border border-gray-200 ml-2">
                 {monthArticles.map((article, index) => (
                   <div key={article.id || article.title}>
@@ -1459,7 +1555,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       </div>
       
       {/* Load More Button */}
-      {!searchQuery.trim() && displayedArticles.length < articles.length && (
+      {(!searchQuery || !searchQuery.trim()) && displayedArticles.length < articles.length && (
         <div className="mt-4 mb-3 ml-2">
           <button
             onClick={handleLoadMore}

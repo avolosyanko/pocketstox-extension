@@ -1,11 +1,12 @@
 import React, { memo, useState, useRef, useEffect } from 'react'
-import { Star, Heart, Menu, X, Info, LogIn } from 'lucide-react'
+import { Star, Heart, Menu, X, Info, LogIn, Search } from 'lucide-react'
 import { semanticTypography, componentSpacing } from '@/styles/typography'
 import { cn } from '@/lib/utils'
 
-const NavigationHeader = memo(({ activeTab, onTabChange }) => {
+const NavigationHeader = memo(({ activeTab, onTabChange, searchQuery, onSearchChange, showSearch, onToggleSearch }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const menuRef = useRef(null)
+  const searchInputRef = useRef(null)
   
   const navigationTabs = [
     {
@@ -57,7 +58,14 @@ const NavigationHeader = memo(({ activeTab, onTabChange }) => {
     return activeTabData ? activeTabData.label : 'Discover'
   }
 
-  // Close menu when clicking outside or pressing Escape
+  // Focus search input when opened
+  useEffect(() => {
+    if (showSearch && searchInputRef.current) {
+      searchInputRef.current.focus()
+    }
+  }, [showSearch])
+
+  // Close menu and search when clicking outside or pressing Escape
   useEffect(() => {
     const handleClickOutside = (event) => {
       // Check if click is outside both the header and menu panel
@@ -66,16 +74,22 @@ const NavigationHeader = memo(({ activeTab, onTabChange }) => {
       
       if (isClickOutsideHeader && isClickOutsideMenu) {
         setIsMenuOpen(false)
+        if (showSearch && onToggleSearch) {
+          onToggleSearch(false)
+        }
       }
     }
 
     const handleKeyDown = (event) => {
       if (event.key === 'Escape') {
         setIsMenuOpen(false)
+        if (showSearch && onToggleSearch) {
+          onToggleSearch(false)
+        }
       }
     }
 
-    if (isMenuOpen) {
+    if (isMenuOpen || showSearch) {
       document.addEventListener('mousedown', handleClickOutside)
       document.addEventListener('keydown', handleKeyDown)
     }
@@ -84,33 +98,72 @@ const NavigationHeader = memo(({ activeTab, onTabChange }) => {
       document.removeEventListener('mousedown', handleClickOutside)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isMenuOpen])
+  }, [isMenuOpen, showSearch, onToggleSearch])
 
   return (
     <>
       <div className="bg-white border-b border-gray-200" ref={menuRef}>
         <div className={componentSpacing.navPadding}>
-          <div className="flex items-center gap-4">
-            {/* Hamburger Menu */}
-            <button
-              onClick={toggleMenu}
-              className="flex items-center justify-center w-8 h-8 text-gray-900 hover:bg-gray-100 rounded-md transition-colors duration-200"
-              aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
-              aria-expanded={isMenuOpen}
-              aria-haspopup="true"
-            >
-              {isMenuOpen ? (
-                <X size={18} strokeWidth={2} />
-              ) : (
-                <Menu size={18} strokeWidth={2} />
+          {/* Regular Header - hidden when search is active */}
+          {!showSearch && (
+            <div className="flex items-center gap-4">
+              {/* Hamburger Menu */}
+              <button
+                onClick={toggleMenu}
+                className="flex items-center justify-center w-8 h-8 text-gray-900 hover:bg-gray-100 rounded-md transition-colors duration-200"
+                aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
+                aria-expanded={isMenuOpen}
+                aria-haspopup="true"
+              >
+                {isMenuOpen ? (
+                  <X size={18} strokeWidth={2} />
+                ) : (
+                  <Menu size={18} strokeWidth={2} />
+                )}
+              </button>
+              
+              {/* Current Tab Label */}
+              <h1 className={cn(semanticTypography.cardTitle, "text-gray-900 flex-1")}>
+                {getActiveTabLabel()}
+              </h1>
+
+              {/* Search Icon - only show on Discover tab */}
+              {activeTab === 'articles' && (
+                <button
+                  onClick={() => onToggleSearch && onToggleSearch(!showSearch)}
+                  className="flex items-center justify-center w-8 h-8 text-gray-900 hover:bg-gray-100 rounded-md transition-colors duration-200"
+                  aria-label="Toggle search"
+                >
+                  <Search size={17} strokeWidth={2} />
+                </button>
               )}
-            </button>
-            
-            {/* Current Tab Label */}
-            <h1 className={cn(semanticTypography.cardTitle, "text-gray-900")}>
-              {getActiveTabLabel()}
-            </h1>
-          </div>
+            </div>
+          )}
+
+          {/* Full-Width Search Bar - covers entire header when active */}
+          {showSearch && activeTab === 'articles' && (
+            <div className="flex items-center h-8">
+              <div className="relative bg-gray-100 rounded-lg transition-colors duration-200 flex-1">
+                <Search size={14} className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-500" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search by title, domain, or ticker..."
+                  value={searchQuery || ''}
+                  onChange={(e) => onSearchChange && onSearchChange(e.target.value)}
+                  className="w-full pl-10 pr-10 py-2.5 text-sm bg-transparent border-0 focus:outline-none placeholder:text-xs placeholder:text-gray-600 rounded-lg"
+                />
+                {/* Close button */}
+                <button
+                  onClick={() => onToggleSearch && onToggleSearch(false)}
+                  className="absolute right-3.5 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                  aria-label="Close search"
+                >
+                  <X size={14} strokeWidth={2} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       

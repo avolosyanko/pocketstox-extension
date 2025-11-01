@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useState } from 'react'
+import React, { memo, useEffect, useState, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   AlertDialog,
@@ -23,8 +23,13 @@ import { Button } from '@/components/ui/button'
 import { Check, Plus, TrendingUp, AlertCircle, HeartOff, ChevronDown, Edit3 } from 'lucide-react'
 import { semanticTypography } from '@/styles/typography'
 import { cn } from '@/lib/utils'
+import { useStorage, useAuth } from '@/contexts/ServiceContext'
 
 const AccountTab = memo(({ onNavigateToArticle, onTabChange }) => {
+  // Modern service hooks
+  const storage = useStorage()
+  const auth = useAuth()
+  
   const [trackedCompanies, setTrackedCompanies] = useState([])
   const [showAddCompanyModal, setShowAddCompanyModal] = useState(false)
   const [newCompany, setNewCompany] = useState({ ticker: '', company: '', reason: '' })
@@ -45,7 +50,7 @@ const AccountTab = memo(({ onNavigateToArticle, onTabChange }) => {
     })
   }
 
-  const handleSaveQuickNote = () => {
+  const handleSaveQuickNote = useCallback(() => {
     if (!quickNote.trim() || !selectedCompanyForNote) return
     
     const companyIndex = trackedCompanies.findIndex(c => c.ticker === selectedCompanyForNote)
@@ -68,14 +73,17 @@ const AccountTab = memo(({ onNavigateToArticle, onTabChange }) => {
 
     setQuickNote('')
     setSelectedCompanyForNote(null)
-  }
+  }, [quickNote, selectedCompanyForNote, trackedCompanies])
 
   // Load tracked companies from storage
   useEffect(() => {
     const loadData = async () => {
-      if (window.extensionServices && window.extensionServices.storage) {
-        // Load tracked companies (placeholder for now)
-        const savedCompanies = [
+      try {
+        // Try to get saved companies from storage
+        const result = await storage.getWatchlist?.() || []
+        
+        // If no saved companies, use placeholder data for demo
+        const savedCompanies = result.length > 0 ? result : [
           {
             ticker: 'AAPL',
             company: 'Apple Inc.',
@@ -167,10 +175,12 @@ const AccountTab = memo(({ onNavigateToArticle, onTabChange }) => {
         if (savedCompanies.length > 0) {
           setSelectedCompanyForNote(savedCompanies[0].ticker)
         }
+      } catch (error) {
+        console.error('Failed to load tracked companies:', error)
       }
     }
     loadData()
-  }, [])
+  }, [storage])
   // Set up auth listener
   useEffect(() => {
     // Listen for auth messages from landing page
@@ -179,16 +189,14 @@ const AccountTab = memo(({ onNavigateToArticle, onTabChange }) => {
         // Handle successful authentication
         const { user, session } = message.data
         console.log('Auth successful:', user)
-        // Store auth data in extension storage
-        if (window.extensionServices && window.extensionServices.storage) {
-          window.extensionServices.storage.setAccount({
-            email: user.email,
-            userId: user.id,
-            authToken: session.access_token,
-            isPremium: user.app_metadata?.subscription_status === 'active',
-            lastSignIn: new Date().toISOString()
-          })
-        }
+        // Store auth data in extension storage using modern service
+        storage.setAccount?.({
+          email: user.email,
+          userId: user.id,
+          authToken: session.access_token,
+          isPremium: user.app_metadata?.subscription_status === 'active',
+          lastSignIn: new Date().toISOString()
+        })
       }
     }
 
@@ -336,7 +344,7 @@ const AccountTab = memo(({ onNavigateToArticle, onTabChange }) => {
                         </AlertDialogContent>
                       </AlertDialog>
                       {company.hasAlert && (
-                        <div className="flex items-center justify-center p-1 bg-purple-100 text-purple-800 rounded-full">
+                        <div className="flex items-center justify-center p-1 bg-purple-100 text-purple-800 rounded-lg">
                           <AlertCircle size={12} />
                         </div>
                       )}
