@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pocketstox Extension</title>
+    <!-- Inter Font -->
+    <style>
+        @font-face {
+            font-family: 'Inter';
+            src: url('./assets/fonts/Inter-Variable.ttf') format('truetype-variations');
+            font-weight: 100 900;
+            font-style: normal;
+            font-display: swap;
+        }
+    </style>
+    
+    <link rel="stylesheet" href="dist/popup.css">
+    <style>
+        body {
+            width: 100%;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            overflow-x: hidden;
+        }
+
+        #root {
+            width: 100%;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        /* Optimize for narrow side panels */
+        @media (max-width: 380px) {
+            .tab-text {
+                font-size: 9px !important;
+            }
+            
+            /* Use icon-only tabs for very narrow panels */
+            .tab-full-text {
+                display: none !important;
+            }
+            
+            .tab-short-text {
+                display: inline !important;
+            }
+        }
+        
+        @media (min-width: 381px) {
+            .tab-short-text {
+                display: none !important;
+            }
+            
+            .tab-full-text {
+                display: inline !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <!-- Load vanilla JS services first -->
+    <script src="src/services/storage.js"></script>
+    <script src="src/services/auth.js"></script>
+    <script src="src/services/api.js"></script>
+    
+    <!-- Service Bridge (moved to external file for CSP compliance) -->
+    <script src="src/bridge/service-bridge.js"></script>
+    
+    <!-- React App -->
+    <script type="module" src="dist/popup.js"></script>
+</body>
+</html>

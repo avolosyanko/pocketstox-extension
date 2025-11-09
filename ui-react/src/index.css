@@ -1,0 +1,152 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@theme {
+  --color-brand-50: oklch(98% .01 285);
+  --color-brand-100: oklch(96% .02 285);
+  --color-brand-200: oklch(92% .04 285);
+  --color-brand-300: oklch(86% .06 285);
+  --color-brand-400: oklch(72% .12 285);
+  --color-brand-500: oklch(60% .15 285);
+  --color-brand-600: oklch(50% .16 285);
+  --color-brand-700: oklch(42% .14 285);
+  --color-brand-800: #2e1f5b;
+  --color-brand-900: oklch(20% .08 285);
+  --color-brand-950: oklch(12% .05 285);
+}
+
+@layer base {
+  body {
+    background-color: white;
+    color: #111827;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .jump {
+    animation: jump 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    animation-fill-mode: both;
+    animation-iteration-count: 1;
+    will-change: transform;
+  }
+  
+  @keyframes jump {
+    0% { 
+      transform: scale(1);
+    }
+    50% { 
+      transform: scale(1.05);
+    }
+    100% { 
+      transform: scale(1);
+    }
+  }
+  
+  @keyframes draw-circle {
+    0% { 
+      stroke-dashoffset: 87.96;
+    }
+    100% { 
+      stroke-dashoffset: 0;
+    }
+  }
+  
+  @keyframes progress-fill {
+    0% {
+      stroke-dashoffset: 50.3;
+    }
+    50% {
+      stroke-dashoffset: 0;
+    }
+    100% {
+      stroke-dashoffset: -50.3;
+    }
+  }
+  
+  .jump {
+    animation: jump 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    animation-fill-mode: both;
+    animation-iteration-count: 1;
+    will-change: transform;
+  }
+}
+
+/* Chrome Extension specific styles */
+html, body {
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+/* Simple CSS variables */
+:root {
+  --radius: 0.5rem;
+}
+
+/* Vaul drawer styles */
+[vaul-drawer] {
+  touch-action: none;
+  will-change: transform;
+  transition: transform 0.8s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+[vaul-drawer][vaul-drawer-visible="true"] {
+  transform: translate3d(0, 0, 0);
+}
+
+[vaul-overlay] {
+  opacity: 0;
+  transition: opacity 0.8s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+[vaul-overlay][vaul-drawer-visible="true"] {
+  opacity: 1;
+}
+
+/* Scale background when drawer is open */
+[vaul-drawer-wrapper][data-vaul-scale-background="true"] > [vaul-drawer-scale] {
+  transition: transform 0.8s cubic-bezier(0.32, 0.72, 0, 1), border-radius 0.8s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+[vaul-drawer-wrapper][data-vaul-scale-background="true"][vaul-drawer-visible="true"] > [vaul-drawer-scale] {
+  transform: scale(0.93);
+  border-radius: 8px;
+}
+
+/* Prevent text highlighting on buttons */
+button {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+button::-moz-focus-inner {
+  border: 0;
+}
+
+button::selection {
+  background: transparent;
+}
+
+button::-moz-selection {
+  background: transparent;
+}
