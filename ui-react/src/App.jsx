@@ -276,7 +276,7 @@ function AppContent() {
       case 'community':
         return <CommunityTab />
       case 'account':
-        return <AccountTab onNavigateToArticle={handleNavigateToArticle} onTabChange={handleTabChange} />
+        return <AccountTab onNavigateToArticle={handleNavigateToArticle} onTabChange={handleTabChange} onArticleClick={handleArticleClick} />
       default:
         return <ArticlesTab ref={articlesTabRef} onArticleClick={handleArticleClick} onSelectionChange={setSelectedCount} onGenerate={handleGenerate} activeTab={activeTab} searchQuery={searchQuery} />
     }
@@ -375,11 +375,121 @@ function AppContent() {
             <div className="flex-1 overflow-y-auto">
               <div className={componentSpacing.contentPadding}>
 
-                {/* Related Stock Section (Singular) */}
-                <div className="mb-6">
-                  <div className="mb-3 px-1">
-                    <h2 className={cn(semanticTypography.cardTitle)}>Related Stock</h2>
-                  </div>
+                {/* Check if this is a company (starts with 'company-') vs regular article */}
+                {selectedArticle?.id?.startsWith('company-') ? (
+                  // Company Note-Taking Interface
+                  <>
+                    {/* Company Header */}
+                    <div className="mb-6">
+                      <div className="mb-3 px-1">
+                        <h2 className={cn(semanticTypography.cardTitle)}>Company Notes</h2>
+                      </div>
+
+                      <div className="ml-2">
+                        <div className="bg-white rounded-lg border border-gray-200 p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className={cn(semanticTypography.cardTitle, "font-medium")}>
+                              {selectedArticle.matches?.[0]?.ticker || 'TICKER'}
+                            </h3>
+                            <button
+                              onClick={() => window.open(`https://finance.yahoo.com/quote/${selectedArticle.matches?.[0]?.ticker}`, '_blank')}
+                              className="text-xs text-gray-600 hover:text-gray-900 underline hover:no-underline transition-colors"
+                            >
+                              View on Yahoo Finance
+                            </button>
+                          </div>
+                          <p className={cn(semanticTypography.secondaryText)}>
+                            {selectedArticle.matches?.[0]?.company || 'Company Name'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* All Notes Section */}
+                    <div className="mb-6">
+                      <div className="mb-3 px-1">
+                        <h2 className={cn(semanticTypography.cardTitle)}>All Notes</h2>
+                      </div>
+
+                      <div className="ml-2 space-y-3">
+                        {/* Note: In a real implementation, you'd fetch all notes for this company */}
+                        <div className="bg-white rounded-lg border border-gray-200 p-4">
+                          <div className="flex items-start justify-between mb-2">
+                            <span className="text-xs text-gray-500">
+                              {selectedArticle.timestamp ? 
+                                new Date(selectedArticle.timestamp).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                }) : 
+                                'Recent'
+                              }
+                            </span>
+                            <button className="text-xs text-gray-400 hover:text-gray-600">
+                              Edit
+                            </button>
+                          </div>
+                          <p className="text-sm text-gray-900">
+                            {selectedArticle.content || 'No notes available'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Add New Note Section */}
+                    <div className="mb-6">
+                      <div className="mb-3 px-1">
+                        <h2 className={cn(semanticTypography.cardTitle)}>Add New Note</h2>
+                      </div>
+
+                      <div className="ml-2">
+                        <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
+                          <textarea
+                            placeholder="Add your thoughts about this investment..."
+                            className="w-full px-0 py-2 text-sm border-0 focus:outline-none resize-none placeholder:text-gray-400 bg-transparent"
+                            rows={6}
+                          />
+                          <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                            <span className="text-xs text-gray-500">
+                              Note will be saved automatically
+                            </span>
+                            <button className="px-3 py-1.5 text-sm bg-gray-900 text-white hover:bg-gray-800 rounded-md transition-colors">
+                              Save Note
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  // Regular Article Analysis Interface
+                  <>
+                    {/* Related Stock Section (Singular) */}
+                    <div className="mb-6">
+                      <div className="mb-3 px-1 flex items-center justify-between">
+                        <h2 className={cn(semanticTypography.cardTitle)}>Related Stock</h2>
+                        {selectedArticle.matches && selectedArticle.matches.length > 0 && selectedArticle.matches[0] && !addedToWatchlist[selectedArticle.matches[0].ticker] && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const match = selectedArticle.matches[0]
+                              handleAddToWatchlist(match.ticker, match.company || match.ticker, selectedArticle.title)
+                            }}
+                            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+                          >
+                            <Plus size={14} />
+                            Follow
+                          </button>
+                        )}
+                        {selectedArticle.matches && selectedArticle.matches.length > 0 && selectedArticle.matches[0] && addedToWatchlist[selectedArticle.matches[0].ticker] && (
+                          <div className="flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded text-xs">
+                            <Check size={12} strokeWidth={2} />
+                            <span>Following</span>
+                          </div>
+                        )}
+                      </div>
 
                   <div className="ml-2">
                     {selectedArticle.matches && selectedArticle.matches.length > 0 ? (
@@ -415,36 +525,6 @@ function AppContent() {
                                     <span>Source: Financial news vectorstore</span>
                                   </div>
 
-                                  {/* Action buttons */}
-                                  <div className="mt-3 flex items-center gap-3">
-                                    {addedToWatchlist[match.ticker] ? (
-                                      <div className="flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded text-xs">
-                                        <Check size={12} strokeWidth={2} />
-                                        <span>Added to watchlist</span>
-                                      </div>
-                                    ) : (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          handleAddToWatchlist(match.ticker, match.company || match.ticker, selectedArticle.title)
-                                        }}
-                                        className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
-                                      >
-                                        <Plus size={12} strokeWidth={2} />
-                                        <span>Watchlist</span>
-                                      </button>
-                                    )}
-
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        window.open('https://pocketstox.com/how-it-works', '_blank')
-                                      }}
-                                      className="text-xs text-gray-600 hover:text-gray-900 underline hover:no-underline transition-colors"
-                                    >
-                                      How this works?
-                                    </button>
-                                  </div>
 
                                   {/* Feedback Section */}
                                   {showFeedbackThanks[selectedArticle.id || selectedArticle.title] === 'thanks' ? (
@@ -644,6 +724,8 @@ function AppContent() {
                     </div>
                   </div>
                 </div>
+                  </>
+                )}
 
               </div>
             </div>

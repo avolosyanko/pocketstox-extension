@@ -25,7 +25,7 @@ import { semanticTypography } from '@/styles/typography'
 import { cn } from '@/lib/utils'
 import { useStorage, useAuth } from '@/contexts/ServiceContext'
 
-const AccountTab = memo(({ onNavigateToArticle, onTabChange }) => {
+const AccountTab = memo(({ onNavigateToArticle, onTabChange, onArticleClick }) => {
   // Modern service hooks
   const storage = useStorage()
   const auth = useAuth()
@@ -245,26 +245,23 @@ const AccountTab = memo(({ onNavigateToArticle, onTabChange }) => {
                       : "bg-gray-100 text-gray-400 cursor-not-allowed"
                   )}
                 >
-                  Save note
+                  Save Note
                 </button>
-                <span className="text-xs text-gray-500">Enter</span>
-              </div>
-            </div>
-            <div className="border-t border-gray-200">
-              <div className="p-3 flex items-center gap-2">
-                <span className="text-sm text-gray-600 font-medium">Add to</span>
-                <div className="border-l border-gray-200 h-4 mx-1"></div>
-                <select
-                  value={selectedCompanyForNote || ''}
-                  onChange={(e) => setSelectedCompanyForNote(e.target.value)}
-                  className="text-sm border-0 focus:outline-none bg-transparent text-gray-900 font-medium cursor-pointer hover:bg-gray-50 rounded px-2 py-1 transition-colors"
-                >
-                  {trackedCompanies.map((company, index) => (
-                    <option key={index} value={company.ticker}>
-                      {company.ticker}
-                    </option>
-                  ))}
-                </select>
+                <div className="border-l border-gray-200 h-4 mx-2"></div>
+                <div className="relative">
+                  <select
+                    value={selectedCompanyForNote || ''}
+                    onChange={(e) => setSelectedCompanyForNote(e.target.value)}
+                    className="text-sm border-0 focus:outline-none bg-transparent text-gray-900 font-medium cursor-pointer hover:bg-gray-50 rounded px-2 py-1 pr-5 transition-colors appearance-none"
+                  >
+                    {trackedCompanies.map((company, index) => (
+                      <option key={index} value={company.ticker}>
+                        {company.ticker}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-0 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
               </div>
             </div>
           </CardContent>
@@ -279,7 +276,7 @@ const AccountTab = memo(({ onNavigateToArticle, onTabChange }) => {
           className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
         >
           <Plus size={14} />
-          Add
+          Follow
         </button>
       </div>
 
@@ -296,125 +293,96 @@ const AccountTab = memo(({ onNavigateToArticle, onTabChange }) => {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2 mb-3">
-          {trackedCompanies
-            .sort((a, b) => {
-              // Sort by alert status first (alerts at top)
-              if (a.hasAlert && !b.hasAlert) return -1
-              if (!a.hasAlert && b.hasAlert) return 1
-              // Then sort alphabetically by ticker
-              return a.ticker.localeCompare(b.ticker)
-            })
-            .map((company, index) => (
-            <Card key={index} className="bg-white border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => toggleCardCollapse(index)}>
-              <CardContent className="p-4">
-                <div className={cn(
-                  "flex items-start justify-between",
-                  !collapsedCards.has(index) ? "mb-2" : ""
-                )}>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-sm font-semibold text-gray-900">{company.ticker}</h3>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <button
-                            className="text-gray-400 hover:text-gray-600"
-                            title="Remove"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <HeartOff size={14} />
-                          </button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Unfollow {company.ticker}?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to unfollow {company.ticker}?
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              className="bg-gray-900 text-white hover:bg-gray-800"
-                              onClick={() => setTrackedCompanies(prev => prev.filter((_, i) => i !== index))}
-                            >
-                              Unfollow
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                      {company.hasAlert && (
-                        <div className="flex items-center justify-center p-1 bg-purple-100 text-purple-800 rounded-lg">
-                          <AlertCircle size={12} />
+        <div className="mb-3">
+          <div className="bg-white rounded-lg border border-gray-200">
+            {trackedCompanies
+              .sort((a, b) => {
+                // Sort by alert status first (alerts at top)
+                if (a.hasAlert && !b.hasAlert) return -1
+                if (!a.hasAlert && b.hasAlert) return 1
+                // Then sort alphabetically by ticker
+                return a.ticker.localeCompare(b.ticker)
+              })
+              .map((company, index) => (
+                <div key={index}>
+                  <div 
+                    className="cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={(e) => {
+                      // Don't trigger if clicking on action buttons
+                      if (e.target.closest('[data-action-button]')) return
+                      
+                      // Create article-like object for company details
+                      const companyArticle = {
+                        id: `company-${company.ticker}`,
+                        title: `${company.ticker} - ${company.company}`,
+                        content: company.notes?.[0]?.text || company.reason || 'No notes available',
+                        url: `https://finance.yahoo.com/quote/${company.ticker}`,
+                        timestamp: company.notes?.[0]?.timestamp || new Date().toISOString(),
+                        companies: [company.ticker],
+                        matches: [{ ticker: company.ticker, company: company.company, score: 1.0 }]
+                      }
+                      
+                      if (onArticleClick) {
+                        onArticleClick(companyArticle)
+                      }
+                    }}
+                  >
+                    <div className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="text-sm font-semibold text-gray-900">{company.ticker}</h3>
+                            {company.hasAlert && (
+                              <div className="flex items-center justify-center p-1 bg-purple-100 text-purple-800 rounded-lg">
+                                <AlertCircle size={12} />
+                              </div>
+                            )}
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <button
+                                  data-action-button
+                                  className="text-gray-400 hover:text-gray-600"
+                                  title="Remove"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <HeartOff size={14} />
+                                </button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Unfollow {company.ticker}?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to unfollow {company.ticker}?
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    className="bg-gray-900 text-white hover:bg-gray-800"
+                                    onClick={() => setTrackedCompanies(prev => prev.filter((_, i) => i !== index))}
+                                  >
+                                    Unfollow
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                          <p className={semanticTypography.secondaryText}>{company.company}</p>
                         </div>
-                      )}
+                      </div>
                     </div>
-                    <p className={semanticTypography.secondaryText}>{company.company}</p>
                   </div>
-                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={() => toggleCardCollapse(index)}
-                      className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
-                      title={collapsedCards.has(index) ? "Expand" : "Collapse"}
-                    >
-                      <ChevronDown 
-                        size={16} 
-                        className={cn(
-                          "transition-transform duration-200",
-                          !collapsedCards.has(index) ? "rotate-180" : ""
-                        )}
-                      />
-                    </button>
-                  </div>
+                  {index < trackedCompanies.filter((a, b) => {
+                    // Same sorting logic
+                    if (a.hasAlert && !b.hasAlert) return -1
+                    if (!a.hasAlert && b.hasAlert) return 1
+                    return a.ticker.localeCompare(b.ticker)
+                  }).length - 1 && (
+                    <div className="border-b border-gray-100 mx-4" />
+                  )}
                 </div>
-                {company.alert && (
-                  <div className={cn(
-                    "pt-1",
-                    !collapsedCards.has(index) ? "mt-1" : "mt-1"
-                  )}>
-                    {typeof company.alert === 'object' && company.alert.discoveryCard ? (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (onNavigateToArticle && company.alert.discoveryCard.articleUrl) {
-                            onNavigateToArticle(
-                              company.alert.discoveryCard.articleUrl,
-                              company.alert.discoveryCard.articleTitle,
-                              company.alert.discoveryCard.match.ticker
-                            )
-                          }
-                        }}
-                        className="text-xs text-purple-500 hover:text-purple-700 underline hover:no-underline transition-colors text-left"
-                        title="View original article in Discovery tab"
-                      >
-                        {company.alert.text}
-                      </button>
-                    ) : (
-                      <p className="text-xs text-purple-500">
-                        {typeof company.alert === 'object' ? company.alert.text : company.alert}
-                      </p>
-                    )}
-                  </div>
-                )}
-                {!collapsedCards.has(index) && (
-                  <div className="bg-gray-50 rounded p-2 mt-2">
-                    <p className="text-xs text-gray-600 italic">"{company.notes?.[0]?.text || company.reason}"</p>
-                    {company.notes && company.notes.length > 1 && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setViewingNotes(company)
-                        }}
-                        className="text-xs text-gray-500 hover:text-gray-900 mt-1 underline"
-                      >
-                        View {company.notes.length - 1} previous note{company.notes.length > 2 ? 's' : ''}
-                      </button>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+              ))}
+          </div>
         </div>
       )}
 

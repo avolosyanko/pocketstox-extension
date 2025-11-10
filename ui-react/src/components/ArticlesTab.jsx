@@ -1211,10 +1211,9 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                         className={cn(
                           "absolute left-6 w-0.5 top-7",
                           isCompleted && "bg-green-700",
-                          isActive && "bg-gray-900",
                           isReady && "bg-green-700",
                           isError && "bg-red-700",
-                          isWaiting && "bg-gray-200"
+                          (isWaiting || isActive) && "bg-gray-200"
                         )}
                         style={{
                           height: 'calc(100% + 0.5rem)'  // Extend to connect with next circle
