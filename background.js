@@ -42,7 +42,7 @@ chrome.action.onClicked.addListener(async (tab) => {
     await toggleSidePanel(tab.windowId);
 });
 
-// Handle messages from content scripts
+// Handle messages from content scripts and side panel
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('Background received message:', message);
     
@@ -58,6 +58,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         case 'analyzeCurrentPage':
             handleAnalyzeCurrentPage(message, sender.tab);
             break;
+            
             
         default:
             console.log('Unknown action:', message.action);
@@ -140,3 +141,4 @@ async function handleAnalyzeCurrentPage(message, tab) {
         console.error('Failed to analyze current page:', error);
     }
 }
+

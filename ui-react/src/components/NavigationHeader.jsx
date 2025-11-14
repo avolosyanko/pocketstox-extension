@@ -195,9 +195,13 @@ const NavigationHeader = memo(({ activeTab, onTabChange, searchQuery, onSearchCh
                           : 'hover:bg-gray-50 border border-transparent'
                       )}
                     >
-                      <Icon size={18} strokeWidth={1.5} className="flex-shrink-0 mt-1 text-gray-900" />
+                      <Icon 
+                        size={18} 
+                        strokeWidth={1.5} 
+                        className="flex-shrink-0 mt-1 text-gray-900"
+                      />
                       <div className="min-w-0 flex-1">
-                        <div className={cn("text-sm font-medium", isActive ? "text-gray-900" : "text-gray-900")}>
+                        <div className="text-sm font-medium text-gray-900">
                           {tab.label}
                         </div>
                         <div className="text-xs text-gray-500 mt-0.5">

@@ -20,7 +20,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Check, Plus, TrendingUp, AlertCircle, HeartOff, ChevronDown, ChevronRight, Edit3, Maximize2, MoreVertical } from 'lucide-react'
+import { Check, Plus, TrendingUp, AlertCircle, HeartOff, ChevronDown, ChevronRight, Edit3, MoreVertical, GripVertical } from 'lucide-react'
 import { semanticTypography } from '@/styles/typography'
 import { cn } from '@/lib/utils'
 import { useStorage, useAuth } from '@/contexts/ServiceContext'
@@ -37,9 +37,12 @@ const AccountTab = memo(({ onNavigateToArticle, onTabChange, onArticleClick }) =
   const [collapsedCards, setCollapsedCards] = useState(new Set())
   const [quickNote, setQuickNote] = useState('')
   const [selectedCompanyForNote, setSelectedCompanyForNote] = useState(null)
-  const [showNotesOverlay, setShowNotesOverlay] = useState(false)
-  const [overlayNote, setOverlayNote] = useState('')
-  const [collapsedSections, setCollapsedSections] = useState(new Set(['owned', 'conviction', 'researching', 'watchlist']))
+  const [collapsedSections, setCollapsedSections] = useState(new Set(['researching', 'conviction', 'owned']))
+  const [draggedItem, setDraggedItem] = useState(null)
+  const [dragOverSection, setDragOverSection] = useState(null)
+  const [expandTimeout, setExpandTimeout] = useState(null)
+  const [dragOverPosition, setDragOverPosition] = useState(null)
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
 
   const toggleCardCollapse = (index) => {
     setCollapsedCards(prev => {
@@ -78,30 +81,7 @@ const AccountTab = memo(({ onNavigateToArticle, onTabChange, onArticleClick }) =
     setSelectedCompanyForNote(null)
   }, [quickNote, selectedCompanyForNote, trackedCompanies])
 
-  const handleSaveOverlayNote = useCallback(() => {
-    if (!overlayNote.trim() || !selectedCompanyForNote) return
-    
-    const companyIndex = trackedCompanies.findIndex(c => c.ticker === selectedCompanyForNote)
-    if (companyIndex === -1) return
 
-    const newNote = {
-      text: overlayNote.trim(),
-      timestamp: new Date().toISOString()
-    }
-
-    setTrackedCompanies(prev => prev.map((company, index) => {
-      if (index === companyIndex) {
-        return {
-          ...company,
-          notes: [newNote, ...(company.notes || [])]
-        }
-      }
-      return company
-    }))
-
-    setOverlayNote('')
-    setShowNotesOverlay(false)
-  }, [overlayNote, selectedCompanyForNote, trackedCompanies])
 
   const handleStatusChange = useCallback((companyIndex, newStatus) => {
     setTrackedCompanies(prev => prev.map((company, index) => {
@@ -112,17 +92,174 @@ const AccountTab = memo(({ onNavigateToArticle, onTabChange, onArticleClick }) =
     }))
   }, [])
 
+  const handleDragStart = useCallback((e, company, originalIndex) => {
+    setDraggedItem({ company, originalIndex })
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', '')
+  }, [])
+
+  const handleDragOver = useCallback((e) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  }, [])
+
+  const handleDragEnter = useCallback((e, sectionId) => {
+    e.preventDefault()
+    setDragOverSection(sectionId)
+    
+    // Auto-expand collapsed sections after hovering for 800ms
+    if (collapsedSections.has(sectionId)) {
+      if (expandTimeout) {
+        clearTimeout(expandTimeout)
+      }
+      const timeout = setTimeout(() => {
+        setCollapsedSections(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(sectionId)
+          return newSet
+        })
+      }, 800)
+      setExpandTimeout(timeout)
+    }
+  }, [collapsedSections, expandTimeout])
+
+  const handleDragLeave = useCallback((e) => {
+    // Only clear if we're leaving the drop zone, not entering a child element
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDragOverSection(null)
+      setDragOverPosition(null)
+      if (expandTimeout) {
+        clearTimeout(expandTimeout)
+        setExpandTimeout(null)
+      }
+    }
+  }, [expandTimeout])
+
+  const handleCardDragOver = useCallback((e, sectionId, cardIndex) => {
+    e.preventDefault()
+    if (!draggedItem) return
+    
+    // Get mouse position relative to the card
+    const rect = e.currentTarget.getBoundingClientRect()
+    const mouseY = e.clientY
+    const cardTop = rect.top
+    const cardHeight = rect.height
+    const relativeY = mouseY - cardTop
+    const isTopHalf = relativeY < cardHeight / 2
+    
+    // Determine insertion position
+    const insertPosition = isTopHalf ? cardIndex : cardIndex + 1
+    setDragOverPosition(`${sectionId}-${insertPosition}`)
+    setDragOverSection(sectionId)
+  }, [draggedItem])
+
+  const handleDrop = useCallback((e, targetStatus, insertPosition = null) => {
+    e.preventDefault()
+    e.stopPropagation() // Prevent triggering onClick events
+    
+    if (!draggedItem) return
+    
+    const sourceStatus = draggedItem.company.status
+    const targetCompaniesInSection = trackedCompanies
+      .filter(company => company.status === targetStatus)
+      .sort((a, b) => (a.position || 0) - (b.position || 0))
+    
+    // Determine the new position
+    let newPosition
+    if (insertPosition !== null) {
+      newPosition = insertPosition
+    } else if (targetStatus === sourceStatus) {
+      // If dropping on same section header, move to end
+      newPosition = targetCompaniesInSection.length - 1
+    } else {
+      // If dropping on different section header, add to end
+      newPosition = targetCompaniesInSection.length
+    }
+    
+    console.log('Drop:', {
+      draggedCompany: draggedItem.company.ticker,
+      sourceStatus,
+      targetStatus,
+      insertPosition,
+      newPosition,
+      targetSectionLength: targetCompaniesInSection.length
+    })
+    
+    setTrackedCompanies(prev => {
+      const updated = prev.map((company, index) => {
+        if (index === draggedItem.originalIndex) {
+          return { ...company, status: targetStatus, position: newPosition }
+        }
+        return company
+      })
+      
+      // Reorder positions within the target section
+      const companiesInTargetSection = updated.filter(c => c.status === targetStatus)
+      const otherCompanies = updated.filter(c => c.status !== targetStatus)
+      
+      // Find the dragged company and separate it from others
+      const draggedCompanyIndex = companiesInTargetSection.findIndex(c => 
+        updated.findIndex(u => u === c) === draggedItem.originalIndex
+      )
+      const draggedCompany = companiesInTargetSection[draggedCompanyIndex]
+      const otherCompaniesInSection = companiesInTargetSection.filter((_, index) => index !== draggedCompanyIndex)
+      
+      // Sort other companies by their current positions (excluding the dragged one)
+      otherCompaniesInSection.sort((a, b) => (a.position || 0) - (b.position || 0))
+      
+      // Insert the dragged company at the correct position
+      const reorderedCompanies = [...otherCompaniesInSection]
+      const actualInsertPosition = Math.min(newPosition, reorderedCompanies.length)
+      reorderedCompanies.splice(actualInsertPosition, 0, draggedCompany)
+      
+      // Reassign positions sequentially
+      reorderedCompanies.forEach((company, index) => {
+        company.position = index
+      })
+      
+      // Also reorder the source section if it's different
+      if (sourceStatus !== targetStatus) {
+        const companiesInSourceSection = otherCompanies.filter(c => c.status === sourceStatus)
+        companiesInSourceSection.sort((a, b) => (a.position || 0) - (b.position || 0))
+        companiesInSourceSection.forEach((company, index) => {
+          company.position = index
+        })
+      }
+      
+      return [...otherCompanies, ...companiesInTargetSection]
+    })
+    
+    setDraggedItem(null)
+    setDragOverSection(null)
+    setDragOverPosition(null)
+    if (expandTimeout) {
+      clearTimeout(expandTimeout)
+      setExpandTimeout(null)
+    }
+  }, [draggedItem, expandTimeout, trackedCompanies])
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedItem(null)
+    setDragOverSection(null)
+    setDragOverPosition(null)
+    if (expandTimeout) {
+      clearTimeout(expandTimeout)
+      setExpandTimeout(null)
+    }
+  }, [expandTimeout])
+
   const getCompaniesByStatus = useCallback((status) => {
     return trackedCompanies
       .map((company, index) => ({ ...company, originalIndex: index }))
       .filter(company => company.status === status)
+      .sort((a, b) => (a.position || 0) - (b.position || 0))
   }, [trackedCompanies])
 
   const kanbanSections = [
-    { id: 'owned', title: 'Owned', description: 'Companies you currently own' },
-    { id: 'conviction', title: 'Conviction', description: 'High confidence investment candidates' },
+    { id: 'watchlist', title: 'Watchlist', description: 'Companies to monitor' },
     { id: 'researching', title: 'Researching', description: 'Companies under active research' },
-    { id: 'watchlist', title: 'Watchlist', description: 'Companies to monitor' }
+    { id: 'conviction', title: 'Conviction', description: 'High confidence investment candidates' },
+    { id: 'owned', title: 'Owned', description: 'Companies you currently own' }
   ]
 
   const toggleSection = (sectionId) => {
@@ -144,8 +281,13 @@ const AccountTab = memo(({ onNavigateToArticle, onTabChange, onArticleClick }) =
         // Try to get saved companies from storage
         const result = await storage.getWatchlist?.() || []
         
-        // For demo purposes, always use placeholder data (change this in production)
-        const savedCompanies = [
+        // Use real data if available, otherwise fallback to demo data
+        let savedCompanies
+        if (result && result.length > 0) {
+          savedCompanies = result
+        } else {
+          // Fallback demo data for first-time users
+          savedCompanies = [
           // OWNED COMPANIES
           {
             ticker: 'AAPL',
@@ -507,7 +649,29 @@ const AccountTab = memo(({ onNavigateToArticle, onTabChange, onArticleClick }) =
             hasAlert: false
           }
         ]
-        setTrackedCompanies(savedCompanies)
+        }
+        
+        // Assign positions to companies within their sections
+        const companiesWithPositions = savedCompanies.map((company, index) => ({
+          ...company,
+          position: company.position !== undefined ? company.position : index
+        }))
+        
+        // Normalize positions within each section
+        const statusGroups = {}
+        companiesWithPositions.forEach(company => {
+          if (!statusGroups[company.status]) statusGroups[company.status] = []
+          statusGroups[company.status].push(company)
+        })
+        
+        Object.keys(statusGroups).forEach(status => {
+          statusGroups[status].forEach((company, index) => {
+            company.position = index
+          })
+        })
+        
+        setTrackedCompanies(companiesWithPositions)
+        setIsInitialLoad(false)
         // Start all cards in collapsed state
         setCollapsedCards(new Set(savedCompanies.map((_, index) => index)))
         // Set default selected company to first one
@@ -520,9 +684,28 @@ const AccountTab = memo(({ onNavigateToArticle, onTabChange, onArticleClick }) =
     }
     loadData()
   }, [storage])
-  // Set up auth listener
+
+  // Save tracked companies to storage whenever they change
   useEffect(() => {
-    // Listen for auth messages from landing page
+    const saveData = async () => {
+      if (trackedCompanies.length > 0 && storage.setWatchlist) {
+        try {
+          await storage.setWatchlist(trackedCompanies)
+          console.log('Saved tracked companies to storage:', trackedCompanies.length, 'companies')
+        } catch (error) {
+          console.error('Failed to save tracked companies:', error)
+        }
+      }
+    }
+    
+    // Only save after initial load to avoid overwriting real data with demo data
+    if (!isInitialLoad && trackedCompanies.length > 0) {
+      saveData()
+    }
+  }, [trackedCompanies, storage, isInitialLoad])
+  // Set up auth listener and external popup message handler
+  useEffect(() => {
+    // Listen for auth messages from landing page and external popup saves
     const handleMessage = (message, sender, sendResponse) => {
       if (message.type === 'AUTH_SUCCESS' && message.source === 'pocketstox-landing') {
         // Handle successful authentication
@@ -549,88 +732,73 @@ const AccountTab = memo(({ onNavigateToArticle, onTabChange, onArticleClick }) =
         chrome.runtime.onMessage.removeListener(handleMessage)
       }
     }
-  }, [])
+  }, [storage, trackedCompanies])
+  
   return (
     <div>
 
-      {/* Quick Note Section */}
+        {/* Quick Note Section */}
       {trackedCompanies.length > 0 && (
-        <Card className="bg-white border border-gray-200 mb-3 rounded-lg overflow-hidden">
-          <CardContent className="p-0">
-            <div className="p-3 bg-gray-50 relative">
+        <div className="mb-4 bg-gray-50 rounded border border-gray-200">
+          <div className="p-3">
+            <textarea
+              placeholder="Write a note..."
+              value={quickNote}
+              onChange={(e) => setQuickNote(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSaveQuickNote()
+                }
+              }}
+              className="w-full px-0 py-1 text-sm border-0 focus:outline-none resize-none placeholder:text-gray-400 bg-transparent"
+              rows={9}
+            />
+          </div>
+          <div className="border-t border-gray-200 bg-white">
+            <div className="px-3 py-2 flex items-center gap-3">
               <button
-                onClick={() => {
-                  setOverlayNote(quickNote)
-                  setShowNotesOverlay(true)
-                }}
-                className="absolute top-2 right-2 p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
-                title="Expand"
+                onClick={handleSaveQuickNote}
+                disabled={!quickNote.trim() || !selectedCompanyForNote}
+                className={cn(
+                  "px-2 py-1 text-xs rounded transition-all font-medium",
+                  quickNote.trim() && selectedCompanyForNote
+                    ? "bg-gray-900 text-white hover:bg-gray-800"
+                    : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                )}
               >
-                <Maximize2 size={14} />
+                Save
               </button>
-              <textarea
-                placeholder="Write a note"
-                value={quickNote}
-                onChange={(e) => setQuickNote(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    handleSaveQuickNote()
-                  }
-                }}
-                className="w-full px-0 py-2 text-sm border-0 focus:outline-none resize-none placeholder:text-gray-400 bg-transparent pr-8"
-                rows={3}
-              />
+              <select
+                value={selectedCompanyForNote || ''}
+                onChange={(e) => setSelectedCompanyForNote(e.target.value)}
+                className="text-xs border-0 focus:outline-none bg-transparent text-gray-600 cursor-pointer hover:bg-gray-50 rounded px-1 py-1 transition-colors"
+              >
+                {trackedCompanies.map((company, index) => (
+                  <option key={index} value={company.ticker}>
+                    {company.ticker}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="border-t border-gray-200">
-              <div className="p-3 flex items-center gap-3">
-                <button
-                  onClick={handleSaveQuickNote}
-                  disabled={!quickNote.trim() || !selectedCompanyForNote}
-                  className={cn(
-                    "px-3 py-1.5 text-sm rounded-md transition-all font-medium",
-                    quickNote.trim() && selectedCompanyForNote
-                      ? "bg-gray-900 text-white hover:bg-gray-800 shadow-sm"
-                      : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                  )}
-                >
-                  Save Note
-                </button>
-                <div className="border-l border-gray-200 h-4 mx-2"></div>
-                <div className="relative">
-                  <select
-                    value={selectedCompanyForNote || ''}
-                    onChange={(e) => setSelectedCompanyForNote(e.target.value)}
-                    className="text-sm border-0 focus:outline-none bg-transparent text-gray-900 font-medium cursor-pointer hover:bg-gray-50 rounded px-2 py-1 pr-5 transition-colors appearance-none"
-                  >
-                    {trackedCompanies.map((company, index) => (
-                      <option key={index} value={company.ticker}>
-                        {company.ticker}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown size={14} className="absolute right-0 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
-      {/* Portfolio Kanban */}
-      <div className="mt-4 mb-3 flex items-center justify-between px-1">
-        <h2 className="text-sm font-medium text-gray-900">Portfolio</h2>
+      {/* Portfolio Header */}
+      <div className="mb-1 flex items-center justify-between">
+        <h2 className="text-sm font-medium text-gray-700 px-2">Companies</h2>
         <button
           onClick={() => setShowAddCompanyModal(true)}
-          className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+          className="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded transition-colors"
         >
-          <Plus size={14} />
+          <Plus size={12} />
           Add
         </button>
       </div>
 
       {trackedCompanies.length === 0 ? (
-        <Card className="border-dashed border-2 border-gray-200 bg-white mb-3">
+        <Card className="border-dashed border-2 border-gray-200 bg-white mb-3 ml-2">
           <CardContent className="flex flex-col items-center justify-center py-8 text-center">
             <div className="rounded-full bg-gray-100 p-3 mb-3">
               <TrendingUp size={20} className="text-gray-500" />
@@ -642,146 +810,182 @@ const AccountTab = memo(({ onNavigateToArticle, onTabChange, onArticleClick }) =
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4 mb-3">
+        <div className="space-y-1">
           {kanbanSections.map((section) => {
             const sectionCompanies = getCompaniesByStatus(section.id)
             return (
-              <div key={section.id} className="bg-white rounded-lg border border-gray-200">
+              <div key={section.id}>
                 <div 
-                  className="p-3 border-b border-gray-100 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
+                  className={cn(
+                    "px-2 py-1.5 cursor-pointer hover:bg-gray-50 rounded transition-colors flex items-center justify-between group",
+                    dragOverSection === section.id && "bg-gray-100"
+                  )}
                   onClick={() => toggleSection(section.id)}
+                  onDragOver={handleDragOver}
+                  onDragEnter={(e) => handleDragEnter(e, section.id)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, section.id)}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center justify-center w-4 h-4">
-                        {collapsedSections.has(section.id) ? (
-                          <ChevronRight size={14} className="text-gray-500" />
-                        ) : (
-                          <ChevronDown size={14} className="text-gray-500" />
-                        )}
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-semibold text-gray-900">{section.title}</h3>
-                        <p className="text-xs text-gray-500">{section.description}</p>
-                      </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center w-4 h-4">
+                      {collapsedSections.has(section.id) ? (
+                        <ChevronRight size={12} className="text-gray-400" />
+                      ) : (
+                        <ChevronDown size={12} className="text-gray-400" />
+                      )}
                     </div>
-                    <div className="text-xs text-gray-500 bg-gray-200 px-2 py-1 rounded-full">
-                      {sectionCompanies.length}
-                    </div>
+                    <h3 className="text-sm font-medium text-gray-700">{section.title}</h3>
+                  </div>
+                  <div className="text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {sectionCompanies.length}
                   </div>
                 </div>
                 {!collapsedSections.has(section.id) && (
-                  sectionCompanies.length === 0 ? (
-                    <div className="p-4 text-center text-gray-400 text-sm">
-                      No companies in {section.title.toLowerCase()}
-                    </div>
-                  ) : (
-                    <div>
-                      {sectionCompanies.map((company, index) => (
-                        <div key={company.ticker}>
-                          <div 
-                            className="cursor-pointer hover:bg-gray-50 transition-colors"
-                            onClick={(e) => {
-                              // Don't trigger if clicking on action buttons
-                              if (e.target.closest('[data-action-button]')) return
-                              
-                              // Create article-like object for company details
-                              const companyArticle = {
-                                id: `company-${company.ticker}`,
-                                title: `${company.ticker} - ${company.company}`,
-                                content: company.notes?.[0]?.text || 'No notes available',
-                                url: `https://finance.yahoo.com/quote/${company.ticker}`,
-                                timestamp: company.notes?.[0]?.timestamp || new Date().toISOString(),
-                                companies: [company.ticker],
-                                matches: [{ ticker: company.ticker, company: company.company, score: 1.0 }]
-                              }
-                              
-                              if (onArticleClick) {
-                                onArticleClick(companyArticle)
-                              }
-                            }}
-                          >
-                            <div className="px-3.5 py-2.5">
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <h4 className="text-sm font-medium text-gray-900">{company.ticker}</h4>
-                                    {company.hasAlert && (
-                                      <div className="flex items-center justify-center p-1 bg-purple-100 text-purple-800 rounded-lg">
-                                        <AlertCircle size={12} />
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="space-y-1">
-                                    <div className="flex items-center gap-1">
-                                      <span className="text-xs text-gray-600 truncate">{company.company}</span>
-                                    </div>
-                                    {company.notes?.[0]?.text && (
-                                      <p className="text-xs text-gray-500 line-clamp-2">
-                                        {company.notes[0].text}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-1 ml-2 flex-shrink-0">
-                                  <div className="relative">
-                                    <select
-                                      data-action-button
-                                      value={company.status}
-                                      onChange={(e) => {
-                                        e.stopPropagation()
-                                        handleStatusChange(company.originalIndex, e.target.value)
-                                      }}
-                                      className="text-xs border-0 focus:outline-none bg-transparent text-gray-600 cursor-pointer hover:bg-gray-100 rounded px-1 py-0.5 pr-4 transition-colors appearance-none"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <option value="owned">Owned</option>
-                                      <option value="conviction">Conviction</option>
-                                      <option value="researching">Researching</option>
-                                      <option value="watchlist">Watchlist</option>
-                                    </select>
-                                    <ChevronDown size={10} className="absolute right-0 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
-                                  </div>
-                                  <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                      <button
-                                        data-action-button
-                                        className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded transition-colors"
-                                        title="Remove"
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        <HeartOff size={12} />
-                                      </button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle>Remove {company.ticker}?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                          Are you sure you want to remove {company.ticker} from your portfolio?
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction
-                                          className="bg-gray-900 text-white hover:bg-gray-800"
-                                          onClick={() => setTrackedCompanies(prev => prev.filter((_, i) => i !== company.originalIndex))}
-                                        >
-                                          Remove
-                                        </AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
-                                </div>
+                  <div
+                    className="ml-2 space-y-2 min-h-[8px] py-2"
+                    onDragOver={handleDragOver}
+                    onDragEnter={(e) => handleDragEnter(e, section.id)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, section.id)}
+                  >
+                    {sectionCompanies.length === 0 ? (
+                      <div className="py-2 px-4 text-xs text-gray-400">
+                        No companies in {section.title.toLowerCase()}
+                      </div>
+                    ) : (
+                      <>
+                        {sectionCompanies.map((company, index) => (
+                          <div key={`${company.ticker}-${company.originalIndex}`} className="relative">
+                            {/* Insertion indicator */}
+                            {(dragOverPosition === `${section.id}-${index}` || 
+                              (dragOverPosition === `${section.id}-${index + 1}` && index === sectionCompanies.length - 1)) && (
+                              <div className="absolute -top-1 left-0 right-0 h-0.5 bg-blue-400 rounded z-10" />
+                            )}
+                            {dragOverPosition === `${section.id}-${index + 1}` && index < sectionCompanies.length - 1 && (
+                              <div className="absolute -bottom-1 left-0 right-0 h-0.5 bg-blue-400 rounded z-10" />
+                            )}
+                            
+                            {/* The actual card */}
+                            <div
+                              draggable
+                              className={cn(
+                                "bg-white rounded-lg border border-gray-200 p-3 shadow-sm transition-all cursor-move relative",
+                                draggedItem?.originalIndex === company.originalIndex && "opacity-50",
+                                "hover:shadow-md"
+                              )}
+                              onDragStart={(e) => handleDragStart(e, company, company.originalIndex)}
+                              onDragEnd={handleDragEnd}
+                              onDragOver={(e) => handleCardDragOver(e, section.id, index)}
+                              onDrop={(e) => {
+                                const rect = e.currentTarget.getBoundingClientRect()
+                                const mouseY = e.clientY
+                                const cardTop = rect.top
+                                const cardHeight = rect.height
+                                const relativeY = mouseY - cardTop
+                                const isTopHalf = relativeY < cardHeight / 2
+                                const insertPosition = isTopHalf ? index : index + 1
+                                handleDrop(e, section.id, insertPosition)
+                              }}
+                            >
+                          <div className="flex items-start justify-between">
+                            <div 
+                              className="flex-1 cursor-pointer"
+                              onClick={(e) => {
+                                // Don't trigger if clicking on action buttons
+                                if (e.target.closest('[data-action-button]')) return
+                                
+                                // Create article-like object for company details
+                                const companyArticle = {
+                                  id: `company-${company.ticker}`,
+                                  title: `${company.ticker} - ${company.company}`,
+                                  content: company.notes?.[0]?.text || 'No notes available',
+                                  url: `https://finance.yahoo.com/quote/${company.ticker}`,
+                                  timestamp: company.notes?.[0]?.timestamp || new Date().toISOString(),
+                                  companies: [company.ticker],
+                                  matches: [{ ticker: company.ticker, company: company.company, score: 1.0 }]
+                                }
+                                
+                                if (onArticleClick) {
+                                  onArticleClick(companyArticle)
+                                }
+                              }}
+                            >
+                              <div className="flex items-center gap-2 mb-2">
+                                <h4 className="text-sm font-semibold text-gray-900">{company.ticker}</h4>
+                                {company.hasAlert && (
+                                  <div className="flex items-center justify-center w-2 h-2 bg-blue-500 rounded-full"></div>
+                                )}
                               </div>
+                              <p className="text-sm text-gray-600 mb-1">{company.company}</p>
+                              {company.notes?.[0]?.text && (
+                                <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
+                                  {company.notes[0].text}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-start gap-1 ml-3">
+                              <div 
+                                className="p-1 text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing"
+                                title="Drag to move"
+                              >
+                                <GripVertical size={14} />
+                              </div>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <button
+                                    data-action-button
+                                    className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded transition-colors"
+                                    title="Remove"
+                                  >
+                                    <HeartOff size={12} />
+                                  </button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Remove {company.ticker}?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to remove {company.ticker} from your portfolio?
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      className="bg-gray-900 text-white hover:bg-gray-800"
+                                      onClick={() => setTrackedCompanies(prev => prev.filter((_, i) => i !== company.originalIndex))}
+                                    >
+                                      Remove
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             </div>
                           </div>
-                          {index < sectionCompanies.length - 1 && (
-                            <div className="border-b border-gray-100 mx-3.5" />
+                            </div>
+                          </div>
+                        ))}
+                        
+                        {/* Empty drop zone for end of list */}
+                        <div
+                          className={cn(
+                            "h-4 transition-all",
+                            dragOverPosition === `${section.id}-${sectionCompanies.length}` && "h-8 bg-blue-100 border-2 border-dashed border-blue-300 rounded"
                           )}
-                        </div>
-                      ))}
-                    </div>
-                  )
+                          onDragOver={handleDragOver}
+                          onDragEnter={(e) => {
+                            e.preventDefault()
+                            setDragOverPosition(`${section.id}-${sectionCompanies.length}`)
+                            setDragOverSection(section.id)
+                          }}
+                          onDragLeave={(e) => {
+                            if (!e.currentTarget.contains(e.relatedTarget)) {
+                              setDragOverPosition(null)
+                            }
+                          }}
+                          onDrop={(e) => handleDrop(e, section.id, sectionCompanies.length)}
+                        />
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
             )
@@ -822,67 +1026,6 @@ const AccountTab = memo(({ onNavigateToArticle, onTabChange, onArticleClick }) =
         </DialogContent>
       </Dialog>
 
-      {/* Notes Overlay */}
-      {showNotesOverlay && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg w-full max-w-4xl max-h-[80vh] flex flex-col">
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <h2 className="text-lg font-semibold text-gray-900">Investment Notes</h2>
-                <div className="relative">
-                  <select
-                    value={selectedCompanyForNote || ''}
-                    onChange={(e) => setSelectedCompanyForNote(e.target.value)}
-                    className="text-sm border border-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white text-gray-900 font-medium cursor-pointer rounded px-3 py-1.5 pr-8 transition-colors appearance-none"
-                  >
-                    {trackedCompanies.map((company, index) => (
-                      <option key={index} value={company.ticker}>
-                        {company.ticker} - {company.company}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown size={14} className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
-                </div>
-              </div>
-              <button
-                onClick={() => setShowNotesOverlay(false)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded transition-colors"
-              >
-                ×
-              </button>
-            </div>
-            <div className="flex-1 p-4">
-              <textarea
-                placeholder="Write detailed notes about your investment research, analysis, and thoughts..."
-                value={overlayNote}
-                onChange={(e) => setOverlayNote(e.target.value)}
-                className="w-full h-full text-sm border border-gray-300 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none"
-                style={{ minHeight: '300px' }}
-              />
-            </div>
-            <div className="p-4 border-t border-gray-200 flex items-center justify-end gap-3">
-              <button
-                onClick={() => setShowNotesOverlay(false)}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveOverlayNote}
-                disabled={!overlayNote.trim() || !selectedCompanyForNote}
-                className={cn(
-                  "px-4 py-2 text-sm rounded-md transition-all font-medium",
-                  overlayNote.trim() && selectedCompanyForNote
-                    ? "bg-gray-900 text-white hover:bg-gray-800 shadow-sm"
-                    : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                )}
-              >
-                Save Note
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Add/Edit Company Dialog */}
       <Dialog open={showAddCompanyModal} onOpenChange={setShowAddCompanyModal}>
@@ -943,9 +1086,12 @@ const AccountTab = memo(({ onNavigateToArticle, onTabChange, onArticleClick }) =
                     text: newCompany.reason,
                     timestamp: new Date().toISOString()
                   }
+                  const existingInWatchlist = trackedCompanies.filter(c => c.status === 'watchlist').length
                   const newCompanies = [...trackedCompanies, {
                     ticker: newCompany.ticker,
                     company: newCompany.company,
+                    status: 'watchlist',
+                    position: existingInWatchlist,
                     notes: [newNote],
                     hasAlert: false
                   }]
