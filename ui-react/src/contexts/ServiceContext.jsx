@@ -271,11 +271,58 @@ class StorageServiceAdapter {
         const result = await chrome.storage.local.get(['pocketstox_account'])
         return result.pocketstox_account || null
       }
-      
+
       return null
     } catch (error) {
       console.error('Get account failed:', error)
       return null
+    }
+  }
+
+  async getActivityLog() {
+    try {
+      if (chrome && chrome.storage) {
+        const result = await chrome.storage.local.get(['pocketstox_activity_log'])
+        return result.pocketstox_activity_log || []
+      }
+
+      return []
+    } catch (error) {
+      console.error('Get activity log failed:', error)
+      return []
+    }
+  }
+
+  async logActivity(activityData) {
+    try {
+      if (chrome && chrome.storage) {
+        const activities = await this.getActivityLog()
+
+        const activity = {
+          id: activityData.id || Date.now().toString() + '_' + Math.random().toString(36).substr(2, 9),
+          type: activityData.type,
+          timestamp: activityData.timestamp || new Date().toISOString(),
+          description: activityData.description,
+          metadata: activityData.metadata || {},
+          relatedEntities: activityData.relatedEntities || []
+        }
+
+        const newActivities = [activity, ...activities]
+
+        // Keep only the most recent 500 activities
+        if (newActivities.length > 500) {
+          newActivities.splice(500)
+        }
+
+        await chrome.storage.local.set({ pocketstox_activity_log: newActivities })
+        return activity
+      }
+
+      console.log('Mock logging activity:', activityData)
+      return activityData
+    } catch (error) {
+      console.error('Log activity failed:', error)
+      throw error
     }
   }
 }
