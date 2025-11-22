@@ -1,7 +1,7 @@
 import React, { useState, useEffect, memo, useImperativeHandle, forwardRef, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
-import { FileText, Search, Edit2, RotateCcw } from 'lucide-react'
+import { FileText, Search, Edit2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { semanticTypography, componentSpacing, spacing } from '@/styles/typography'
 import { useAPI, useStorage } from '@/contexts/ServiceContext'
@@ -27,7 +27,6 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   const [displayedArticles, setDisplayedArticles] = useState([])
   const [loadMoreCount, setLoadMoreCount] = useState(10) // Initial load count
   const [isLoadingMore, setIsLoadingMore] = useState(false)
-  const [remainingAnalyses, setRemainingAnalyses] = useState(5)
   const [parsingCancelled, setParsingCancelled] = useState(false)
   const [parsingTimeoutId, setParsingTimeoutId] = useState(null)
   const [analysisCancelled, setAnalysisCancelled] = useState(false)
@@ -110,20 +109,6 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   // Persistent cache for article content
   const [contentCache, setContentCache] = useState(new Map())
   
-  // Load remaining analyses from storage
-  useEffect(() => {
-    const loadUsageStats = async () => {
-      try {
-        const stats = await storage.getUsageStats()
-        const remaining = Math.max(0, 5 - (stats.today || 0))
-        setRemainingAnalyses(remaining)
-      } catch (error) {
-        console.error('Failed to load usage stats:', error)
-      }
-    }
-    
-    loadUsageStats()
-  }, [storage])
 
 
   const [extractionStages, setExtractionStages] = useState({
@@ -207,41 +192,64 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   const handleDeleteSelected = useCallback(async () => {
     console.log('ArticlesTab: handleDeleteSelected called')
     console.log('ArticlesTab: Selected articles to delete:', selectedArticles.size)
-    
+
     try {
       // Find articles to delete based on selected IDs
       const articlesToDelete = articles.filter(article => {
         const articleId = article.id || article.title
         return selectedArticles.has(articleId)
       })
-      
+
       console.log('ArticlesTab: Articles to delete:', articlesToDelete.map(a => a.title))
-      
+
       // Delete each article from storage
       for (const article of articlesToDelete) {
         await storage.deleteArticle(article.id || article.title)
         console.log('ArticlesTab: Deleted article:', article.title)
       }
-      
+
+      // Log activity
+      if (articlesToDelete.length === 1) {
+        await storage.logActivity({
+          type: 'article_deleted',
+          description: `Deleted article: ${articlesToDelete[0].title}`,
+          metadata: {
+            articleTitle: articlesToDelete[0].title,
+            articleUrl: articlesToDelete[0].url
+          },
+          relatedEntities: []
+        })
+      } else if (articlesToDelete.length > 1) {
+        await storage.logActivity({
+          type: 'bulk_delete',
+          description: `Deleted ${articlesToDelete.length} articles`,
+          metadata: {
+            count: articlesToDelete.length,
+            articleTitles: articlesToDelete.map(a => a.title)
+          },
+          relatedEntities: []
+        })
+      }
+
       // Update local state - remove deleted articles
       const remainingArticles = articles.filter(article => {
         const articleId = article.id || article.title
         return !selectedArticles.has(articleId)
       })
-      
+
       const remainingDisplayedArticles = displayedArticles.filter(article => {
         const articleId = article.id || article.title
         return !selectedArticles.has(articleId)
       })
-      
+
       setArticles(remainingArticles)
       setDisplayedArticles(remainingDisplayedArticles)
       setSelectedArticles(new Set())
       onSelectionChange?.(0)
       onClearSelection?.()
-      
+
       console.log('ArticlesTab: Successfully deleted', articlesToDelete.length, 'articles')
-      
+
     } catch (error) {
       console.error('ArticlesTab: Error deleting articles:', error)
     }
@@ -253,6 +261,19 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       setEditedContent(identifiedArticle.content || identifiedArticle.text || '')
       setIsEditing(true)
     }
+  }
+
+  const handleCustomEntry = () => {
+    // Skip extraction and go straight to custom entry
+    setIdentifiedArticle({ title: '', content: '' })
+    setEditedTitle('')
+    setEditedContent('')
+    setCurrentStep(1)
+    setExtractionStages(prev => ({
+      ...prev,
+      parsing: { ...prev.parsing, status: 'completed' }
+    }))
+    setIsEditing(true)
   }
 
   const handleSaveEdit = () => {
@@ -555,12 +576,6 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   // Handle manual step progression
   const handleRunStep = useCallback(async () => {
     if (currentStep === 0) {
-      // Check usage limit before starting analysis
-      if (remainingAnalyses <= 0) {
-        alert('Daily analysis limit reached. You have 0 analyses remaining today.')
-        return
-      }
-      
       // Run Parse Input Article with 3-second loading animation
       setDetectionState('scanning')
       setParsingCancelled(false)
@@ -637,12 +652,6 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       
       setParsingTimeoutId(timeoutId)
     } else if (currentStep === 1) {
-      // Check usage limit before starting analysis
-      if (remainingAnalyses <= 0) {
-        alert('Daily analysis limit reached. You have 0 analyses remaining today.')
-        return
-      }
-      
       // Run actual analysis with extracted content (this will use a token)
       setDetectionState('scanning')
       setAnalysisCancelled(false)
@@ -684,14 +693,28 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
               matches: result.matches || [],
               entities: result.matches ? result.matches.map(m => m.company || m.ticker) : []
             }
-            
+
             // Cache the content for this article
             const cacheKey = `${analyzedArticle.title}-${analyzedArticle.url}`
             setContentCache(prev => new Map(prev.set(cacheKey, {
               content: analyzedArticle.content,
               text: analyzedArticle.text
             })))
-            
+
+            // Log activity
+            const tickers = result.matches ? result.matches.map(m => m.ticker).filter(Boolean) : []
+            await storage.logActivity({
+              type: 'article_analyzed',
+              description: `Analysed article: ${analyzedArticle.title}`,
+              metadata: {
+                articleTitle: analyzedArticle.title,
+                articleUrl: analyzedArticle.url,
+                ticker: tickers[0], // Use first ticker if available
+                companiesFound: tickers.length
+              },
+              relatedEntities: tickers
+            })
+
             setExtractionStages(prev => ({
               ...prev,
               analysis: { ...prev.analysis, status: 'completed' }
@@ -699,12 +722,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
             setDetectionState('ready')
             setIdentifiedArticle(analyzedArticle)
             setCurrentStep(2)
-            
-            // Update remaining analyses count after token usage
-            const updatedStats = await storage.getUsageStats()
-            const remaining = Math.max(0, 5 - (updatedStats.today || 0))
-            setRemainingAnalyses(remaining)
-            
+
             // Refresh articles list to show new analysis
             const updatedArticles = await storage.getArticles()
             
@@ -754,7 +772,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         alert(`Analysis generation failed: ${error.message}`)
       }
     }
-  }, [api, storage, currentStep, remainingAnalyses, parsingCancelled, extractedContent, analysisCancelled, currentBrowserTab, contentCache, loadMoreCount])
+  }, [api, storage, currentStep, parsingCancelled, extractedContent, analysisCancelled, currentBrowserTab, contentCache, loadMoreCount])
 
 
   // Initialize pipeline on component mount
@@ -1142,314 +1160,271 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
 
       {/* Actions Section - Combined Pipeline UI - Hide when searching */}
       {(!searchQuery || !searchQuery.trim()) && (
-        <div className="mb-3 ml-2 pr-1 space-y-3">
-        {/* Pipeline Window */}
-        <div className="border border-gray-200 rounded-lg bg-white">
-          {/* Dynamic Header Bar - Gray for active/waiting, Green for ready/completed, Red for error */}
-          <div className="flex items-center justify-between px-3.5 py-2.5 rounded-t-lg text-white relative overflow-hidden"
-          style={{
-            backgroundColor: (() => {
-              switch(detectionState) {
-                case 'hold': return '#111827' // Gray-900 (waiting)
-                case 'error': return '#b91c1c' // Red-700 (darker red)
-                case 'scanning': return '#111827' // Gray-900 (active/loading)
-                case 'ready': return '#15803d' // Green-700 (darker green)
-                case 'idle': return '#111827' // Gray-900 (idle/waiting)
-                default: return '#15803d' // Green-700 (default)
-              }
-            })()
-          }}>
-            {/* Subtle white gradient overlay */}
-            <div className="absolute top-0 right-0 w-32 h-32 opacity-10 pointer-events-none"
-              style={{
-                background: "radial-gradient(circle at top right, white 0%, transparent 70%)"
-              }}
-            ></div>
-            <div className="flex items-center gap-2 relative z-10">
-              <span className="text-sm font-medium">
-                {detectionState === 'idle' && 'Ready'}
-                {detectionState === 'scanning' && 'Processing'}
-                {detectionState === 'hold' && 'Waiting'}
-                {detectionState === 'ready' && 'Complete'}
-                {detectionState === 'error' && 'Error'}
+        <div className="mb-3 ml-2 pr-1">
+        {/* Stage-focused Pipeline Card */}
+        <div className="border border-gray-200 rounded-lg bg-white overflow-hidden">
+
+          {/* Progress indicator - minimal top bar */}
+          <div className="flex items-center px-3 py-2 border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              {/* Step dots */}
+              <div className="flex items-center gap-1">
+                <div className={cn(
+                  "w-1.5 h-1.5 rounded-full transition-colors",
+                  extractionStages.parsing.status === 'completed' ? "bg-green-500" :
+                  extractionStages.parsing.status === 'active' ? "bg-gray-900" :
+                  extractionStages.parsing.status === 'error' ? "bg-red-500" :
+                  currentStep === 0 ? "bg-gray-900" : "bg-gray-300"
+                )} />
+                <div className={cn(
+                  "w-3 h-px transition-colors",
+                  extractionStages.parsing.status === 'completed' ? "bg-green-500" : "bg-gray-200"
+                )} />
+                <div className={cn(
+                  "w-1.5 h-1.5 rounded-full transition-colors",
+                  extractionStages.analysis.status === 'completed' || extractionStages.analysis.status === 'ready' ? "bg-green-500" :
+                  extractionStages.analysis.status === 'active' ? "bg-gray-900" :
+                  extractionStages.analysis.status === 'error' ? "bg-red-500" :
+                  currentStep === 1 ? "bg-gray-900" : "bg-gray-300"
+                )} />
+              </div>
+              <span className="text-xs text-gray-400">
+                {detectionState === 'ready' ? 'Complete' : `Stage ${currentStep + 1} of 2`}
               </span>
             </div>
-            <div className="flex items-center gap-2 relative z-10">
-              {/* Reset Button */}
-              <button
-                onClick={handleReset}
-                disabled={detectionState === 'scanning'}
-                className="p-1.5 bg-white/20 text-white rounded-md hover:bg-white/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-sm flex items-center justify-center"
-                title="Reset"
-              >
-                <RotateCcw size={14} strokeWidth={2} />
-              </button>
-            </div>
           </div>
 
-          {/* Pipeline Header */}
-          <div className="px-3.5 py-2.5 border-b border-gray-200">
-            <h3 className="text-sm font-medium text-gray-900">Content Extraction Pipeline</h3>
-          </div>
+          {/* Stage Content - Only show current/relevant stage */}
+          <div className="p-3">
 
-          {/* Pipeline Stages - Clean Timeline */}
-          <div className="p-3.5 rounded-b-lg">
-            <div className="relative">
-              {Object.entries(extractionStages).map(([key, stage], index) => {
-                const isActive = stage.status === 'active'
-                const isCompleted = stage.status === 'completed'
-                const isReady = stage.status === 'ready'
-                const isError = stage.status === 'error'
-                const isWaiting = stage.status === 'waiting'
-                const isLast = index === Object.keys(extractionStages).length - 1
-                
-                return (
-                  <div key={key} className="relative">
-                    {/* Vertical Line */}
-                    {!isLast && (
-                      <div
-                        className={cn(
-                          "absolute left-6 w-0.5 top-7",
-                          isCompleted && "bg-green-700",
-                          isReady && "bg-green-700",
-                          isError && "bg-red-700",
-                          (isWaiting || isActive) && "bg-gray-200"
-                        )}
-                        style={{
-                          height: 'calc(100% + 0.5rem)'  // Extend to connect with next circle
-                        }}
-                      ></div>
+            {/* STAGE 1: Extract - Show when on step 0 or parsing is active */}
+            {currentStep === 0 && !extractionStages.parsing.status.match(/completed/) && (
+              <div className="space-y-3">
+                {/* Stage description */}
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Extract Content</p>
+                  <p className="text-xs text-gray-500">Pull article text from the current page, or enter your own</p>
+                </div>
+                {/* Current tab preview */}
+                {currentBrowserTab && (
+                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-md">
+                    {currentBrowserTab.favicon && !faviconLoadErrors.has(`current-${currentBrowserTab.favicon}`) ? (
+                      <img
+                        src={currentBrowserTab.favicon}
+                        alt=""
+                        className="w-4 h-4 rounded-sm flex-shrink-0"
+                        onError={() => setFaviconLoadErrors(prev => new Set([...prev, `current-${currentBrowserTab.favicon}`]))}
+                      />
+                    ) : (
+                      <div className="w-4 h-4 bg-gray-300 rounded-sm flex-shrink-0" />
                     )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-900 truncate">{currentBrowserTab.title || 'Current Tab'}</p>
+                      <p className="text-xs text-gray-500 truncate">{currentBrowserTab.url}</p>
+                    </div>
+                  </div>
+                )}
 
-                    <div className="flex items-start gap-3 p-2.5 relative">
-                      {/* Stage Icon */}
-                      <div className="relative w-7 h-7 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        
-                        {/* Main node - centered within the container - ROUNDED SQUARES */}
-                        <div className={cn(
-                          "rounded-lg flex items-center justify-center absolute inset-0 transition-all duration-300",
-                          "w-7 h-7 cursor-pointer hover:brightness-110", // No shrinkage - same size for all states
-                          isCompleted && "bg-green-700",
-                          isActive && "bg-gray-900",
-                          isReady && "bg-green-700",
-                          isError && "bg-red-700",
-                          isWaiting && "bg-gray-200",
-                          // Black background for next step to draw attention
-                          detectionState === 'hold' && index === currentStep && "cursor-pointer hover:bg-gray-800 bg-gray-900"
-                        )}
-                        onClick={isActive ? (e) => {
-                          e.stopPropagation()
-                          if (key === 'parsing') {
-                            handleCancelParsing()
-                          } else if (key === 'analysis') {
-                            handleCancelAnalysis()
-                          }
-                        } : (detectionState === 'hold' && index === currentStep ? handleRunStep : undefined)}
-                        style={{
-                          cursor: isActive ? 'pointer' : (detectionState === 'hold' && index === currentStep ? 'pointer' : 'default')
-                        }}
-                        title={isActive ? "Cancel" : (detectionState === 'hold' && index === currentStep ? "Click to start" : undefined)}
-                        >
-                          {isCompleted && (
-                            <svg width={isActive ? "12" : "16"} height={isActive ? "12" : "16"} viewBox="0 0 24 24" fill="none">
-                              <path d="M20 6L9 17l-5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          )}
-                          {isActive && (
-                            // Animated progress circle for active/loading nodes - matches waiting circle size
-                            <div className="relative w-4 h-4">
-                              <svg className="w-full h-full -rotate-90" viewBox="0 0 24 24">
-                                <circle
-                                  cx="12"
-                                  cy="12"
-                                  r="8"
-                                  fill="none"
-                                  stroke="rgba(255,255,255,0.3)"
-                                  strokeWidth="2"
-                                />
-                                <circle
-                                  cx="12"
-                                  cy="12"
-                                  r="8"
-                                  fill="none"
-                                  stroke="white"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeDasharray="50.3"
-                                  strokeDashoffset="50.3"
-                                  style={{
-                                    animation: 'progress-fill 2s ease-in-out infinite'
-                                  }}
-                                />
+                {/* Loading state */}
+                {extractionStages.parsing.status === 'active' && (
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <div className="w-3 h-3 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+                    Extracting content...
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* STAGE 2: Run - Show after parsing is complete */}
+            {(extractionStages.parsing.status === 'completed' && currentStep >= 1 && detectionState !== 'ready') && (
+              <div className="space-y-3">
+                {/* Stage description */}
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Identify Themes</p>
+                  <p className="text-xs text-gray-500">AI will detect companies, sectors and topics mentioned</p>
+                </div>
+                {/* Parsed content summary - collapsible */}
+                {identifiedArticle && (
+                  <div className="group">
+                    {isEditing ? (
+                      <div className="space-y-3 p-3 bg-gray-50 rounded-md">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Title</label>
+                          <input
+                            type="text"
+                            value={editedTitle}
+                            onChange={(e) => setEditedTitle(e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Content</label>
+                          <textarea
+                            value={editedContent}
+                            onChange={(e) => setEditedContent(e.target.value)}
+                            rows={8}
+                            className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent resize-none"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={handleSaveEdit}
+                            className="px-2.5 py-1 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md transition-colors"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={handleCancelEdit}
+                            className="px-2.5 py-1 text-xs text-gray-600 hover:text-gray-800 rounded-md transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        onClick={handleEditArticle}
+                        className="p-2.5 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100 transition-colors relative"
+                      >
+                        <div className="flex items-start gap-2">
+                          {parsedTabInfo?.favicon && !faviconLoadErrors.has(`parsed-${parsedTabInfo.favicon}`) ? (
+                            <img
+                              src={parsedTabInfo.favicon}
+                              alt=""
+                              className="w-4 h-4 rounded-sm flex-shrink-0 mt-0.5"
+                              onError={() => setFaviconLoadErrors(prev => new Set([...prev, `parsed-${parsedTabInfo.favicon}`]))}
+                            />
+                          ) : (
+                            <div className="w-4 h-4 bg-green-500 rounded-sm flex-shrink-0 mt-0.5 flex items-center justify-center">
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+                                <path d="M20 6L9 17l-5-5" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                               </svg>
                             </div>
                           )}
-                          {isReady && (
-                            <svg width={isActive ? "12" : "16"} height={isActive ? "12" : "16"} viewBox="0 0 24 24" fill="none">
-                              <path d="M20 6L9 17l-5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                            </svg>
-                          )}
-                          {isError && (
-                            <svg width={isActive ? "12" : "16"} height={isActive ? "12" : "16"} viewBox="0 0 24 24" fill="none">
-                              <path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-                            </svg>
-                          )}
-                          {/* Show play icon when ready to run current step */}
-                          {detectionState === 'hold' && index === currentStep && (
-                            <svg width={isActive ? "10" : "14"} height={isActive ? "10" : "14"} viewBox="0 0 24 24" fill="none">
-                              <path d="M8 5v14l11-7L8 5z" fill="white" stroke="none"/>
-                            </svg>
-                          )}
-                          {isWaiting && !(detectionState === 'hold' && index === currentStep) && (
-                            <svg width={isActive ? "12" : "16"} height={isActive ? "12" : "16"} viewBox="0 0 24 24" fill="none">
-                              <circle cx="12" cy="12" r="8" stroke="#6B7280" strokeWidth="2"/>
-                            </svg>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {/* Stage Content */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className={cn(
-                            "text-sm font-medium",
-                            isCompleted && "text-green-700",
-                            isActive && "text-gray-900",
-                            isReady && "text-green-700",
-                            isError && "text-red-700",
-                            isWaiting && "text-gray-600"
-                          )}>
-                            {stage.title}
-                          </h4>
-                        </div>
-                        <p className="text-xs text-gray-600 mb-1">
-                          {stage.subtitle}
-                        </p>
-                        <p className={cn(
-                          "text-xs",
-                          isCompleted && "text-green-700",
-                          isActive && "text-gray-900",
-                          isReady && "text-green-700",
-                          isError && "text-red-700",
-                          isWaiting && "text-gray-500"
-                        )}>
-                          {isCompleted && (key === 'parsing' ? (
-                            parsedTabInfo ? (
-                              <span className="inline-flex items-center px-2 py-0.5 bg-gray-100 text-gray-900 rounded-full text-xs font-medium">
-                                {parsedTabInfo.favicon && !faviconLoadErrors.has(`parsed-${parsedTabInfo.favicon}`) ? (
-                                  <img 
-                                    src={parsedTabInfo.favicon} 
-                                    alt=""
-                                    className="w-3 h-3 mr-1.5 rounded-sm"
-                                    onError={(e) => {
-                                      setFaviconLoadErrors(prev => new Set([...prev, `parsed-${parsedTabInfo.favicon}`]))
-                                    }}
-                                  />
-                                ) : (
-                                  <span className="w-1.5 h-1.5 bg-gray-400 rounded-full mr-1.5"></span>
-                                )}
-                                {truncateText(parsedTabInfo.title) || 'Parsed Article'}
-                              </span>
-                            ) : 'Article parsed and structured successfully'
-                          ) : 'Analysis generated successfully')}
-                          {isActive && 'Processing...'}
-                          {isReady && 'Ready for API submission'}
-                          {isError && 'Failed to process'}
-                          {isWaiting && (key === 'analysis' ? `${remainingAnalyses} analyses remaining` : 
-                            (key === 'parsing' ? (
-                              <span className="inline-flex items-center px-2 py-0.5 bg-gray-100 text-gray-900 rounded-full text-xs font-medium">
-                                {currentBrowserTab?.favicon && !faviconLoadErrors.has(`current-${currentBrowserTab.favicon}`) ? (
-                                  <img 
-                                    src={currentBrowserTab.favicon} 
-                                    alt=""
-                                    className="w-3 h-3 mr-1.5 rounded-sm"
-                                    onError={(e) => {
-                                      setFaviconLoadErrors(prev => new Set([...prev, `current-${currentBrowserTab.favicon}`]))
-                                    }}
-                                  />
-                                ) : (
-                                  <span className="w-1.5 h-1.5 bg-gray-400 rounded-full mr-1.5"></span>
-                                )}
-                                {truncateText(currentBrowserTab?.title) || 'Active Tab'}
-                              </span>
-                            ) : 'Waiting')
-                          )}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    
-                    {/* Extracted Content - Show after Parse Input Article */}
-                    {key === 'parsing' && identifiedArticle && extractionStages.parsing.status === 'completed' && (
-                      <div className="mt-1 mb-2 ml-11 group">
-                        {isEditing ? (
-                          <div className="space-y-3">
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Title</label>
-                              <input
-                                type="text"
-                                value={editedTitle}
-                                onChange={(e) => setEditedTitle(e.target.value)}
-                                className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Content</label>
-                              <textarea
-                                value={editedContent}
-                                onChange={(e) => setEditedContent(e.target.value)}
-                                rows={12}
-                                className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent resize-none"
-                              />
-                            </div>
-                            <div className="flex items-center gap-1 pt-2">
-                              <button
-                                onClick={handleSaveEdit}
-                                className="px-3 py-1.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 hover:text-gray-800 rounded-md transition-colors"
-                              >
-                                Save
-                              </button>
-                              <button
-                                onClick={handleCancelEdit}
-                                className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-800 rounded-md transition-colors"
-                              >
-                                Cancel
-                              </button>
-                            </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-gray-900 line-clamp-1">{identifiedArticle.title}</p>
+                            <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">
+                              {identifiedArticle.content.substring(0, 120)}...
+                            </p>
                           </div>
-                        ) : (
-                          <div 
-                            onClick={handleEditArticle}
-                            className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-md font-mono relative cursor-pointer"
-                          >
-                            <div className="font-semibold mb-1">{identifiedArticle.title}</div>
-                            <div>
-                              {identifiedArticle.content.length > 300 
-                                ? `${identifiedArticle.content.substring(0, 300)}...` 
-                                : identifiedArticle.content
-                              }
-                            </div>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditArticle();
-                              }}
-                              className="absolute top-2 right-2 flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 rounded-md transition-all opacity-0 group-hover:opacity-100 group-hover:bg-white/20 group-hover:backdrop-blur-sm hover:bg-white/30"
-                            >
-                              <Edit2 size={12} />
-                              Edit
-                            </button>
-                          </div>
-                        )}
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleEditArticle(); }}
+                          className="absolute top-2 right-2 p-1 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Edit2 size={12} />
+                        </button>
                       </div>
                     )}
                   </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
+                )}
 
+                {/* Loading state */}
+                {extractionStages.analysis.status === 'active' && (
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <div className="w-3 h-3 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+                    Generating analysis...
+                  </div>
+                )}
+
+              </div>
+            )}
+
+            {/* COMPLETE STATE */}
+            {detectionState === 'ready' && (
+              <div className="flex items-center gap-3 py-1">
+                <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                    <path d="M20 6L9 17l-5-5" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-green-700">Article Saved</p>
+                  <p className="text-xs text-gray-500">Analysis complete and added to your library</p>
+                </div>
+              </div>
+            )}
+
+            {/* ERROR STATE */}
+            {detectionState === 'error' && (
+              <div className="flex items-center gap-3 py-1">
+                <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-red-700">Error</p>
+                  <p className="text-xs text-gray-500">Something went wrong. Try again.</p>
+                </div>
+                <button
+                  onClick={handleRunStep}
+                  className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+          </div>
+
+          {/* Full-width action buttons at bottom */}
+          {detectionState !== 'ready' && detectionState !== 'error' && (
+            <div className="px-3 pb-3">
+              {currentStep === 0 && extractionStages.parsing.status !== 'active' ? (
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleCustomEntry}
+                    className="flex-1 py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  >
+                    Custom
+                  </button>
+                  <button
+                    onClick={handleRunStep}
+                    className="flex-1 py-2.5 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors flex items-center justify-center gap-2"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                      <path d="M8 5v14l11-7L8 5z" fill="currentColor"/>
+                    </svg>
+                    Extract
+                  </button>
+                </div>
+              ) : currentStep === 0 && extractionStages.parsing.status === 'active' ? (
+                <button
+                  onClick={handleCancelParsing}
+                  className="w-full py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+              ) : extractionStages.analysis.status === 'active' ? (
+                <button
+                  onClick={handleCancelAnalysis}
+                  className="w-full py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+              ) : !isEditing ? (
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleReset}
+                    className="flex-1 py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleRunStep}
+                    className="flex-1 py-2.5 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors flex items-center justify-center gap-2"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                      <path d="M8 5v14l11-7L8 5z" fill="currentColor"/>
+                    </svg>
+                    Run
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          )}
+        </div>
       </div>
       )}
 

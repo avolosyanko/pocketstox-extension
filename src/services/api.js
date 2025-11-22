@@ -5,19 +5,8 @@ const CONFIG = {
 };
 
 async function analyzeArticle(title, content, shouldIncrementUsage = true) {
-    // Check usage limit before making API call
-    const storageManager = new window.StorageManager();
-    
-    if (shouldIncrementUsage) {
-        const canAnalyze = await storageManager.canAnalyze();
-        
-        if (!canAnalyze) {
-            const stats = await storageManager.getUsageStats();
-            throw new Error(`LIMIT_REACHED:${stats.today}`);
-        }
-    }
-    
     // Get monitoring data
+    const storageManager = new window.StorageManager();
     const installId = await storageManager.getInstallId();
     const usage = await storageManager.getUsageData();
     const account = await storageManager.getAccount();

@@ -4,8 +4,9 @@ class StorageManager {
         this.USAGE_KEY = 'pocketstox_usage';
         this.INSTALL_KEY = 'pocketstox_install_id';
         this.ACCOUNT_KEY = 'pocketstox_account';
+        this.ACTIVITY_KEY = 'pocketstox_activity_log';
         this.MAX_ANALYSES = 100;
-        this.DAILY_LIMIT = 5;
+        this.MAX_ACTIVITIES = 500; // Keep 500 activity items
         this.initializeInstallId();
     }
 
@@ -134,8 +135,8 @@ class StorageManager {
         return {
             total: analyses.length,
             today: usage.count,
-            remaining: Math.max(0, this.DAILY_LIMIT - usage.count),
-            limitReached: usage.count >= this.DAILY_LIMIT
+            remaining: 999999,
+            limitReached: false
         };
     }
 
@@ -165,8 +166,7 @@ class StorageManager {
     }
 
     async canAnalyze() {
-        const usage = await this.getUsageData();
-        return usage.count < this.DAILY_LIMIT;
+        return true;
     }
 
     async incrementUsage() {
@@ -232,30 +232,63 @@ class StorageManager {
         });
     }
 
-    async getDailyLimit() {
-        const isPremium = await this.isPremium();
-        return isPremium ? 999999 : this.DAILY_LIMIT;
-    }
-
     async canAnalyze() {
-        const usage = await this.getUsageData();
-        const limit = await this.getDailyLimit();
-        return usage.count < limit;
+        return true;
     }
 
     async getUsageStats() {
         const usage = await this.getUsageData();
         const analyses = await this.getAllAnalyses();
-        const limit = await this.getDailyLimit();
         const isPremium = await this.isPremium();
 
         return {
             total: analyses.length,
             today: usage.count,
-            remaining: Math.max(0, limit - usage.count),
-            limitReached: !isPremium && usage.count >= limit,
+            remaining: 999999,
+            limitReached: false,
             isPremium: isPremium
         };
+    }
+
+    // Activity logging methods
+    async getActivityLog() {
+        return new Promise((resolve) => {
+            chrome.storage.local.get([this.ACTIVITY_KEY], (result) => {
+                resolve(result[this.ACTIVITY_KEY] || []);
+            });
+        });
+    }
+
+    async logActivity(activityData) {
+        const activities = await this.getActivityLog();
+
+        const activity = {
+            id: activityData.id || Date.now().toString() + '_' + Math.random().toString(36).substr(2, 9),
+            type: activityData.type,
+            timestamp: activityData.timestamp || new Date().toISOString(),
+            description: activityData.description,
+            metadata: activityData.metadata || {},
+            relatedEntities: activityData.relatedEntities || []
+        };
+
+        activities.unshift(activity);
+
+        // Keep only the most recent activities
+        if (activities.length > this.MAX_ACTIVITIES) {
+            activities.splice(this.MAX_ACTIVITIES);
+        }
+
+        return new Promise((resolve) => {
+            chrome.storage.local.set({ [this.ACTIVITY_KEY]: activities }, () => {
+                resolve(activity);
+            });
+        });
+    }
+
+    async deleteActivityLog() {
+        return new Promise((resolve) => {
+            chrome.storage.local.remove([this.ACTIVITY_KEY], resolve);
+        });
     }
 }
 

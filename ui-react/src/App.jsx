@@ -3,7 +3,7 @@ import { ServiceProvider, useAPI, useStorage } from './contexts/ServiceContext'
 import NavigationHeader from './components/NavigationHeader'
 import ArticlesTab from './components/ArticlesTab'
 import CommunityTab from './components/CommunityTab'
-import AccountTab from './components/AccountTab'
+import NotesTab from './components/NotesTab'
 import { FileText, ThumbsUp, ThumbsDown, Plus, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { semanticTypography, componentSpacing } from '@/styles/typography'
@@ -11,7 +11,7 @@ import './index.css'
 
 function AppContent() {
   console.log('App component rendering')
-  const [activeTab, setActiveTab] = useState('articles')
+  const [activeTab, setActiveTab] = useState('notes')
   
   // Search state management
   const [searchQuery, setSearchQuery] = useState('')
@@ -235,6 +235,18 @@ function AppContent() {
       // Store in extension storage using modern service
       await storage.addToWatchlist(watchlistItem)
 
+      // Log activity
+      await storage.logActivity({
+        type: 'watchlist_added',
+        description: `Started following ${ticker}`,
+        metadata: {
+          ticker: ticker,
+          companyName: company,
+          articleTitle: articleTitle
+        },
+        relatedEntities: [ticker]
+      })
+
       // Update UI state
       setAddedToWatchlist(prev => ({
         ...prev,
@@ -264,7 +276,7 @@ function AppContent() {
     switch (activeTab) {
       case 'articles':
         return (
-          <ArticlesTab 
+          <ArticlesTab
             ref={articlesTabRef}
             onArticleClick={handleArticleClick}
             onSelectionChange={setSelectedCount}
@@ -275,10 +287,10 @@ function AppContent() {
         )
       case 'community':
         return <CommunityTab />
-      case 'account':
-        return <AccountTab onNavigateToArticle={handleNavigateToArticle} onTabChange={handleTabChange} onArticleClick={handleArticleClick} />
+      case 'notes':
+        return <NotesTab />
       default:
-        return <ArticlesTab ref={articlesTabRef} onArticleClick={handleArticleClick} onSelectionChange={setSelectedCount} onGenerate={handleGenerate} activeTab={activeTab} searchQuery={searchQuery} />
+        return <NotesTab />
     }
   }
 
@@ -287,7 +299,7 @@ function AppContent() {
       <div className="h-screen w-full flex flex-col min-w-[280px] bg-white">
       
       {/* Fixed Navigation Header */}
-      <div className="flex-shrink-0">
+      <div className="flex-shrink-0 sticky top-0 z-30 bg-white">
         <NavigationHeader 
           activeTab={activeTab} 
           onTabChange={handleTabChange}
@@ -332,9 +344,9 @@ function AppContent() {
       )}
 
       {/* Scrollable Content Area */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-25 scroll-smooth">
+      <div className={`flex-1 overflow-x-hidden ${activeTab === 'notes' ? 'overflow-hidden bg-white' : 'overflow-y-auto bg-gray-25 scroll-smooth'}`}>
         {/* Dynamic Tab Content */}
-        <main className={componentSpacing.contentPadding}>
+        <main className={activeTab === 'notes' ? 'h-full' : componentSpacing.contentPadding}>
           {renderTabContent()}
         </main>
       </div>
