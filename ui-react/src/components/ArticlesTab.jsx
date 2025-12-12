@@ -1164,50 +1164,51 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         {/* Stage-focused Pipeline Card */}
         <div className="border border-gray-200 rounded-lg bg-white overflow-hidden">
 
-          {/* Progress indicator - minimal top bar */}
-          <div className="flex items-center px-3 py-2 border-b border-gray-100">
+          {/* Header bar with title only */}
+          <div className="flex items-center px-3 py-3 border-b border-gray-100">
             <div className="flex items-center gap-2">
-              {/* Step dots */}
-              <div className="flex items-center gap-1">
-                <div className={cn(
-                  "w-1.5 h-1.5 rounded-full transition-colors",
-                  extractionStages.parsing.status === 'completed' ? "bg-green-500" :
-                  extractionStages.parsing.status === 'active' ? "bg-gray-900" :
-                  extractionStages.parsing.status === 'error' ? "bg-red-500" :
-                  currentStep === 0 ? "bg-gray-900" : "bg-gray-300"
-                )} />
-                <div className={cn(
-                  "w-3 h-px transition-colors",
-                  extractionStages.parsing.status === 'completed' ? "bg-green-500" : "bg-gray-200"
-                )} />
-                <div className={cn(
-                  "w-1.5 h-1.5 rounded-full transition-colors",
-                  extractionStages.analysis.status === 'completed' || extractionStages.analysis.status === 'ready' ? "bg-green-500" :
-                  extractionStages.analysis.status === 'active' ? "bg-gray-900" :
-                  extractionStages.analysis.status === 'error' ? "bg-red-500" :
-                  currentStep === 1 ? "bg-gray-900" : "bg-gray-300"
-                )} />
-              </div>
-              <span className="text-xs text-gray-400">
-                {detectionState === 'ready' ? 'Complete' : `Stage ${currentStep + 1} of 2`}
-              </span>
+              <span className="px-1.5 py-0.5 text-[10px] font-medium text-white bg-gray-900 rounded-full">Beta</span>
+              <span className="text-sm font-medium text-gray-900">Discovery Engine</span>
             </div>
           </div>
 
           {/* Stage Content - Only show current/relevant stage */}
-          <div className="p-3">
+          <div className="px-4 py-4">
+
+            {/* Loading indicator - shown in content area */}
+            {detectionState !== 'ready' && detectionState !== 'error' && (
+              <div className="mb-4">
+                {extractionStages.parsing.status === 'active' ? (
+                  <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <div className="w-3 h-3 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+                    Extracting...
+                  </div>
+                ) : extractionStages.analysis.status === 'active' ? (
+                  <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                    <div className="w-3 h-3 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+                    Analyzing...
+                  </div>
+                ) : null}
+              </div>
+            )}
 
             {/* STAGE 1: Extract - Show when on step 0 or parsing is active */}
             {currentStep === 0 && !extractionStages.parsing.status.match(/completed/) && (
               <div className="space-y-3">
                 {/* Stage description */}
                 <div>
-                  <p className="text-sm font-medium text-gray-900">Extract Content</p>
-                  <p className="text-xs text-gray-500">Pull article text from the current page, or enter your own</p>
+                  <p className="font-medium text-gray-700">Extract Content</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Pull article text from the current page, or enter your own</p>
                 </div>
-                {/* Current tab preview */}
+                {/* Current tab preview - now clickable */}
                 {currentBrowserTab && (
-                  <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-md">
+                  <div
+                    onClick={extractionStages.parsing.status !== 'active' ? handleRunStep : undefined}
+                    className={cn(
+                      "flex items-center gap-2 p-2 bg-gray-50 rounded-md",
+                      extractionStages.parsing.status !== 'active' && "cursor-pointer hover:bg-gray-100 transition-colors"
+                    )}
+                  >
                     {currentBrowserTab.favicon && !faviconLoadErrors.has(`current-${currentBrowserTab.favicon}`) ? (
                       <img
                         src={currentBrowserTab.favicon}
@@ -1224,24 +1225,20 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                     </div>
                   </div>
                 )}
-
-                {/* Loading state */}
-                {extractionStages.parsing.status === 'active' && (
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <div className="w-3 h-3 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
-                    Extracting content...
-                  </div>
-                )}
+                {/* Explanatory text */}
+                <div className="text-xs text-gray-500 text-center">
+                  <p>Click the box above to extract from this tab, or use Custom to paste your own content</p>
+                </div>
               </div>
             )}
 
             {/* STAGE 2: Run - Show after parsing is complete */}
             {(extractionStages.parsing.status === 'completed' && currentStep >= 1 && detectionState !== 'ready') && (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {/* Stage description */}
                 <div>
-                  <p className="text-sm font-medium text-gray-900">Identify Themes</p>
-                  <p className="text-xs text-gray-500">AI will detect companies, sectors and topics mentioned</p>
+                  <p className="font-medium text-gray-700">Identify Themes</p>
+                  <p className="text-xs text-gray-500 mt-0.5">AI will detect companies, sectors and topics mentioned</p>
                 </div>
                 {/* Parsed content summary - collapsible */}
                 {identifiedArticle && (
@@ -1284,30 +1281,12 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                     ) : (
                       <div
                         onClick={handleEditArticle}
-                        className="p-2.5 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100 transition-colors relative"
+                        className="p-2.5 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100 transition-colors relative group"
                       >
-                        <div className="flex items-start gap-2">
-                          {parsedTabInfo?.favicon && !faviconLoadErrors.has(`parsed-${parsedTabInfo.favicon}`) ? (
-                            <img
-                              src={parsedTabInfo.favicon}
-                              alt=""
-                              className="w-4 h-4 rounded-sm flex-shrink-0 mt-0.5"
-                              onError={() => setFaviconLoadErrors(prev => new Set([...prev, `parsed-${parsedTabInfo.favicon}`]))}
-                            />
-                          ) : (
-                            <div className="w-4 h-4 bg-green-500 rounded-sm flex-shrink-0 mt-0.5 flex items-center justify-center">
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-                                <path d="M20 6L9 17l-5-5" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-gray-900 line-clamp-1">{identifiedArticle.title}</p>
-                            <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">
-                              {identifiedArticle.content.substring(0, 120)}...
-                            </p>
-                          </div>
-                        </div>
+                        <p className="text-xs font-medium text-gray-900 line-clamp-1 mb-1.5 pr-6">{identifiedArticle.title}</p>
+                        <p className="text-[11px] text-gray-600 font-mono leading-relaxed min-h-[192px]">
+                          {identifiedArticle.content.substring(0, 600)}...
+                        </p>
                         <button
                           onClick={(e) => { e.stopPropagation(); handleEditArticle(); }}
                           className="absolute top-2 right-2 p-1 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -1318,15 +1297,6 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                     )}
                   </div>
                 )}
-
-                {/* Loading state */}
-                {extractionStages.analysis.status === 'active' && (
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <div className="w-3 h-3 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
-                    Generating analysis...
-                  </div>
-                )}
-
               </div>
             )}
 
@@ -1372,23 +1342,12 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
           {detectionState !== 'ready' && detectionState !== 'error' && (
             <div className="px-3 pb-3">
               {currentStep === 0 && extractionStages.parsing.status !== 'active' ? (
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleCustomEntry}
-                    className="flex-1 py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                  >
-                    Custom
-                  </button>
-                  <button
-                    onClick={handleRunStep}
-                    className="flex-1 py-2.5 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors flex items-center justify-center gap-2"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                      <path d="M8 5v14l11-7L8 5z" fill="currentColor"/>
-                    </svg>
-                    Extract
-                  </button>
-                </div>
+                <button
+                  onClick={handleCustomEntry}
+                  className="w-full py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  Custom
+                </button>
               ) : currentStep === 0 && extractionStages.parsing.status === 'active' ? (
                 <button
                   onClick={handleCancelParsing}
@@ -1406,12 +1365,6 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
               ) : !isEditing ? (
                 <div className="flex gap-2">
                   <button
-                    onClick={handleReset}
-                    className="flex-1 py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
                     onClick={handleRunStep}
                     className="flex-1 py-2.5 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors flex items-center justify-center gap-2"
                   >
@@ -1419,6 +1372,12 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                       <path d="M8 5v14l11-7L8 5z" fill="currentColor"/>
                     </svg>
                     Run
+                  </button>
+                  <button
+                    onClick={handleReset}
+                    className="flex-1 py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  >
+                    Cancel
                   </button>
                 </div>
               ) : null}

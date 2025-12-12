@@ -414,10 +414,10 @@ const NotesTab = memo(() => {
         </div>
       )}
 
-      {/* Expanded Tracking Content - Takes full space when expanded */}
+      {/* Expanded Following Content - Takes full space when expanded */}
       {isTrackingExpanded && (
         <>
-          {/* Tracking Header - At top when expanded */}
+          {/* Following Header - At top when expanded */}
           <div className="flex-shrink-0 bg-white border-b border-gray-100">
             <div className="flex items-center px-4 py-2.5">
               <button
@@ -431,7 +431,7 @@ const NotesTab = memo(() => {
                 >
                   <path d="M0 1.5l3 3 3-3H0z" />
                 </svg>
-                <span className="font-medium text-gray-700">Tracking</span>
+                <span className="font-medium text-gray-700">Following</span>
                 <span className="text-gray-400">{trackedCompanies.length}</span>
               </button>
               <div className="flex-1" />
@@ -505,7 +505,7 @@ const NotesTab = memo(() => {
         </>
       )}
 
-      {/* Bottom Bar - Save Button & Company Selector (hidden when tracking expanded) */}
+      {/* Bottom Bar - Save Button & Company Selector (hidden when following expanded) */}
       {!isTrackingExpanded && (
         <div className="flex-shrink-0 px-4 py-3 flex items-center justify-start gap-2">
           {/* Save Button */}
@@ -548,7 +548,7 @@ const NotesTab = memo(() => {
         </div>
       )}
 
-      {/* Tracking Header - Only visible at bottom when collapsed */}
+      {/* Following Header - Only visible at bottom when collapsed */}
       {!isTrackingExpanded && (
         <div className="flex-shrink-0 bg-white border-t border-gray-100">
           <div className="flex items-center px-4 py-2.5">
@@ -563,7 +563,7 @@ const NotesTab = memo(() => {
               >
                 <path d="M1.5 0l3 3-3 3V0z" />
               </svg>
-              <span className="font-medium text-gray-700">Tracking</span>
+              <span className="font-medium text-gray-700">Following</span>
               <span className="text-gray-400">{trackedCompanies.length}</span>
             </button>
             <div className="flex-1" />

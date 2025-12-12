@@ -2,41 +2,40 @@ import json
 import os
 import logging
 import voyageai
-from pinecone import Pinecone
+from qdrant_client import QdrantClient
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 vo_client = None
-pc_index = None
+qdrant_client = None
 
 def initialise_clients():
     """
     API clients initialization with caching for lambda warm starts.
     
     Returns:
-        tuple: (voyage_client, pinecone_index)
+        tuple: (voyage_client, qdrant_client)
     """
-    global vo_client, pc_index
+    global vo_client, qdrant_client
     
-    if vo_client is not None and pc_index is not None:
+    if vo_client is not None and qdrant_client is not None:
         logger.info("Using cached API clients")
-        return vo_client, pc_index
+        return vo_client, qdrant_client
     
     try:
         vo_api_key = os.environ.get("VOYAGE_API_KEY")
-        pc_api_key = os.environ.get("PINECONE_API_KEY")
-        pc_index_host = os.environ.get("PINECONE_INDEX_HOST")
+        qdrant_url = os.environ.get("QDRANT_URL")
+        qdrant_api_key = os.environ.get("QDRANT_API_KEY")
         
-        if not all([vo_api_key, pc_api_key, pc_index_host]):
+        if not all([vo_api_key, qdrant_url, qdrant_api_key]):
             raise ValueError("Missing required environment variables")
 
         vo_client = voyageai.Client(api_key=vo_api_key)
-        pc = Pinecone(api_key=pc_api_key)
-        pc_index = pc.Index(host=pc_index_host)
+        qdrant_client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
 
         logger.info("API clients initialized successfully")
-        return vo_client, pc_index
+        return vo_client, qdrant_client
 
     except Exception as e:
         logger.error(f"Failed to initialize clients: {str(e)}")
@@ -44,7 +43,7 @@ def initialise_clients():
 
 def lambda_handler(event, context):
     try:
-        vo, pc_index = initialise_clients()
+        vo, qdrant = initialise_clients()
         
         if isinstance(event.get("body"), str):
             body = json.loads(event["body"])
@@ -65,20 +64,28 @@ def lambda_handler(event, context):
         result = vo.embed(content, model="voyage-finance-2", input_type="document")
         article_vector = result.embeddings[0]
 
-        query_response = pc_index.query(
-            namespace="pocketstox-embeddings-db",
-            vector=article_vector,
-            top_k=6,
-            include_metadata=True,
+        search_results = qdrant.search(
+            collection_name="pocketstox-embeddings",
+            query_vector=article_vector,
+            limit=6,
+            with_payload=True
         )
 
         matches = []
-        for match in query_response["matches"]:
+        for hit in search_results:
             matches.append({
-                "score": round(match["score"], 4),
-                "ticker": match["metadata"].get("ticker", ""),
-                "company": match["metadata"].get("name", ""),
-                "exchange": match["metadata"].get("exchange", ""),
+                "score": round(hit.score, 4),
+                "ticker": hit.payload.get("ticker", ""),
+                "company": hit.payload.get("company_name", ""),
+                "exchange": hit.payload.get("exchange", ""),
+                "cik": hit.payload.get("cik", ""),
+                "section": hit.payload.get("section", ""),
+                "subsection": hit.payload.get("subsection"),
+                "filing_date": hit.payload.get("filing_date", ""),
+                "fiscal_year": hit.payload.get("fiscal_year", ""),
+                "industry": hit.payload.get("industry", ""),
+                "sic_code": hit.payload.get("sic_code", ""),
+                "chunk_id": hit.payload.get("chunk_id", ""),
             })
 
         logger.info(f"Found {len(matches)} matches for article")
