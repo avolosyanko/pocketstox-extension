@@ -9,6 +9,48 @@ import { cn } from '@/lib/utils'
 import { semanticTypography, componentSpacing } from '@/styles/typography'
 import './index.css'
 
+// Collapsible Section Component (Linear-style)
+const CollapsibleSection = ({ title, defaultExpanded = false, children, rightElement }) => {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded)
+
+  return (
+    <div className="border-b border-gray-100 py-3 px-4">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center gap-1 hover:opacity-70 transition-all"
+      >
+        <span className="text-xs font-medium text-gray-700">{title}</span>
+        <svg
+          className="w-2 h-2 text-gray-400"
+          fill="currentColor"
+          viewBox="0 0 6 6"
+        >
+          {isExpanded ? (
+            <path d="M0 1.5l3 3 3-3H0z" />
+          ) : (
+            <path d="M1.5 0l3 3-3 3V0z" />
+          )}
+        </svg>
+        <div className="flex-1" />
+        {rightElement}
+      </button>
+      {isExpanded && (
+        <div className="mt-3">
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Property Row Component (Linear-style)
+const PropertyRow = ({ label, children }) => (
+  <div className="flex items-center py-1.5">
+    <span className="text-xs text-gray-400 w-32 flex-shrink-0">{label}</span>
+    <div className="text-xs text-gray-900 flex items-center">{children}</div>
+  </div>
+)
+
 function AppContent() {
   console.log('App component rendering')
   const [activeTab, setActiveTab] = useState('notes')
@@ -476,266 +518,315 @@ function AppContent() {
                     </div>
                   </>
                 ) : (
-                  // Regular Article Analysis Interface
+                  // Regular Article Analysis Interface - Linear Style
                   <>
-                    {/* Related Stock Section (Singular) */}
-                    <div className="mb-6">
-                      <div className="mb-3 px-1 flex items-center justify-between">
-                        <h2 className={cn(semanticTypography.cardTitle)}>Related Stock</h2>
-                        {selectedArticle.matches && selectedArticle.matches.length > 0 && selectedArticle.matches[0] && !addedToWatchlist[selectedArticle.matches[0].ticker] && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              const match = selectedArticle.matches[0]
-                              handleAddToWatchlist(match.ticker, match.company || match.ticker, selectedArticle.title)
-                            }}
-                            className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
-                          >
-                            <Plus size={14} />
-                            Follow
-                          </button>
-                        )}
-                        {selectedArticle.matches && selectedArticle.matches.length > 0 && selectedArticle.matches[0] && addedToWatchlist[selectedArticle.matches[0].ticker] && (
-                          <div className="flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded text-xs">
-                            <Check size={12} strokeWidth={2} />
-                            <span>Following</span>
-                          </div>
-                        )}
-                      </div>
-
-                  <div className="ml-2">
                     {selectedArticle.matches && selectedArticle.matches.length > 0 ? (
-                      <div className="bg-white rounded-lg border border-gray-200">
+                      <>
                         {selectedArticle.matches.slice(0, 1).map((match, index) => {
-                        const confidence = match.score || Math.random() * 0.4 + 0.6;
+                          const confidence = match.score || Math.random() * 0.4 + 0.6;
 
-                        return (
-                          <div key={index}>
-                            <div
-                              className="relative cursor-pointer transition-all duration-300 group hover:bg-gray-50 border-transparent rounded-lg"
-                              onClick={() => window.open(`https://finance.yahoo.com/quote/${match.ticker}`, '_blank')}
-                            >
-                              <div className="px-4 py-3">
-                                <div className="flex-1 min-w-0">
-                                  {/* Stock Ticker */}
-                                  <div className="flex items-center justify-between mb-1">
-                                    <h3 className={cn(semanticTypography.cardTitle, "font-medium")}>
-                                      {match.ticker}
-                                    </h3>
-                                    <div className="px-2 py-0.5 bg-gray-100 text-gray-900 rounded-full text-xs font-medium">
-                                      {(confidence * 100).toFixed(0)}%
-                                    </div>
-                                  </div>
+                          return (
+                            <div key={index} className="max-w-2xl mx-auto">
+                              {/* Centered Company Logo and Info */}
+                              <div className="text-center mb-6 pt-4">
+                                {/* Company Logo Placeholder */}
+                                <div className="w-16 h-16 mx-auto mb-3 bg-gray-100 rounded-lg flex items-center justify-center">
+                                  <span className="text-2xl font-bold text-gray-400">{match.ticker?.charAt(0) || 'C'}</span>
+                                </div>
 
-                                  {/* Company name */}
-                                  <p className={cn(semanticTypography.secondaryText, "mb-1")}>
-                                    {match.company || match.ticker}
-                                  </p>
+                                {/* Ticker */}
+                                <h1 className="text-xl font-semibold text-gray-900 mb-1">
+                                  {match.ticker}
+                                </h1>
 
-                                  {/* Source */}
-                                  <div className={cn("flex items-center gap-2", semanticTypography.metadata)}>
-                                    <span>Source: Financial news vectorstore</span>
-                                  </div>
+                                {/* Company Name */}
+                                <p className="text-sm text-gray-600 mb-3">
+                                  {match.company || match.ticker}
+                                </p>
 
-
-                                  {/* Feedback Section */}
-                                  {showFeedbackThanks[selectedArticle.id || selectedArticle.title] === 'thanks' ? (
-                                    <div className="mt-3 pt-3 border-t border-gray-100">
-                                      <div className="text-xs text-green-700 text-center">
-                                        Thanks for your feedback.
-                                      </div>
-                                    </div>
-                                  ) : showFeedbackThanks[selectedArticle.id || selectedArticle.title] === 'hidden' ? null : (
-                                    <div className="mt-3 pt-3 border-t border-gray-100">
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-xs text-gray-600">Was this helpful?</span>
-                                        <div className="flex items-center gap-2">
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              const articleId = selectedArticle.id || selectedArticle.title
-                                              setArticleFeedback(prev => ({
-                                                ...prev,
-                                                [articleId]: 'up'
-                                              }))
-                                              setShowFeedbackThanks(prev => ({
-                                                ...prev,
-                                                [articleId]: 'thanks'
-                                              }))
-                                              setTimeout(() => {
-                                                setShowFeedbackThanks(prev => ({
-                                                  ...prev,
-                                                  [articleId]: 'hidden'
-                                                }))
-                                              }, 2000)
-                                            }}
-                                            className="p-1.5 rounded-md transition-all text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-                                          >
-                                            <ThumbsUp size={14} />
-                                          </button>
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              const articleId = selectedArticle.id || selectedArticle.title
-                                              setArticleFeedback(prev => ({
-                                                ...prev,
-                                                [articleId]: 'down'
-                                              }))
-                                              setShowFeedbackThanks(prev => ({
-                                                ...prev,
-                                                [articleId]: 'thanks'
-                                              }))
-                                              setTimeout(() => {
-                                                setShowFeedbackThanks(prev => ({
-                                                  ...prev,
-                                                  [articleId]: 'hidden'
-                                                }))
-                                              }, 2000)
-                                            }}
-                                            className="p-1.5 rounded-md transition-all text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-                                          >
-                                            <ThumbsDown size={14} />
-                                          </button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
+                                {/* Status Badge */}
+                                <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-50 rounded-full mb-4">
+                                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                  <span className="text-xs text-green-700 font-medium">
+                                    {(confidence * 100).toFixed(0)}% Match Confidence
+                                  </span>
                                 </div>
                               </div>
+
+                              {/* Action Buttons */}
+                              <div className="mb-6 flex gap-3">
+                                {!addedToWatchlist[match.ticker] ? (
+                                  <button
+                                    onClick={() => handleAddToWatchlist(match.ticker, match.company || match.ticker, selectedArticle.title)}
+                                    className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"
+                                  >
+                                    Follow
+                                  </button>
+                                ) : (
+                                  <div className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-50 text-green-700 rounded-lg text-sm font-medium">
+                                    <Check size={16} strokeWidth={2} />
+                                    <span>Following</span>
+                                  </div>
+                                )}
+                                <a
+                                  href={match.cik ? `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${match.cik}&type=&dateb=&owner=exclude` : `https://finance.yahoo.com/quote/${match.ticker}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-center"
+                                >
+                                  {match.cik ? 'View Filing' : 'View Chart'}
+                                </a>
+                              </div>
+
+                              {/* Combined Sections Container */}
+                              <div className="mb-6 bg-white rounded-lg border border-gray-200 overflow-hidden">
+                                {/* SEC Filing Details Section */}
+                                <CollapsibleSection title="SEC Filing Details" defaultExpanded={true}>
+                                  <PropertyRow label="Form Type">
+                                    {match.form_type || '10-K'}
+                                  </PropertyRow>
+                                  <PropertyRow label="Filing Date">
+                                    {match.filing_date ?
+                                      new Date(match.filing_date).toLocaleDateString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        year: 'numeric'
+                                      }) :
+                                      'Unknown'
+                                    }
+                                  </PropertyRow>
+                                  <PropertyRow label="Fiscal Period">
+                                    {match.fiscal_year || 'FY2024'}
+                                  </PropertyRow>
+                                  <PropertyRow label="CIK">
+                                    {match.cik || 'N/A'}
+                                  </PropertyRow>
+                                  <PropertyRow label="SEC.gov">
+                                    {match.cik && (
+                                      <a
+                                        href={`https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${match.cik}&type=&dateb=&owner=exclude`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center text-gray-900 hover:text-blue-600 transition-colors"
+                                      >
+                                        <svg className="w-3.5 h-3.5 text-gray-400 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                        </svg>
+                                        Open
+                                      </a>
+                                    )}
+                                  </PropertyRow>
+                                </CollapsibleSection>
+
+                                {/* Matched Sections */}
+                                <CollapsibleSection title="Matched Sections" defaultExpanded={true}>
+                                  <div className="space-y-4">
+                                    {/* Section Match */}
+                                    <div className="space-y-2">
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-xs font-medium text-gray-900">
+                                          {match.section || 'Item 7 - Management Discussion & Analysis'}
+                                        </span>
+                                        <span className="text-xs text-gray-500">
+                                          {(confidence * 100).toFixed(0)}% match
+                                        </span>
+                                      </div>
+                                      {match.subsection && (
+                                        <div className="text-xs text-gray-600 ml-2">
+                                          {match.subsection}
+                                        </div>
+                                      )}
+                                      <div className="bg-gray-50 px-3 py-2 rounded text-xs text-gray-600 leading-relaxed italic">
+                                        {match.excerpt || '"...our revenue growth accelerated to 15% year-over-year, driven primarily by increased adoption of our cloud services platform. Operating margins improved to 28%, reflecting operational efficiencies and economies of scale..."'}
+                                      </div>
+                                      {match.section_url && (
+                                        <a
+                                          href={match.section_url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center text-xs text-gray-600 hover:text-gray-900 transition-colors"
+                                        >
+                                          <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                          </svg>
+                                          Jump to section
+                                        </a>
+                                      )}
+                                    </div>
+                                  </div>
+                                </CollapsibleSection>
+
+                                {/* Properties Section */}
+                                <CollapsibleSection title="Properties" defaultExpanded={false}>
+                                  <PropertyRow label="Ticker">
+                                    {match.ticker}
+                                  </PropertyRow>
+                                  <PropertyRow label="Company">
+                                    {match.company || match.ticker}
+                                  </PropertyRow>
+                                  <PropertyRow label="Exchange">
+                                    {match.exchange || 'NASDAQ'}
+                                  </PropertyRow>
+                                  <PropertyRow label="Industry">
+                                    {match.industry || 'Technology'}
+                                  </PropertyRow>
+                                  <PropertyRow label="SIC Code">
+                                    {match.sic_code || 'N/A'}
+                                  </PropertyRow>
+                                  <PropertyRow label="Yahoo Finance">
+                                    <a
+                                      href={`https://finance.yahoo.com/quote/${match.ticker}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center text-gray-900 hover:text-blue-600 transition-colors"
+                                    >
+                                      <svg className="w-3.5 h-3.5 text-gray-400 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                      </svg>
+                                      Open
+                                    </a>
+                                  </PropertyRow>
+                                </CollapsibleSection>
+
+                                {/* Article Context (what triggered this) */}
+                                <CollapsibleSection title="Article Context" defaultExpanded={false}>
+                                  <div className="space-y-3">
+                                    <p className="text-xs text-gray-700 leading-relaxed">
+                                      This SEC filing was matched based on your article: <span className="font-medium">"{selectedArticle.title}"</span>
+                                    </p>
+                                    {selectedArticle.url && (
+                                      <PropertyRow label="Article Source">
+                                        <a
+                                          href={selectedArticle.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="flex items-center text-gray-900 hover:text-blue-600 transition-colors"
+                                        >
+                                          <img
+                                            src={`https://www.google.com/s2/favicons?sz=16&domain=${selectedArticle.url.replace(/^https?:\/\//, '').split('/')[0]}`}
+                                            alt=""
+                                            className="w-3 h-3 mr-1.5"
+                                            onError={(e) => e.target.style.display = 'none'}
+                                          />
+                                          <span>{selectedArticle.url.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '')}</span>
+                                        </a>
+                                      </PropertyRow>
+                                    )}
+                                  </div>
+                                </CollapsibleSection>
+
+                                {/* Article Details Section */}
+                                <CollapsibleSection title="Article Details" defaultExpanded={false}>
+                                  <PropertyRow label="Title">
+                                    {selectedArticle.title || 'Untitled Article'}
+                                  </PropertyRow>
+                                  <PropertyRow label="Published">
+                                    {selectedArticle.timestamp ?
+                                      new Date(selectedArticle.timestamp).toLocaleDateString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                      }) :
+                                      'Recent'
+                                    }
+                                  </PropertyRow>
+                                  <PropertyRow label="Content Length">
+                                    {(() => {
+                                      const content = selectedArticle.content || selectedArticle.text || '';
+                                      const wordCount = content.trim().split(/\s+/).length;
+                                      return `${wordCount} word${wordCount !== 1 ? 's' : ''}`;
+                                    })()}
+                                  </PropertyRow>
+                                </CollapsibleSection>
+
+                                {/* Excerpt Section */}
+                                <CollapsibleSection title="Excerpt" defaultExpanded={false}>
+                                  <div className="bg-gray-50 px-3 py-2 rounded text-xs text-gray-600 leading-relaxed">
+                                    {(() => {
+                                      const content = selectedArticle.content || selectedArticle.text || '';
+                                      if (!content) return 'No content available';
+                                      return content.length > 400 ? `${content.substring(0, 400)}...` : content;
+                                    })()}
+                                  </div>
+                                </CollapsibleSection>
+                              </div>
+
+                              {/* Feedback Section */}
+                              <div className="mb-6">
+                                {showFeedbackThanks[selectedArticle.id || selectedArticle.title] === 'thanks' ? (
+                                  <div className="text-center py-2">
+                                    <p className="text-xs text-green-600">Thanks for your feedback!</p>
+                                  </div>
+                                ) : showFeedbackThanks[selectedArticle.id || selectedArticle.title] === 'hidden' ? null : (
+                                  <div className="flex items-center justify-between py-2 px-1">
+                                    <span className="text-xs text-gray-500">Was this helpful?</span>
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        onClick={() => {
+                                          const articleId = selectedArticle.id || selectedArticle.title
+                                          setArticleFeedback(prev => ({
+                                            ...prev,
+                                            [articleId]: 'up'
+                                          }))
+                                          setShowFeedbackThanks(prev => ({
+                                            ...prev,
+                                            [articleId]: 'thanks'
+                                          }))
+                                          setTimeout(() => {
+                                            setShowFeedbackThanks(prev => ({
+                                              ...prev,
+                                              [articleId]: 'hidden'
+                                            }))
+                                          }, 2000)
+                                        }}
+                                        className="p-1.5 rounded-md transition-all text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                                      >
+                                        <ThumbsUp size={14} />
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          const articleId = selectedArticle.id || selectedArticle.title
+                                          setArticleFeedback(prev => ({
+                                            ...prev,
+                                            [articleId]: 'down'
+                                          }))
+                                          setShowFeedbackThanks(prev => ({
+                                            ...prev,
+                                            [articleId]: 'thanks'
+                                          }))
+                                          setTimeout(() => {
+                                            setShowFeedbackThanks(prev => ({
+                                              ...prev,
+                                              [articleId]: 'hidden'
+                                            }))
+                                          }, 2000)
+                                        }}
+                                        className="p-1.5 rounded-md transition-all text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                                      >
+                                        <ThumbsDown size={14} />
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             </div>
+                          )
+                        })}
+                      </>
+                    ) : (
+                      <div className="max-w-2xl mx-auto">
+                        <div className="py-12 text-center">
+                          <div className="rounded-full bg-gray-100 p-4 mb-4 inline-block">
+                            <FileText size={32} className="text-gray-400" />
                           </div>
-                        )
-                      })}
-                    </div>
-                  ) : (
-                    <div className="border-dashed border-2 border-gray-200 bg-white rounded-lg">
-                      <div className="flex flex-col items-center justify-center py-12 text-center">
-                        <div className="rounded-full bg-gray-100 p-3 mb-4">
-                          <FileText size={24} className="text-gray-400" />
-                        </div>
-                        <h3 className={semanticTypography.emptyStateTitle}>No stock matches found</h3>
-                        <p className={cn(semanticTypography.emptyStateDescription, "max-w-xs")}>
-                          This article may not contain specific company mentions
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                </div>
-
-                {/* Sources Section */}
-                <div className="mb-6">
-                  <div className="mb-3 px-1">
-                    <h2 className={cn(semanticTypography.cardTitle)}>Sources</h2>
-                  </div>
-
-                  <div className="ml-2">
-                    <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
-                      {/* Document Excerpt */}
-                      <div>
-                        <div className="text-sm font-medium text-gray-900 mb-1">Document Excerpt:</div>
-                        <div className="bg-gray-50 px-3 py-2 rounded text-xs text-gray-600 italic">
-                          {(() => {
-                            const content = selectedArticle.content || selectedArticle.text || '';
-                            if (!content) return 'No source content available';
-                            return content.length > 150 ? `${content.substring(0, 150)}...` : content;
-                          })()}
+                          <h3 className="text-lg font-semibold text-gray-900 mb-2">No stock matches found</h3>
+                          <p className="text-sm text-gray-600 max-w-sm mx-auto">
+                            This article may not contain specific company mentions or our AI couldn't identify relevant stocks with confidence.
+                          </p>
                         </div>
                       </div>
-
-                      {/* Document Details */}
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Document Type:</span>
-                          <span className="text-gray-900 font-medium">Financial Article</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Source:</span>
-                          <span className="text-gray-900 font-medium">
-                            {selectedArticle.url ?
-                              selectedArticle.url.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '') :
-                              'Unknown'
-                            }
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Publication Date:</span>
-                          <span className="text-gray-900 font-medium">
-                            {selectedArticle.timestamp ?
-                              new Date(selectedArticle.timestamp).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              }) :
-                              'Unknown'
-                            }
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Content Length:</span>
-                          <span className="text-gray-900 font-medium">
-                            {(() => {
-                              const content = selectedArticle.content || selectedArticle.text || '';
-                              const wordCount = content.trim().split(/\s+/).length;
-                              return `${wordCount} word${wordCount !== 1 ? 's' : ''}`;
-                            })()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Input Section */}
-                <div className="mb-6">
-                  <div className="mb-3 px-1">
-                    <h2 className={cn(semanticTypography.cardTitle)}>Input</h2>
-                  </div>
-
-                  <div className="ml-2">
-                    <div className="bg-gray-50 rounded-lg border border-gray-200 p-3">
-                      {/* Article Title */}
-                      <div className="text-sm font-semibold text-gray-900 mb-2">
-                        {selectedArticle.title || 'Untitled Article'}
-                      </div>
-                      <div className="text-xs text-gray-600">
-                        {(() => {
-                          const content = selectedArticle.content || selectedArticle.text || '';
-                          if (!content) return 'No content available';
-                          return 'No content available';
-                        })()}
-                      </div>
-
-                      {/* Article Meta Info */}
-                      <div className="flex items-center gap-2 mt-3 text-xs text-gray-600">
-                        {selectedArticle.url && (
-                          <>
-                            <img
-                              src={`https://www.google.com/s2/favicons?sz=16&domain=${selectedArticle.url.replace(/^https?:\/\//, '').split('/')[0]}`}
-                              alt=""
-                              className="w-3 h-3"
-                              onError={(e) => e.target.style.display = 'none'}
-                            />
-                            <span>{selectedArticle.url.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '')}</span>
-                          </>
-                        )}
-                        <span className="text-gray-400">•</span>
-                        <span>
-                          {selectedArticle.timestamp ?
-                            new Date(selectedArticle.timestamp).toLocaleDateString('en-US', {
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            }) :
-                            'Recent'
-                          }
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                    )}
                   </>
                 )}
 
