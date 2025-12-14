@@ -33,13 +33,65 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   const [currentBrowserTab, setCurrentBrowserTab] = useState(null)
   const [parsedTabInfo, setParsedTabInfo] = useState(null)
   const [faviconLoadErrors, setFaviconLoadErrors] = useState(new Set())
-  
+  const [showTemplates, setShowTemplates] = useState(false)
+  const [showFilters, setShowFilters] = useState(false)
+
+  // Filter state - extensible for future filter types
+  const [filters, setFilters] = useState({
+    companySizes: [], // 'small', 'mid', 'large'
+    regions: [],      // 'north-america', 'europe', 'asia', etc. (future)
+    industries: []    // 'technology', 'healthcare', etc. (future)
+  })
+
+  // Scenario templates
+  const scenarioTemplates = [
+    {
+      id: 'interest-rates',
+      title: 'Interest Rate Changes',
+      description: 'Interest rates rise/fall',
+      content: 'The Federal Reserve announces a significant shift in monetary policy. Interest rates are expected to [rise/fall] by [X]% over the next [timeframe]. This change will impact borrowing costs, mortgage rates, and corporate financing. Sectors like banking, real estate, and consumer discretionary will be most affected. Companies with high debt loads may face increased pressure, while savers could benefit from higher yields.'
+    },
+    {
+      id: 'oil-prices',
+      title: 'Oil Price Volatility',
+      description: 'Oil prices spike/crash',
+      content: 'Global oil markets experience extreme volatility as prices [spike/crash] to $[X] per barrel. The shift is driven by [geopolitical tensions/supply glut/demand shock]. Energy companies, airlines, and transportation sectors face immediate impacts. Consumer spending patterns may shift as gasoline prices [rise/fall], affecting retail and automotive industries. Alternative energy investments could see [increased/decreased] interest.'
+    },
+    {
+      id: 'ev-adoption',
+      title: 'EV Market Acceleration',
+      description: 'EV adoption accelerates',
+      content: 'Electric vehicle adoption accelerates beyond expectations as [new regulations/technology breakthroughs/consumer preference] drive unprecedented demand. Traditional automakers face pressure to transition faster while EV manufacturers ramp up production. Battery and charging infrastructure companies see increased investment. Oil demand projections are revised downward. Automotive supply chains are being restructured to prioritize EV components.'
+    },
+    {
+      id: 'ai-bubble',
+      title: 'AI Market Correction',
+      description: 'AI bubble bursts',
+      content: 'The AI investment bubble shows signs of bursting as [revenue projections fall short/regulatory concerns mount/competition intensifies]. Technology stocks with high AI valuations face steep corrections. Investors become more skeptical of AI promises and focus on actual revenue and profitability. Cloud infrastructure spending may slow. Traditional software companies without clear AI monetization strategies are particularly vulnerable.'
+    }
+  ]
+
   // Helper function to truncate text
   const truncateText = (text, maxLength = 20) => {
     if (!text) return text
     return text.length > maxLength ? text.substring(0, maxLength) + '...' : text
   }
-  
+
+  // Filter toggle function - extensible for any filter type
+  const toggleFilter = (filterType, value) => {
+    setFilters(prev => {
+      const currentValues = prev[filterType] || []
+      const isSelected = currentValues.includes(value)
+
+      return {
+        ...prev,
+        [filterType]: isSelected
+          ? currentValues.filter(v => v !== value)
+          : [...currentValues, value]
+      }
+    })
+  }
+
   // Get current browser tab info and listen for tab changes
   useEffect(() => {
     const getCurrentTab = async () => {
@@ -264,15 +316,33 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   }
 
   const handleCustomEntry = () => {
-    // Skip extraction and go straight to custom entry
-    setIdentifiedArticle({ title: '', content: '' })
-    setEditedTitle('')
-    setEditedContent('')
+    // Show template picker first
+    setShowTemplates(true)
     setCurrentStep(1)
     setExtractionStages(prev => ({
       ...prev,
       parsing: { ...prev.parsing, status: 'completed' }
     }))
+  }
+
+  const handleTemplateSelect = (template) => {
+    // Pre-fill with selected template and enter edit mode
+    setIdentifiedArticle({
+      title: template.title,
+      content: template.content
+    })
+    setEditedTitle(template.title)
+    setEditedContent(template.content)
+    setShowTemplates(false)
+    setIsEditing(true)
+  }
+
+  const handleCustomScenario = () => {
+    // Skip template and go to blank custom entry
+    setIdentifiedArticle({ title: '', content: '' })
+    setEditedTitle('')
+    setEditedContent('')
+    setShowTemplates(false)
     setIsEditing(true)
   }
 
@@ -664,9 +734,14 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
       const startTime = Date.now()
       
       try {
-        if (extractedContent) {
+        if (extractedContent || (editedTitle && editedContent)) {
           console.log('Starting analysis generation...')
-          const result = await api.analyzeArticle(extractedContent.title, extractedContent.content)
+          // Use edited values if available (scenario testing), otherwise use extracted content
+          const titleToAnalyze = editedTitle || extractedContent?.title || ''
+          const contentToAnalyze = editedContent || extractedContent?.content || ''
+
+          // Pass filters to API
+          const result = await api.analyzeArticle(titleToAnalyze, contentToAnalyze, filters)
           
           console.log('Analysis result:', result)
           
@@ -685,11 +760,12 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
           }
           
           if (result) {
-            // Update article with analysis results - ensure content is preserved
+            // Update article with analysis results - use edited values for scenario testing
             const analyzedArticle = {
               ...identifiedArticle,
-              content: extractedContent.content || identifiedArticle.content,
-              text: extractedContent.content || identifiedArticle.content || identifiedArticle.text,
+              title: titleToAnalyze,
+              content: contentToAnalyze,
+              text: contentToAnalyze,
               matches: result.matches || [],
               entities: result.matches ? result.matches.map(m => m.company || m.ticker) : []
             }
@@ -924,7 +1000,14 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     setParsingCancelled(false)
     setAnalysisCancelled(false)
     setParsedTabInfo(null)
-    
+    setShowTemplates(false)
+    setShowFilters(false)
+    setFilters({
+      companySizes: [],
+      regions: [],
+      industries: []
+    })
+
     // Reset extraction stages to initial state
     setExtractionStages({
       parsing: { 
@@ -1164,41 +1247,50 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
         {/* Stage-focused Pipeline Card */}
         <div className="border border-gray-200 rounded-lg bg-white overflow-hidden">
 
-          {/* Header bar with title only */}
-          <div className="flex items-center px-3 py-3 border-b border-gray-100">
+          {/* Header bar with title, help icon, and loading spinner */}
+          <div className="flex items-center justify-between px-3 py-3 border-b border-gray-100">
             <div className="flex items-center gap-2">
               <span className="px-1.5 py-0.5 text-[10px] font-medium text-white bg-gray-900 rounded-full">Beta</span>
               <span className="text-sm font-medium text-gray-900">Discovery Engine</span>
+
+              {/* Help tooltip */}
+              <div className="relative group">
+                <button className="flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
+                  <span className="text-[10px] text-gray-600 font-medium">?</span>
+                </button>
+
+                {/* Tooltip */}
+                <div className="invisible group-hover:visible absolute left-0 top-6 z-50 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg">
+                  <div className="space-y-2">
+                    <p className="font-medium">How it works:</p>
+                    <p className="text-gray-300">1. Extract content from current page or use scenario testing</p>
+                    <p className="text-gray-300">2. Optionally apply filters (company size, etc.)</p>
+                    <p className="text-gray-300">3. Run analysis to discover relevant SEC filings & companies</p>
+                  </div>
+                  {/* Tooltip arrow */}
+                  <div className="absolute -top-1 left-4 w-2 h-2 bg-gray-900 transform rotate-45"></div>
+                </div>
+              </div>
             </div>
+
+            {/* Loading spinner - shown when parsing or analyzing */}
+            {(extractionStages.parsing.status === 'active' || extractionStages.analysis.status === 'active') && (
+              <div className="w-3.5 h-3.5 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+            )}
           </div>
 
           {/* Stage Content - Only show current/relevant stage */}
           <div className="px-4 py-4">
-
-            {/* Loading indicator - shown in content area */}
-            {detectionState !== 'ready' && detectionState !== 'error' && (
-              <div className="mb-4">
-                {extractionStages.parsing.status === 'active' ? (
-                  <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                    <div className="w-3 h-3 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
-                    Extracting...
-                  </div>
-                ) : extractionStages.analysis.status === 'active' ? (
-                  <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                    <div className="w-3 h-3 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
-                    Analyzing...
-                  </div>
-                ) : null}
-              </div>
-            )}
-
             {/* STAGE 1: Extract - Show when on step 0 or parsing is active */}
             {currentStep === 0 && !extractionStages.parsing.status.match(/completed/) && (
               <div className="space-y-3">
-                {/* Stage description */}
+                {/* Stage description with step indicator */}
                 <div>
-                  <p className="font-medium text-gray-700">Extract Content</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Pull article text from the current page, or enter your own</p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="font-medium text-gray-700">Extract Content</p>
+                    <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">Step 1 of 2</span>
+                  </div>
+                  <p className="text-xs text-gray-500">Pull article text from the current page, or enter your own</p>
                 </div>
                 {/* Current tab preview - now clickable */}
                 {currentBrowserTab && (
@@ -1235,66 +1327,67 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
             {/* STAGE 2: Run - Show after parsing is complete */}
             {(extractionStages.parsing.status === 'completed' && currentStep >= 1 && detectionState !== 'ready') && (
               <div className="space-y-4">
-                {/* Stage description */}
+                {/* Stage description with step indicator */}
                 <div>
-                  <p className="font-medium text-gray-700">Identify Themes</p>
-                  <p className="text-xs text-gray-500 mt-0.5">AI will detect companies, sectors and topics mentioned</p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="font-medium text-gray-700">Identify Themes</p>
+                    <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">Step 2 of 2</span>
+                  </div>
+                  <p className="text-xs text-gray-500">AI will detect companies, sectors and topics mentioned</p>
                 </div>
-                {/* Parsed content summary - collapsible */}
-                {identifiedArticle && (
-                  <div className="group">
-                    {isEditing ? (
-                      <div className="space-y-3 p-3 bg-gray-50 rounded-md">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Title</label>
-                          <input
-                            type="text"
-                            value={editedTitle}
-                            onChange={(e) => setEditedTitle(e.target.value)}
-                            className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Content</label>
-                          <textarea
-                            value={editedContent}
-                            onChange={(e) => setEditedContent(e.target.value)}
-                            rows={8}
-                            className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent resize-none"
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={handleSaveEdit}
-                            className="px-2.5 py-1 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-md transition-colors"
-                          >
-                            Save
-                          </button>
-                          <button
-                            onClick={handleCancelEdit}
-                            className="px-2.5 py-1 text-xs text-gray-600 hover:text-gray-800 rounded-md transition-colors"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div
-                        onClick={handleEditArticle}
-                        className="p-2.5 bg-gray-50 rounded-md cursor-pointer hover:bg-gray-100 transition-colors relative group"
+
+                {/* Template Picker - Show when user clicks Scenario Testing */}
+                {showTemplates ? (
+                  <div className="space-y-3">
+                    <p className="text-xs font-medium text-gray-700">Choose a scenario template or create your own:</p>
+
+                    {/* Template Grid */}
+                    <div className="space-y-2">
+                      {/* Custom option - first */}
+                      <button
+                        onClick={handleCustomScenario}
+                        className="w-full text-left p-3 bg-white hover:bg-gray-50 rounded-lg transition-colors border border-gray-300 hover:border-gray-400"
                       >
-                        <p className="text-xs font-medium text-gray-900 line-clamp-1 mb-1.5 pr-6">{identifiedArticle.title}</p>
-                        <p className="text-[11px] text-gray-600 font-mono leading-relaxed min-h-[192px]">
-                          {identifiedArticle.content.substring(0, 600)}...
-                        </p>
+                        <p className="text-xs font-medium text-gray-900 mb-0.5">Custom Scenario</p>
+                        <p className="text-xs text-gray-600">Write your own scenario from scratch</p>
+                      </button>
+
+                      {/* Pre-built templates */}
+                      {scenarioTemplates.map((template) => (
                         <button
-                          onClick={(e) => { e.stopPropagation(); handleEditArticle(); }}
-                          className="absolute top-2 right-2 p-1 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                          key={template.id}
+                          onClick={() => handleTemplateSelect(template)}
+                          className="w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200 hover:border-gray-300"
                         >
-                          <Edit2 size={12} />
+                          <p className="text-xs font-medium text-gray-900 mb-0.5">{template.title}</p>
+                          <p className="text-xs text-gray-600">{template.description}</p>
                         </button>
-                      </div>
-                    )}
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* Scenario content editor - always editable for scenario testing */}
+                {identifiedArticle && !showTemplates && (
+                  <div className="space-y-3 p-3 bg-gray-50 rounded-md">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Title</label>
+                      <input
+                        type="text"
+                        value={editedTitle}
+                        onChange={(e) => setEditedTitle(e.target.value)}
+                        className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Content</label>
+                      <textarea
+                        value={editedContent}
+                        onChange={(e) => setEditedContent(e.target.value)}
+                        rows={8}
+                        className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent resize-none"
+                      />
+                    </div>
                   </div>
                 )}
               </div>
@@ -1338,15 +1431,87 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
 
           </div>
 
+          {/* Filters Section - Collapsible */}
+          {currentStep >= 1 && !showTemplates && identifiedArticle && detectionState !== 'ready' && detectionState !== 'error' && (
+            <div className="border-t border-b border-gray-100 px-4 py-3">
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="w-full flex items-center justify-between text-left hover:opacity-70 transition-opacity"
+              >
+                <span className="text-xs font-medium text-gray-700">Filters</span>
+                <svg
+                  className={`w-3 h-3 text-gray-400 transition-transform ${showFilters ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showFilters && (
+                <div className="mt-3 space-y-3">
+                  {/* Company Size Filter */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-2">Company Size</label>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { value: 'small', label: 'Small Cap' },
+                        { value: 'mid', label: 'Mid Cap' },
+                        { value: 'large', label: 'Large Cap' }
+                      ].map(option => (
+                        <button
+                          key={option.value}
+                          onClick={() => toggleFilter('companySizes', option.value)}
+                          className={cn(
+                            "px-2.5 py-1.5 text-xs rounded-md border transition-colors",
+                            filters.companySizes.includes(option.value)
+                              ? "bg-gray-900 text-white border-gray-900"
+                              : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
+                          )}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Future filters can be added here */}
+                  {/* Example: Region Filter
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-2">Region</label>
+                    <div className="flex flex-wrap gap-2">
+                      {['north-america', 'europe', 'asia'].map(region => (
+                        <button ... />
+                      ))}
+                    </div>
+                  </div>
+                  */}
+
+                  {/* Example: Industry Filter
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-2">Industry</label>
+                    <div className="flex flex-wrap gap-2">
+                      {['technology', 'healthcare', 'finance'].map(industry => (
+                        <button ... />
+                      ))}
+                    </div>
+                  </div>
+                  */}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Full-width action buttons at bottom */}
           {detectionState !== 'ready' && detectionState !== 'error' && (
-            <div className="px-3 pb-3">
+            <div className="px-3 pt-3 pb-3">
               {currentStep === 0 && extractionStages.parsing.status !== 'active' ? (
                 <button
                   onClick={handleCustomEntry}
                   className="w-full py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                 >
-                  Custom
+                  Scenario Testing
                 </button>
               ) : currentStep === 0 && extractionStages.parsing.status === 'active' ? (
                 <button
@@ -1355,6 +1520,13 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                 >
                   Cancel
                 </button>
+              ) : showTemplates ? (
+                <button
+                  onClick={handleReset}
+                  className="w-full py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  Back
+                </button>
               ) : extractionStages.analysis.status === 'active' ? (
                 <button
                   onClick={handleCancelAnalysis}
@@ -1362,7 +1534,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                 >
                   Cancel
                 </button>
-              ) : !isEditing ? (
+              ) : (
                 <div className="flex gap-2">
                   <button
                     onClick={handleRunStep}
@@ -1380,7 +1552,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                     Cancel
                   </button>
                 </div>
-              ) : null}
+              )}
             </div>
           )}
         </div>
