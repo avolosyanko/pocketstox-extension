@@ -1,19 +1,17 @@
 import React, { useState, useEffect, memo, useImperativeHandle, forwardRef, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
 import { FileText, Search, Edit2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { semanticTypography, componentSpacing, spacing } from '@/styles/typography'
 import { useAPI, useStorage } from '@/contexts/ServiceContext'
 
-const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onArticleClick, onGenerate, activeTab, searchQuery }, ref) => {
+const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, searchQuery }, ref) => {
   // Modern service hooks
   const api = useAPI()
   const storage = useStorage()
   
   const [articles, setArticles] = useState([])
   const [isLoading, setIsLoading] = useState(true)
-  const [selectedArticles, setSelectedArticles] = useState(new Set())
   const [expandedArticle, setExpandedArticle] = useState(null)
   const [identifiedArticle, setIdentifiedArticle] = useState(null)
   const [extractedContent, setExtractedContent] = useState(null)
@@ -199,114 +197,6 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     setIsLoadingMore(false)
   }
 
-  const handleClearSelection = () => {
-    console.log('ArticlesTab: handleClearSelection called')
-    console.log('ArticlesTab: Current selectedArticles size:', selectedArticles.size)
-    setSelectedArticles(new Set())
-    onSelectionChange?.(0)
-    onClearSelection?.()
-    console.log('ArticlesTab: Selection cleared')
-  }
-
-  const handleSelectAll = () => {
-    console.log('ArticlesTab: handleSelectAll called')
-    // Get ALL articles (including those not yet loaded), then filter if search is active
-    const filteredArticles = articles.filter(article => {
-      if (!searchQuery || !searchQuery.trim()) return true
-      
-      const query = searchQuery.toLowerCase()
-      
-      // Search in title
-      const titleMatch = article.title?.toLowerCase().includes(query)
-      
-      // Search in domain/source
-      const domainMatch = article.url ? 
-        article.url.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '').toLowerCase().includes(query) 
-        : false
-      
-      // Search in tickers/companies
-      const tickerMatch = article.companies?.some(company => 
-        company.symbol?.toLowerCase().includes(query) ||
-        company.ticker?.toLowerCase().includes(query) ||
-        company.company?.toLowerCase().includes(query) ||
-        (typeof company === 'string' && company.toLowerCase().includes(query))
-      )
-      
-      return titleMatch || domainMatch || tickerMatch
-    })
-    
-    const allArticleIds = new Set(filteredArticles.map(article => article.id || article.title))
-    console.log('ArticlesTab: Selecting all articles, count:', allArticleIds.size)
-    setSelectedArticles(allArticleIds)
-    onSelectionChange?.(allArticleIds.size)
-    console.log('ArticlesTab: All articles selected')
-  }
-
-  const handleDeleteSelected = useCallback(async () => {
-    console.log('ArticlesTab: handleDeleteSelected called')
-    console.log('ArticlesTab: Selected articles to delete:', selectedArticles.size)
-
-    try {
-      // Find articles to delete based on selected IDs
-      const articlesToDelete = articles.filter(article => {
-        const articleId = article.id || article.title
-        return selectedArticles.has(articleId)
-      })
-
-      console.log('ArticlesTab: Articles to delete:', articlesToDelete.map(a => a.title))
-
-      // Delete each article from storage
-      for (const article of articlesToDelete) {
-        await storage.deleteArticle(article.id || article.title)
-        console.log('ArticlesTab: Deleted article:', article.title)
-      }
-
-      // Log activity
-      if (articlesToDelete.length === 1) {
-        await storage.logActivity({
-          type: 'article_deleted',
-          description: `Deleted article: ${articlesToDelete[0].title}`,
-          metadata: {
-            articleTitle: articlesToDelete[0].title,
-            articleUrl: articlesToDelete[0].url
-          },
-          relatedEntities: []
-        })
-      } else if (articlesToDelete.length > 1) {
-        await storage.logActivity({
-          type: 'bulk_delete',
-          description: `Deleted ${articlesToDelete.length} articles`,
-          metadata: {
-            count: articlesToDelete.length,
-            articleTitles: articlesToDelete.map(a => a.title)
-          },
-          relatedEntities: []
-        })
-      }
-
-      // Update local state - remove deleted articles
-      const remainingArticles = articles.filter(article => {
-        const articleId = article.id || article.title
-        return !selectedArticles.has(articleId)
-      })
-
-      const remainingDisplayedArticles = displayedArticles.filter(article => {
-        const articleId = article.id || article.title
-        return !selectedArticles.has(articleId)
-      })
-
-      setArticles(remainingArticles)
-      setDisplayedArticles(remainingDisplayedArticles)
-      setSelectedArticles(new Set())
-      onSelectionChange?.(0)
-      onClearSelection?.()
-
-      console.log('ArticlesTab: Successfully deleted', articlesToDelete.length, 'articles')
-
-    } catch (error) {
-      console.error('ArticlesTab: Error deleting articles:', error)
-    }
-  }, [articles, selectedArticles, storage, onSelectionChange, onClearSelection, displayedArticles])
 
   const handleEditArticle = () => {
     if (identifiedArticle) {
@@ -397,11 +287,8 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   }
 
   useImperativeHandle(ref, () => {
-    console.log('ArticlesTab: useImperativeHandle called, exposing clearSelection, selectAll, deleteSelected, runPipeline, and highlightArticleByUrl')
+    console.log('ArticlesTab: useImperativeHandle called, exposing runPipeline and highlightArticleByUrl')
     return {
-      clearSelection: handleClearSelection,
-      selectAll: handleSelectAll,
-      deleteSelected: handleDeleteSelected,
       runPipeline: handleRunStep,
       highlightArticleByUrl: handleHighlightArticleByUrl
     }
@@ -1035,17 +922,6 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     })
   }
 
-  const handleSelectArticle = (articleId) => {
-    const newSelected = new Set(selectedArticles)
-    if (newSelected.has(articleId)) {
-      newSelected.delete(articleId)
-    } else {
-      newSelected.add(articleId)
-    }
-    
-    setSelectedArticles(newSelected)
-    onSelectionChange?.(newSelected.size)
-  }
 
   // Define empty state component (but don't return early)
   const EmptyState = () => (
@@ -1170,70 +1046,88 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   // Group filtered articles by date
   const groupedArticles = groupArticlesByDate(filteredArticles)
 
-  // Render article as list item with vertical lines
-  const renderArticleItem = (article, isLast = false) => {
-    const articleId = article.id || article.title
+  // Generate random color for icon
+  const getRandomColor = (seed) => {
+    // Use article title as seed for consistent colors
+    let hash = 0
+    for (let i = 0; i < seed.length; i++) {
+      hash = seed.charCodeAt(i) + ((hash << 5) - hash)
+    }
     
-    const handleCardClick = (e) => {
-      // Don't trigger if clicking on checkbox
-      if (e.target.closest('[data-checkbox]')) return
-      
+    const colors = [
+      'bg-blue-500',
+      'bg-green-500', 
+      'bg-purple-500',
+      'bg-pink-500',
+      'bg-yellow-500',
+      'bg-red-500',
+      'bg-indigo-500',
+      'bg-orange-500',
+      'bg-teal-500',
+      'bg-cyan-500'
+    ]
+    
+    return colors[Math.abs(hash) % colors.length]
+  }
+
+  // Get full stock ticker
+  const getIconText = (article) => {
+    // Try to get ticker from matches array first
+    if (article.matches && article.matches.length > 0) {
+      const firstMatch = article.matches[0]
+      if (firstMatch.ticker) {
+        return firstMatch.ticker.toUpperCase()
+      }
+    }
+    
+    // Fallback to companies array
+    if (article.companies && article.companies.length > 0) {
+      const firstCompany = article.companies[0]
+      if (typeof firstCompany === 'string') {
+        return firstCompany.toUpperCase()
+      }
+    }
+    
+    // Final fallback to first letter of title
+    return article.title?.charAt(0)?.toUpperCase() || 'A'
+  }
+
+  // Render article as list item with Gmail-style design
+  const renderArticleItem = (article, isLast = false) => {
+    const handleCardClick = () => {
       onArticleClick?.(article)
     }
     
     return (
       <div 
-        className={cn(
-          "relative cursor-pointer transition-all duration-300 group border rounded-lg",
-          selectedArticles.has(articleId)
-            ? "bg-gray-50 text-gray-900 border-gray-200"
-            : "hover:bg-gray-50 border-transparent"
-        )}
+        className="relative cursor-pointer transition-all duration-200 group hover:bg-gray-50 hover:rounded-lg"
         onClick={handleCardClick}
       >
-          <div className="px-3.5 py-2.5 pl-6">
-          {/* Checkbox - positioned over the line */}
-          <div 
-            data-checkbox
-            className={cn(
-              "absolute -left-1 top-1/2 -translate-y-1/2 z-10 transition-opacity duration-200",
-              selectedArticles.size > 0 
-                ? 'opacity-100' 
-                : 'opacity-0 group-hover:opacity-100'
-            )}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Checkbox
-              checked={selectedArticles.has(articleId)}
-              onCheckedChange={() => handleSelectArticle(articleId)}
-              className="data-[state=checked]:bg-gray-900 data-[state=checked]:border-gray-900 data-[state=checked]:text-white bg-white border-gray-300 h-4 w-4 [&_svg]:h-3 [&_svg]:w-3"
-            />
+        <div className="flex items-center gap-3 px-3 py-3">
+          {/* Ticker rounded square icon */}
+          <div className={cn(
+            "w-12 h-12 rounded-md flex items-center justify-center text-white font-medium text-[10px] flex-shrink-0",
+            getRandomColor(article.title || article.url || 'default')
+          )}>
+            {getIconText(article)}
           </div>
+          
           {/* Content */}
           <div className="flex-1 min-w-0">
             {/* Title */}
-            <h3 className={cn(semanticTypography.caption, "mb-2 line-clamp-2 font-medium")}>
+            <h3 className="font-medium text-gray-900 mb-1 line-clamp-2 leading-tight">
               {article.title}
             </h3>
 
             {/* Meta info */}
-            <div className={cn("space-y-1", semanticTypography.metadata)}>
+            <div className="space-y-0.5">
               {article.url && (
-                <div className="flex items-center gap-1">
-                  {getFaviconUrl(article.url) && (
-                    <img 
-                      src={getFaviconUrl(article.url)} 
-                      alt=""
-                      className="w-2.5 h-2.5"
-                      onError={(e) => e.target.style.display = 'none'}
-                    />
-                  )}
-                  <span className="truncate">{extractDomain(article.url)}</span>
+                <div className="text-gray-600">
+                  <span className="truncate text-xs">{extractDomain(article.url)}</span>
                 </div>
               )}
-              <span className="text-xs text-gray-500">{formatDate(article.timestamp)}</span>
+              <div className="text-xs text-gray-500">{formatDate(article.timestamp)}</div>
             </div>
-
           </div>
         </div>
       </div>
@@ -1379,9 +1273,10 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                   </div>
                 )}
               </div>
-            )}
+            </div>
+          )}
 
-            {/* COMPLETE STATE */}
+          {/* COMPLETE STATE */}
             {detectionState === 'ready' && (
               <div className="flex items-center gap-3 py-1">
                 <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
@@ -1416,9 +1311,6 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                 </button>
               </div>
             )}
-
-          </div>
-          )}
 
           {/* Filters Section - Collapsible */}
           {currentStep >= 1 && !showTemplates && identifiedArticle && detectionState !== 'ready' && detectionState !== 'error' && (
@@ -1565,7 +1457,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
             </div>
           )}
         </div>
-      </div>
+        </div>
       )}
 
       {/* Dynamic Header - Recents or Search Results */}
@@ -1593,13 +1485,10 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
           <div className="mb-3 px-1">
             <h3 className="text-xs text-gray-600">Today</h3>
           </div>
-          <div className="bg-white rounded-lg border border-gray-200 ml-2">
+          <div className="bg-white ml-2">
             {groupedArticles.today.map((article, index) => (
               <div key={article.id || article.title}>
-                {renderArticleItem(article, false)}
-                {index < groupedArticles.today.length - 1 && (
-                  <div className="border-b border-gray-100 mx-6" />
-                )}
+                {renderArticleItem(article, index === groupedArticles.today.length - 1)}
               </div>
             ))}
           </div>
@@ -1612,13 +1501,10 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
           <div className="mb-3 px-1">
             <h3 className="text-xs text-gray-600">Yesterday</h3>
           </div>
-          <div className="bg-white rounded-lg border border-gray-200 ml-2">
+          <div className="bg-white ml-2">
             {groupedArticles.yesterday.map((article, index) => (
               <div key={article.id || article.title}>
-                {renderArticleItem(article, false)}
-                {index < groupedArticles.yesterday.length - 1 && (
-                  <div className="border-b border-gray-100 mx-6" />
-                )}
+                {renderArticleItem(article, index === groupedArticles.yesterday.length - 1)}
               </div>
             ))}
           </div>
@@ -1631,13 +1517,10 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
           <div className="mb-3 px-1">
             <h3 className="text-xs text-gray-600">Last Week</h3>
           </div>
-          <div className="bg-white rounded-lg border border-gray-200 ml-2">
+          <div className="bg-white ml-2">
             {groupedArticles.lastWeek.map((article, index) => (
               <div key={article.id || article.title}>
-                {renderArticleItem(article, false)}
-                {index < groupedArticles.lastWeek.length - 1 && (
-                  <div className="border-b border-gray-100 mx-6" />
-                )}
+                {renderArticleItem(article, index === groupedArticles.lastWeek.length - 1)}
               </div>
             ))}
           </div>
@@ -1653,13 +1536,10 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
               <div className="mb-3 px-1">
                 <h3 className="text-xs text-gray-600">{monthKey}</h3>
               </div>
-              <div className="bg-white rounded-lg border border-gray-200 ml-2">
+              <div className="bg-white ml-2">
                 {monthArticles.map((article, index) => (
                   <div key={article.id || article.title}>
-                    {renderArticleItem(article, false)}
-                    {index < monthArticles.length - 1 && (
-                      <div className="border-b border-gray-100 mx-6" />
-                    )}
+                    {renderArticleItem(article, index === monthArticles.length - 1)}
                   </div>
                 ))}
               </div>
