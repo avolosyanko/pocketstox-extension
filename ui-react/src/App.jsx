@@ -386,7 +386,7 @@ function AppContent() {
       )}
 
       {/* Scrollable Content Area */}
-      <div className={`flex-1 overflow-x-hidden ${activeTab === 'notes' ? 'overflow-hidden bg-white' : 'overflow-y-auto bg-gray-25 scroll-smooth'}`}>
+      <div className={`flex-1 overflow-x-hidden ${activeTab === 'notes' ? 'overflow-hidden bg-white' : 'overflow-y-auto bg-white scroll-smooth'}`}>
         {/* Dynamic Tab Content */}
         <main className={activeTab === 'notes' ? 'h-full' : componentSpacing.contentPadding}>
           {renderTabContent()}

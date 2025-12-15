@@ -1,5 +1,5 @@
 import React, { memo, useRef, useEffect, useState } from 'react'
-import { Search, X } from 'lucide-react'
+import { Search, X, Info } from 'lucide-react'
 import { componentSpacing } from '@/styles/typography'
 
 const NavigationHeader = memo(({ activeTab, onTabChange, searchQuery, onSearchChange, showSearch, onToggleSearch }) => {
@@ -19,8 +19,8 @@ const NavigationHeader = memo(({ activeTab, onTabChange, searchQuery, onSearchCh
       const rect = activeTabRef.getBoundingClientRect()
       const parentRect = activeTabRef.parentElement.parentElement.parentElement.getBoundingClientRect()
       setIndicatorStyle({
-        left: rect.left - parentRect.left + 12, // +12 for px-3 padding
-        width: rect.width - 24 // -24 for px-3 on both sides
+        left: rect.left - parentRect.left + 8, // +8 for px-2 padding on tabs
+        width: rect.width - 16 // -16 for px-2 on both sides of tabs
       })
     }
   }, [activeTab])
@@ -51,7 +51,7 @@ const NavigationHeader = memo(({ activeTab, onTabChange, searchQuery, onSearchCh
 
   return (
     <div className="bg-white">
-      <div className={componentSpacing.navPadding}>
+      <div className="px-3 py-1.5">
         {/* Regular Header - hidden when search is active */}
         {!showSearch && (
           <div className="flex items-center justify-between">
@@ -64,7 +64,7 @@ const NavigationHeader = memo(({ activeTab, onTabChange, searchQuery, onSearchCh
                     key={tab.id}
                     ref={(el) => tabRefs.current[tab.id] = el}
                     onClick={() => onTabChange(tab.id)}
-                    className={`relative px-3 py-1.5 text-sm font-medium transition-colors duration-200 ${
+                    className={`relative px-2 py-1.5 text-sm font-medium transition-colors duration-200 ${
                       isActive
                         ? 'text-gray-900'
                         : 'text-gray-400 hover:text-gray-600'
@@ -76,16 +76,29 @@ const NavigationHeader = memo(({ activeTab, onTabChange, searchQuery, onSearchCh
               })}
             </div>
 
-            {/* Search Icon - only show on Discover tab */}
-            {activeTab === 'articles' && (
+            <div className="flex items-center gap-0.5">
+              {/* Search Icon - only show on Discover tab */}
+              {activeTab === 'articles' && (
+                <button
+                  onClick={() => onToggleSearch && onToggleSearch(!showSearch)}
+                  className="flex items-center justify-center w-8 h-8 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors duration-200"
+                  aria-label="Toggle search"
+                >
+                  <Search size={16} strokeWidth={1.75} />
+                </button>
+              )}
+              
+              {/* How to use PocketStox help icon - always visible and rightmost */}
               <button
-                onClick={() => onToggleSearch && onToggleSearch(!showSearch)}
+                onClick={() => {
+                  window.open('https://www.youtube.com/watch?v=dQw4w9WgXcQ', '_blank')
+                }}
                 className="flex items-center justify-center w-8 h-8 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors duration-200"
-                aria-label="Toggle search"
+                aria-label="How to use PocketStox"
               >
-                <Search size={16} strokeWidth={2} />
+                <Info size={16} strokeWidth={1.75} />
               </button>
-            )}
+            </div>
           </div>
         )}
 

@@ -39,8 +39,9 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
   // Filter state - extensible for future filter types
   const [filters, setFilters] = useState({
     companySizes: [], // 'small', 'mid', 'large'
+    sectors: [],      // 'technology', 'healthcare', 'financials', etc.
     regions: [],      // 'north-america', 'europe', 'asia', etc. (future)
-    industries: []    // 'technology', 'healthcare', etc. (future)
+    industries: []    // 'technology', 'healthcare', etc. (future - deprecated, use sectors)
   })
 
   // Scenario templates
@@ -1004,6 +1005,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
     setShowFilters(false)
     setFilters({
       companySizes: [],
+      sectors: [],
       regions: [],
       industries: []
     })
@@ -1253,24 +1255,6 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
               <span className="px-1.5 py-0.5 text-[10px] font-medium text-white bg-gray-900 rounded-full">Beta</span>
               <span className="text-sm font-medium text-gray-900">Discovery Engine</span>
 
-              {/* Help tooltip */}
-              <div className="relative group">
-                <button className="flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
-                  <span className="text-[10px] text-gray-600 font-medium">?</span>
-                </button>
-
-                {/* Tooltip */}
-                <div className="invisible group-hover:visible absolute left-0 top-6 z-50 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-lg">
-                  <div className="space-y-2">
-                    <p className="font-medium">How it works:</p>
-                    <p className="text-gray-300">1. Extract content from current page or use scenario testing</p>
-                    <p className="text-gray-300">2. Optionally apply filters (company size, etc.)</p>
-                    <p className="text-gray-300">3. Run analysis to discover relevant SEC filings & companies</p>
-                  </div>
-                  {/* Tooltip arrow */}
-                  <div className="absolute -top-1 left-4 w-2 h-2 bg-gray-900 transform rotate-45"></div>
-                </div>
-              </div>
             </div>
 
             {/* Loading spinner - shown when parsing or analyzing */}
@@ -1280,59 +1264,63 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
           </div>
 
           {/* Stage Content - Only show current/relevant stage */}
-          <div className="px-4 py-4">
-            {/* STAGE 1: Extract - Show when on step 0 or parsing is active */}
-            {currentStep === 0 && !extractionStages.parsing.status.match(/completed/) && (
-              <div className="space-y-3">
-                {/* Stage description with step indicator */}
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <p className="font-medium text-gray-700">Extract Content</p>
+          {/* STAGE 1: Extract - Show when on step 0 or parsing is active */}
+          {currentStep === 0 && !extractionStages.parsing.status.match(/completed/) && (
+            <>
+              <div className="px-4 pt-4 pb-2">
+                <div className="space-y-2">
+                  {/* Stage description with step indicator */}
+                  <div>
                     <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">Step 1 of 2</span>
+                    <p className="font-medium text-gray-700 mt-0.5">Extract Content</p>
+                    <p className="text-xs text-gray-500">Pull article text from the current page, or enter your own</p>
                   </div>
-                  <p className="text-xs text-gray-500">Pull article text from the current page, or enter your own</p>
-                </div>
-                {/* Current tab preview - now clickable */}
-                {currentBrowserTab && (
-                  <div
-                    onClick={extractionStages.parsing.status !== 'active' ? handleRunStep : undefined}
-                    className={cn(
-                      "flex items-center gap-2 p-2 bg-gray-50 rounded-md",
-                      extractionStages.parsing.status !== 'active' && "cursor-pointer hover:bg-gray-100 transition-colors"
-                    )}
-                  >
-                    {currentBrowserTab.favicon && !faviconLoadErrors.has(`current-${currentBrowserTab.favicon}`) ? (
-                      <img
-                        src={currentBrowserTab.favicon}
-                        alt=""
-                        className="w-4 h-4 rounded-sm flex-shrink-0"
-                        onError={() => setFaviconLoadErrors(prev => new Set([...prev, `current-${currentBrowserTab.favicon}`]))}
-                      />
-                    ) : (
-                      <div className="w-4 h-4 bg-gray-300 rounded-sm flex-shrink-0" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-gray-900 truncate">{currentBrowserTab.title || 'Current Tab'}</p>
-                      <p className="text-xs text-gray-500 truncate">{currentBrowserTab.url}</p>
+                  {/* Current tab preview - display only */}
+                  {currentBrowserTab && (
+                    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-md">
+                      {currentBrowserTab.favicon && !faviconLoadErrors.has(`current-${currentBrowserTab.favicon}`) ? (
+                        <img
+                          src={currentBrowserTab.favicon}
+                          alt=""
+                          className="w-4 h-4 rounded-sm flex-shrink-0"
+                          onError={() => setFaviconLoadErrors(prev => new Set([...prev, `current-${currentBrowserTab.favicon}`]))}
+                        />
+                      ) : (
+                        <div className="w-4 h-4 bg-gray-300 rounded-sm flex-shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-900 truncate">{currentBrowserTab.title || 'Current Tab'}</p>
+                        <p className="text-xs text-gray-500 truncate">{currentBrowserTab.url}</p>
+                      </div>
                     </div>
-                  </div>
-                )}
-                {/* Explanatory text */}
-                <div className="text-xs text-gray-500 text-center">
-                  <p>Click the box above to extract from this tab, or use Custom to paste your own content</p>
+                  )}
                 </div>
               </div>
-            )}
 
-            {/* STAGE 2: Run - Show after parsing is complete */}
-            {(extractionStages.parsing.status === 'completed' && currentStep >= 1 && detectionState !== 'ready') && (
-              <div className="space-y-4">
+              {/* Full-width separator */}
+              <div className="border-t border-gray-100"></div>
+
+              {/* Action buttons section */}
+              <div className="px-4 pt-2 pb-4">
+                <button
+                  onClick={extractionStages.parsing.status !== 'active' ? handleRunStep : undefined}
+                  disabled={extractionStages.parsing.status === 'active'}
+                  className="w-full py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:bg-gray-300 disabled:text-gray-500"
+                >
+                  {extractionStages.parsing.status === 'active' ? 'Extracting...' : 'Extract Tab'}
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* STAGE 2: Run - Show after parsing is complete */}
+          {(extractionStages.parsing.status === 'completed' && currentStep >= 1 && detectionState !== 'ready') && (
+            <div className="px-4 py-4">
+              <div className="space-y-2">
                 {/* Stage description with step indicator */}
                 <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <p className="font-medium text-gray-700">Identify Themes</p>
-                    <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">Step 2 of 2</span>
-                  </div>
+                  <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">Step 2 of 2</span>
+                  <p className="font-medium text-gray-700 mt-0.5">Identify Themes</p>
                   <p className="text-xs text-gray-500">AI will detect companies, sectors and topics mentioned</p>
                 </div>
 
@@ -1430,6 +1418,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
             )}
 
           </div>
+          )}
 
           {/* Filters Section - Collapsible */}
           {currentStep >= 1 && !showTemplates && identifiedArticle && detectionState !== 'ready' && detectionState !== 'error' && (
@@ -1438,7 +1427,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                 onClick={() => setShowFilters(!showFilters)}
                 className="w-full flex items-center justify-between text-left hover:opacity-70 transition-opacity"
               >
-                <span className="text-xs font-medium text-gray-700">Filters</span>
+                <span className="text-xs font-medium text-gray-700">Apply Filters</span>
                 <svg
                   className={`w-3 h-3 text-gray-400 transition-transform ${showFilters ? 'rotate-180' : ''}`}
                   fill="none"
@@ -1454,17 +1443,22 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                   {/* Company Size Filter */}
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-2">Company Size</label>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex overflow-x-auto gap-2 pb-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                      <style jsx>{`
+                        div::-webkit-scrollbar {
+                          display: none;
+                        }
+                      `}</style>
                       {[
-                        { value: 'small', label: 'Small Cap' },
-                        { value: 'mid', label: 'Mid Cap' },
-                        { value: 'large', label: 'Large Cap' }
+                        { value: 'small', label: 'Small (<$2B)' },
+                        { value: 'mid', label: 'Mid ($2-10B)' },
+                        { value: 'large', label: 'Large (>$10B)' }
                       ].map(option => (
                         <button
                           key={option.value}
                           onClick={() => toggleFilter('companySizes', option.value)}
                           className={cn(
-                            "px-2.5 py-1.5 text-xs rounded-md border transition-colors",
+                            "px-2.5 py-1.5 text-xs rounded-md border transition-colors flex-shrink-0",
                             filters.companySizes.includes(option.value)
                               ? "bg-gray-900 text-white border-gray-900"
                               : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
@@ -1476,28 +1470,43 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                     </div>
                   </div>
 
-                  {/* Future filters can be added here */}
-                  {/* Example: Region Filter
+                  {/* Sectors Filter */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-2">Region</label>
-                    <div className="flex flex-wrap gap-2">
-                      {['north-america', 'europe', 'asia'].map(region => (
-                        <button ... />
+                    <label className="block text-xs font-medium text-gray-600 mb-2">Sectors</label>
+                    <div className="flex overflow-x-auto gap-2 pb-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                      <style jsx>{`
+                        div::-webkit-scrollbar {
+                          display: none;
+                        }
+                      `}</style>
+                      {[
+                        { value: 'technology', label: 'Technology' },
+                        { value: 'healthcare', label: 'Healthcare' },
+                        { value: 'financials', label: 'Financials' },
+                        { value: 'energy', label: 'Energy' },
+                        { value: 'industrials', label: 'Industrials' },
+                        { value: 'consumer-discretionary', label: 'Consumer Disc.' },
+                        { value: 'consumer-staples', label: 'Consumer Staples' },
+                        { value: 'utilities', label: 'Utilities' },
+                        { value: 'materials', label: 'Materials' },
+                        { value: 'real-estate', label: 'Real Estate' },
+                        { value: 'communication', label: 'Communication' }
+                      ].map(option => (
+                        <button
+                          key={option.value}
+                          onClick={() => toggleFilter('sectors', option.value)}
+                          className={cn(
+                            "px-2.5 py-1.5 text-xs rounded-md border transition-colors flex-shrink-0",
+                            filters.sectors.includes(option.value)
+                              ? "bg-gray-900 text-white border-gray-900"
+                              : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
+                          )}
+                        >
+                          {option.label}
+                        </button>
                       ))}
                     </div>
                   </div>
-                  */}
-
-                  {/* Example: Industry Filter
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-2">Industry</label>
-                    <div className="flex flex-wrap gap-2">
-                      {['technology', 'healthcare', 'finance'].map(industry => (
-                        <button ... />
-                      ))}
-                    </div>
-                  </div>
-                  */}
                 </div>
               )}
             </div>
@@ -1505,7 +1514,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
 
           {/* Full-width action buttons at bottom */}
           {detectionState !== 'ready' && detectionState !== 'error' && (
-            <div className="px-3 pt-3 pb-3">
+            <div className="px-3 pt-0 pb-3">
               {currentStep === 0 && extractionStages.parsing.status !== 'active' ? (
                 <button
                   onClick={handleCustomEntry}
@@ -1535,10 +1544,10 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                   Cancel
                 </button>
               ) : (
-                <div className="flex gap-2">
+                <div className="space-y-2">
                   <button
                     onClick={handleRunStep}
-                    className="flex-1 py-2.5 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    className="w-full py-2.5 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors flex items-center justify-center gap-2"
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
                       <path d="M8 5v14l11-7L8 5z" fill="currentColor"/>
@@ -1547,7 +1556,7 @@ const ArticlesTab = memo(forwardRef(({ onSelectionChange, onClearSelection, onAr
                   </button>
                   <button
                     onClick={handleReset}
-                    className="flex-1 py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                    className="w-full py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                   >
                     Cancel
                   </button>
