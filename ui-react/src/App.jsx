@@ -4,7 +4,7 @@ import NavigationHeader from './components/NavigationHeader'
 import ArticlesTab from './components/ArticlesTab'
 import CommunityTab from './components/CommunityTab'
 import NotesTab from './components/NotesTab'
-import { FileText, ThumbsUp, ThumbsDown, Plus, Check } from 'lucide-react'
+import { FileText, ThumbsUp, ThumbsDown, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { semanticTypography, componentSpacing } from '@/styles/typography'
 import './index.css'
@@ -54,6 +54,52 @@ const PropertyRow = ({ label, children }) => (
 function AppContent() {
   console.log('App component rendering')
   const [activeTab, setActiveTab] = useState('notes')
+  
+  // Icon helper functions (same as ArticlesTab.jsx)
+  const getRandomColor = (seed) => {
+    // Use article title as seed for consistent colors
+    let hash = 0
+    for (let i = 0; i < seed.length; i++) {
+      hash = seed.charCodeAt(i) + ((hash << 5) - hash)
+    }
+    
+    const colors = [
+      'bg-blue-500',
+      'bg-green-500', 
+      'bg-purple-500',
+      'bg-pink-500',
+      'bg-yellow-500',
+      'bg-red-500',
+      'bg-indigo-500',
+      'bg-orange-500',
+      'bg-teal-500',
+      'bg-cyan-500'
+    ]
+    
+    return colors[Math.abs(hash) % colors.length]
+  }
+
+  // Get full stock ticker
+  const getIconText = (article) => {
+    // Try to get ticker from matches array first
+    if (article.matches && article.matches.length > 0) {
+      const firstMatch = article.matches[0]
+      if (firstMatch.ticker) {
+        return firstMatch.ticker.toUpperCase()
+      }
+    }
+    
+    // Fallback to companies array
+    if (article.companies && article.companies.length > 0) {
+      const firstCompany = article.companies[0]
+      if (typeof firstCompany === 'string') {
+        return firstCompany.toUpperCase()
+      }
+    }
+    
+    // Final fallback to first letter of title
+    return article.title?.charAt(0)?.toUpperCase() || 'A'
+  }
   
   // Search state management
   const [searchQuery, setSearchQuery] = useState('')
@@ -301,6 +347,35 @@ function AppContent() {
     }
   }, [storage])
 
+  const handleRemoveFromWatchlist = useCallback(async (ticker, company, articleTitle) => {
+    try {
+      // Remove from extension storage using modern service
+      await storage.removeFromWatchlist(ticker)
+
+      // Log activity
+      await storage.logActivity({
+        type: 'watchlist_removed',
+        description: `Stopped following ${ticker}`,
+        metadata: {
+          ticker: ticker,
+          companyName: company,
+          articleTitle: articleTitle
+        },
+        relatedEntities: [ticker]
+      })
+
+      // Update UI state
+      setAddedToWatchlist(prev => ({
+        ...prev,
+        [ticker]: false
+      }))
+
+      console.log('Removed from watchlist:', ticker)
+    } catch (error) {
+      console.error('Failed to remove from watchlist:', error)
+    }
+  }, [storage])
+
   const handleNavigateToArticle = (articleUrl, fallbackTitle = null, fallbackTicker = null) => {
     console.log('handleNavigateToArticle called with:', { articleUrl, fallbackTitle, fallbackTicker })
     // Switch to articles (discover) tab
@@ -416,8 +491,8 @@ function AppContent() {
                     ←
                   </button>
                   <div className="flex-1 min-w-0">
-                    <h1 className={cn(semanticTypography.cardTitle)}>
-                      Pocketstox
+                    <h1 className="text-sm font-medium text-gray-900">
+                      {selectedArticle?.id?.startsWith('company-') ? 'Notes' : 'Discover'}
                     </h1>
                   </div>
                 </div>
@@ -529,15 +604,13 @@ function AppContent() {
                             <div key={index} className="max-w-2xl mx-auto">
                               {/* Centered Company Logo and Info */}
                               <div className="text-center mb-6 pt-4">
-                                {/* Company Logo Placeholder */}
-                                <div className="w-16 h-16 mx-auto mb-3 bg-gray-100 rounded-lg flex items-center justify-center">
-                                  <span className="text-2xl font-bold text-gray-400">{match.ticker?.charAt(0) || 'C'}</span>
+                                {/* Company Logo with same styling as history cards */}
+                                <div className={cn(
+                                  "w-16 h-16 mx-auto mb-3 rounded-lg flex items-center justify-center text-white font-medium text-lg",
+                                  getRandomColor(selectedArticle.title || selectedArticle.url || 'default')
+                                )}>
+                                  {getIconText(selectedArticle)}
                                 </div>
-
-                                {/* Ticker */}
-                                <h1 className="text-xl font-semibold text-gray-900 mb-1">
-                                  {match.ticker}
-                                </h1>
 
                                 {/* Company Name */}
                                 <p className="text-sm text-gray-600 mb-3">
@@ -554,25 +627,27 @@ function AppContent() {
                               </div>
 
                               {/* Action Buttons */}
-                              <div className="mb-6 flex gap-3">
+                              <div className="mb-6 flex flex-col gap-2">
                                 {!addedToWatchlist[match.ticker] ? (
                                   <button
                                     onClick={() => handleAddToWatchlist(match.ticker, match.company || match.ticker, selectedArticle.title)}
-                                    className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"
+                                    className="w-full py-2.5 text-xs text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"
                                   >
                                     Follow
                                   </button>
                                 ) : (
-                                  <div className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-green-50 text-green-700 rounded-lg text-sm font-medium">
-                                    <Check size={16} strokeWidth={2} />
-                                    <span>Following</span>
-                                  </div>
+                                  <button
+                                    onClick={() => handleRemoveFromWatchlist(match.ticker, match.company || match.ticker, selectedArticle.title)}
+                                    className="w-full py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                                  >
+                                    Following
+                                  </button>
                                 )}
                                 <a
                                   href={match.cik ? `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${match.cik}&type=&dateb=&owner=exclude` : `https://finance.yahoo.com/quote/${match.ticker}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-center"
+                                  className="w-full py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-center"
                                 >
                                   {match.cik ? 'View Filing' : 'View Chart'}
                                 </a>

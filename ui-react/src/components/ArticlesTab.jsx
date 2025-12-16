@@ -1228,7 +1228,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                       {/* Custom option - first */}
                       <button
                         onClick={handleCustomScenario}
-                        className="w-full text-left p-3 bg-white hover:bg-gray-50 rounded-lg transition-colors border border-gray-300 hover:border-gray-400"
+                        className="w-full text-left p-3 bg-white hover:bg-gray-50 rounded-lg transition-colors border border-gray-100 hover:border-gray-200"
                       >
                         <p className="text-xs font-medium text-gray-900 mb-0.5">Custom Scenario</p>
                         <p className="text-xs text-gray-600">Write your own scenario from scratch</p>
@@ -1239,7 +1239,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                         <button
                           key={template.id}
                           onClick={() => handleTemplateSelect(template)}
-                          className="w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-200 hover:border-gray-300"
+                          className="w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-100 hover:border-gray-200"
                         >
                           <p className="text-xs font-medium text-gray-900 mb-0.5">{template.title}</p>
                           <p className="text-xs text-gray-600">{template.description}</p>
@@ -1258,7 +1258,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                         type="text"
                         value={editedTitle}
                         onChange={(e) => setEditedTitle(e.target.value)}
-                        className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
+                        className="w-full px-2.5 py-1.5 text-xs border border-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
                       />
                     </div>
                     <div>
@@ -1267,7 +1267,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                         value={editedContent}
                         onChange={(e) => setEditedContent(e.target.value)}
                         rows={8}
-                        className="w-full px-2.5 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent resize-none"
+                        className="w-full px-2.5 py-1.5 text-xs border border-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent resize-none"
                       />
                     </div>
                   </div>
@@ -1353,7 +1353,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                             "px-2.5 py-1.5 text-xs rounded-md border transition-colors flex-shrink-0",
                             filters.companySizes.includes(option.value)
                               ? "bg-gray-900 text-white border-gray-900"
-                              : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
+                              : "bg-white text-gray-700 border-gray-100 hover:border-gray-200"
                           )}
                         >
                           {option.label}
@@ -1391,7 +1391,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                             "px-2.5 py-1.5 text-xs rounded-md border transition-colors flex-shrink-0",
                             filters.sectors.includes(option.value)
                               ? "bg-gray-900 text-white border-gray-900"
-                              : "bg-white text-gray-700 border-gray-300 hover:border-gray-400"
+                              : "bg-white text-gray-700 border-gray-100 hover:border-gray-200"
                           )}
                         >
                           {option.label}
@@ -1439,11 +1439,8 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                 <div className="space-y-2">
                   <button
                     onClick={handleRunStep}
-                    className="w-full py-2.5 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    className="w-full py-2.5 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"
                   >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                      <path d="M8 5v14l11-7L8 5z" fill="currentColor"/>
-                    </svg>
                     Run
                   </button>
                   <button

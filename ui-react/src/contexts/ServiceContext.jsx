@@ -250,6 +250,24 @@ class StorageServiceAdapter {
     }
   }
 
+  async removeFromWatchlist(ticker) {
+    try {
+      if (chrome && chrome.storage) {
+        const result = await chrome.storage.local.get(['pocketstox_watchlist'])
+        const watchlist = result.pocketstox_watchlist || []
+        const newWatchlist = watchlist.filter(item => item.ticker !== ticker)
+        await chrome.storage.local.set({ pocketstox_watchlist: newWatchlist })
+        return { success: true }
+      }
+      
+      console.log('Mock removing from watchlist:', ticker)
+      return { success: true }
+    } catch (error) {
+      console.error('Remove from watchlist failed:', error)
+      throw error
+    }
+  }
+
   async setAccount(accountData) {
     try {
       if (chrome && chrome.storage) {

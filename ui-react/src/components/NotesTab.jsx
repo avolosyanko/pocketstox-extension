@@ -21,6 +21,12 @@ const getColorForLabel = (labelName) => {
   return LABEL_COLORS[Math.abs(hash) % LABEL_COLORS.length]
 }
 
+// Helper function to capitalize first letter
+const capitalizeFirst = (str) => {
+  if (!str) return str
+  return str.charAt(0).toUpperCase() + str.slice(1)
+}
+
 // Collapsible Section Component (Linear-style)
 const CollapsibleSection = ({ title, defaultExpanded = false, children, rightElement }) => {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
@@ -77,10 +83,15 @@ const NotesTab = memo(() => {
   const [labelInputValue, setLabelInputValue] = useState('')
   const [viewingCompany, setViewingCompany] = useState(null)
   const [companyThesis, setCompanyThesis] = useState('')
+  const [showLabelDropdown, setShowLabelDropdown] = useState(null)
+  const [availableLabels, setAvailableLabels] = useState(['watching', 'researching', 'conviction', 'owned'])
+  const [creatingNewLabel, setCreatingNewLabel] = useState(false)
+  const [newLabelName, setNewLabelName] = useState('')
 
   const contentRef = useRef(null)
   const titleRef = useRef(null)
   const labelInputRef = useRef(null)
+  const dropdownRef = useRef(null)
 
   // Handle label submit
   const handleLabelSubmit = (companyTicker) => {
@@ -102,12 +113,48 @@ const NotesTab = memo(() => {
     storage.saveWatchlist?.(updated)
   }
 
-  // Start editing a label
+  // Start editing a label - now shows dropdown instead of text input
   const startEditingLabel = (company) => {
-    setEditingLabelTicker(company.ticker)
-    setLabelInputValue(company.label || '')
-    // Focus input after render
-    setTimeout(() => labelInputRef.current?.focus(), 0)
+    setShowLabelDropdown(company.ticker)
+    setCreatingNewLabel(false)
+    setNewLabelName('')
+  }
+
+  // Handle selecting a label from dropdown
+  const handleLabelSelect = (companyTicker, labelName) => {
+    setTrackedCompanies(prev =>
+      prev.map(c =>
+        c.ticker === companyTicker ? { ...c, label: labelName } : c
+      )
+    )
+    
+    setShowLabelDropdown(null)
+    
+    // Save to storage
+    const updated = trackedCompanies.map(c =>
+      c.ticker === companyTicker ? { ...c, label: labelName } : c
+    )
+    storage.saveWatchlist?.(updated)
+  }
+
+  // Handle creating a new label
+  const handleCreateNewLabel = (companyTicker) => {
+    const trimmedName = newLabelName.trim()
+    if (trimmedName && !availableLabels.includes(trimmedName)) {
+      setAvailableLabels(prev => [...prev, trimmedName])
+    }
+    
+    if (trimmedName) {
+      handleLabelSelect(companyTicker, trimmedName)
+    }
+    
+    setCreatingNewLabel(false)
+    setNewLabelName('')
+  }
+
+  // Handle removing a label (set to null)
+  const handleRemoveLabel = (companyTicker) => {
+    handleLabelSelect(companyTicker, null)
   }
 
   // Load companies from storage
@@ -238,6 +285,20 @@ const NotesTab = memo(() => {
     }
   }, [])
 
+  // Handle click outside to close label dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showLabelDropdown && dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowLabelDropdown(null)
+        setCreatingNewLabel(false)
+        setNewLabelName('')
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showLabelDropdown])
+
   const handleManualSave = () => {
     saveNote()
   }
@@ -262,19 +323,20 @@ const NotesTab = memo(() => {
     return (
       <div className="fixed inset-0 z-50 flex flex-col bg-white">
         {/* Header with Back Button */}
-        <div className="flex-shrink-0 px-4 py-2.5 border-b border-gray-200">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setViewingCompany(null)}
-              className="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <div className="flex-1">
-              <h1 className="text-sm font-semibold text-gray-900">{viewingCompany.ticker}</h1>
-              <p className="text-xs text-gray-400">{viewingCompany.company}</p>
+        <div className="flex-shrink-0 bg-white border-b border-gray-200">
+          <div className="px-4 py-2">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setViewingCompany(null)}
+                className="flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+              >
+                ←
+              </button>
+              <div className="flex-1 min-w-0">
+                <h1 className="text-sm font-medium text-gray-900">
+                  Notes
+                </h1>
+              </div>
             </div>
           </div>
         </div>
@@ -314,26 +376,91 @@ const NotesTab = memo(() => {
                 </a>
               </PropertyRow>
               <PropertyRow label="Labels">
-                <button
-                  className="flex items-center text-gray-900 hover:text-gray-600 transition-colors"
-                  onClick={() => {
-                    // Could open label editor
-                  }}
-                >
-                  {viewingCompany.label ? (
-                    <>
-                      <span className={`w-2.5 h-2.5 rounded-full ${colorClass} mr-1.5`}></span>
-                      {viewingCompany.label}
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-3.5 h-3.5 text-gray-400 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                      </svg>
-                      Add label
-                    </>
+                <div className="relative" ref={showLabelDropdown === `detail-${viewingCompany.ticker}` ? dropdownRef : null}>
+                  <button
+                    className="flex items-center text-gray-900 hover:text-gray-600 transition-colors"
+                    onClick={() => setShowLabelDropdown(`detail-${viewingCompany.ticker}`)}
+                  >
+                    {viewingCompany.label ? (
+                      <>
+                        <span className={`w-2.5 h-2.5 rounded-full ${colorClass} mr-1.5`}></span>
+                        {capitalizeFirst(viewingCompany.label)}
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3.5 h-3.5 text-gray-400 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                        </svg>
+                        None
+                      </>
+                    )}
+                  </button>
+                  
+                  {/* Label Dropdown for Detail View */}
+                  {showLabelDropdown === `detail-${viewingCompany.ticker}` && (
+                    <div className="absolute left-0 top-full mt-1 w-32 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+                      {/* Remove Label Option */}
+                      <button
+                        onClick={() => {
+                          handleRemoveLabel(viewingCompany.ticker)
+                          setViewingCompany(prev => ({ ...prev, label: null }))
+                        }}
+                        className="w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                      >
+                        <span className="w-2 h-2 rounded-full bg-gray-300"></span>
+                        None
+                      </button>
+                      
+                      {/* Existing Labels */}
+                      {availableLabels.map((label) => (
+                        <button
+                          key={label}
+                          onClick={() => {
+                            handleLabelSelect(viewingCompany.ticker, label)
+                            setViewingCompany(prev => ({ ...prev, label }))
+                          }}
+                          className="w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                        >
+                          <span className={`w-2 h-2 rounded-full ${getColorForLabel(label)}`}></span>
+                          {capitalizeFirst(label)}
+                        </button>
+                      ))}
+                      
+                      {/* Create New Label */}
+                      {!creatingNewLabel ? (
+                        <button
+                          onClick={() => setCreatingNewLabel(true)}
+                          className="w-full px-3 py-2 text-left text-xs text-gray-500 hover:bg-gray-50 border-t border-gray-100"
+                        >
+                          + Create new
+                        </button>
+                      ) : (
+                        <div className="p-2 border-t border-gray-100">
+                          <input
+                            type="text"
+                            value={newLabelName}
+                            onChange={(e) => setNewLabelName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                const trimmedName = newLabelName.trim()
+                                if (trimmedName) {
+                                  handleCreateNewLabel(viewingCompany.ticker)
+                                  setViewingCompany(prev => ({ ...prev, label: trimmedName }))
+                                }
+                              } else if (e.key === 'Escape') {
+                                setCreatingNewLabel(false)
+                                setNewLabelName('')
+                              }
+                            }}
+                            placeholder="Label name..."
+                            className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400"
+                            autoFocus
+                          />
+                        </div>
+                      )}
+                    </div>
                   )}
-                </button>
+                </div>
               </PropertyRow>
             </div>
           </CollapsibleSection>
@@ -470,34 +597,71 @@ const NotesTab = memo(() => {
                   <span className="text-gray-400 truncate">{company.company}</span>
                 </button>
 
-                {/* Label Pill - Click to edit */}
-                {isEditing ? (
-                  <input
-                    ref={labelInputRef}
-                    type="text"
-                    value={labelInputValue}
-                    onChange={(e) => setLabelInputValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        handleLabelSubmit(company.ticker)
-                      } else if (e.key === 'Escape') {
-                        setEditingLabelTicker(null)
-                        setLabelInputValue('')
-                      }
-                    }}
-                    onBlur={() => handleLabelSubmit(company.ticker)}
-                    placeholder="Type label..."
-                    className="w-24 px-2 py-0.5 text-xs bg-white border border-gray-300 rounded-full focus:outline-none focus:border-gray-400"
-                  />
-                ) : (
+                {/* Label Pill - Click to show dropdown */}
+                <div className="relative" ref={showLabelDropdown === company.ticker ? dropdownRef : null}>
                   <button
                     onClick={() => startEditingLabel(company)}
                     className="flex-shrink-0 flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs text-gray-500 border border-gray-200 hover:border-gray-300 transition-colors"
                   >
                     <span className={`w-2 h-2 rounded-full ${colorClass}`}></span>
-                    {company.label || 'Add'}
+                    {company.label ? capitalizeFirst(company.label) : 'None'}
                   </button>
-                )}
+                  
+                  {/* Label Dropdown */}
+                  {showLabelDropdown === company.ticker && (
+                    <div className="absolute right-0 top-full mt-1 w-32 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+                      {/* Remove Label Option */}
+                      <button
+                        onClick={() => handleRemoveLabel(company.ticker)}
+                        className="w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                      >
+                        <span className="w-2 h-2 rounded-full bg-gray-300"></span>
+                        None
+                      </button>
+                      
+                      {/* Existing Labels */}
+                      {availableLabels.map((label) => (
+                        <button
+                          key={label}
+                          onClick={() => handleLabelSelect(company.ticker, label)}
+                          className="w-full px-3 py-2 text-left text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                        >
+                          <span className={`w-2 h-2 rounded-full ${getColorForLabel(label)}`}></span>
+                          {capitalizeFirst(label)}
+                        </button>
+                      ))}
+                      
+                      {/* Create New Label */}
+                      {!creatingNewLabel ? (
+                        <button
+                          onClick={() => setCreatingNewLabel(true)}
+                          className="w-full px-3 py-2 text-left text-xs text-gray-500 hover:bg-gray-50 border-t border-gray-100"
+                        >
+                          + Create new
+                        </button>
+                      ) : (
+                        <div className="p-2 border-t border-gray-100">
+                          <input
+                            type="text"
+                            value={newLabelName}
+                            onChange={(e) => setNewLabelName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleCreateNewLabel(company.ticker)
+                              } else if (e.key === 'Escape') {
+                                setCreatingNewLabel(false)
+                                setNewLabelName('')
+                              }
+                            }}
+                            placeholder="Label name..."
+                            className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:border-gray-400"
+                            autoFocus
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             )
           })}
