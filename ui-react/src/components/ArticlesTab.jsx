@@ -2,6 +2,7 @@ import React, { useState, useEffect, memo, useImperativeHandle, forwardRef, useC
 import { Card, CardContent } from '@/components/ui/card'
 import { FileText, Search, Edit2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import CompanyIcon from './CompanyIcon'
 import { semanticTypography, componentSpacing, spacing } from '@/styles/typography'
 import { useAPI, useStorage } from '@/contexts/ServiceContext'
 
@@ -39,8 +40,10 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
     companySizes: [], // 'small', 'mid', 'large'
     sectors: [],      // 'technology', 'healthcare', 'financials', etc.
     regions: [],      // 'north-america', 'europe', 'asia', etc. (future)
-    industries: []    // 'technology', 'healthcare', etc. (future - deprecated, use sectors)
+    industries: [],   // 'technology', 'healthcare', etc. (future - deprecated, use sectors)
+    blocklist: []     // ['AAPL', 'TSLA', etc.] - companies to exclude from recommendations
   })
+  const [blocklistInput, setBlocklistInput] = useState('')
 
   // Scenario templates
   const scenarioTemplates = [
@@ -91,6 +94,32 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
     })
   }
 
+  // Blocklist handlers
+  const handleAddToBlocklist = () => {
+    const ticker = blocklistInput.trim().toUpperCase()
+    if (ticker && !filters.blocklist.includes(ticker)) {
+      setFilters(prev => ({
+        ...prev,
+        blocklist: [...prev.blocklist, ticker]
+      }))
+      setBlocklistInput('')
+    }
+  }
+
+  const handleRemoveFromBlocklist = (ticker) => {
+    setFilters(prev => ({
+      ...prev,
+      blocklist: prev.blocklist.filter(t => t !== ticker)
+    }))
+  }
+
+  const handleBlocklistKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleAddToBlocklist()
+    }
+  }
+
   // Get current browser tab info and listen for tab changes
   useEffect(() => {
     const getCurrentTab = async () => {
@@ -99,11 +128,20 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
           const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
           if (tab) {
             const domain = tab.url ? new URL(tab.url).hostname.replace('www.', '') : 'Unknown'
+            let faviconUrl = null
+            
+            // Use tab's favicon if available, otherwise construct Google favicon URL
+            if (tab.favIconUrl && tab.favIconUrl.startsWith('http')) {
+              faviconUrl = tab.favIconUrl
+            } else if (domain && domain !== 'Unknown') {
+              faviconUrl = `https://www.google.com/s2/favicons?sz=16&domain=${domain}`
+            }
+            
             const newTabInfo = {
               title: tab.title,
               url: tab.url,
               domain: domain,
-              favicon: tab.favIconUrl || `https://www.google.com/s2/favicons?sz=16&domain=${domain}`
+              favicon: faviconUrl
             }
             setCurrentBrowserTab(newTabInfo)
             // Clear favicon errors for new tab
@@ -187,10 +225,10 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
 
   const handleLoadMore = async () => {
     setIsLoadingMore(true)
-    
+
     // Simulate loading delay
     await new Promise(resolve => setTimeout(resolve, 500))
-    
+
     const currentCount = displayedArticles.length
     const nextBatch = articles.slice(currentCount, currentCount + loadMoreCount)
     setDisplayedArticles(prev => [...prev, ...nextBatch])
@@ -800,23 +838,23 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
       // When searching, show all articles that match the search
       const searchResults = articles.filter(article => {
         const query = searchQuery.toLowerCase()
-        
+
         // Search in title
         const titleMatch = article.title?.toLowerCase().includes(query)
-        
+
         // Search in domain/source
-        const domainMatch = article.url ? 
-          article.url.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '').toLowerCase().includes(query) 
+        const domainMatch = article.url ?
+          article.url.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '').toLowerCase().includes(query)
           : false
-        
+
         // Search in ticker symbols (keeping existing functionality)
-        const tickerMatch = article.companies?.some(company => 
+        const tickerMatch = article.companies?.some(company =>
           company.symbol?.toLowerCase().includes(query) ||
           company.ticker?.toLowerCase().includes(query) ||
           company.company?.toLowerCase().includes(query) ||
           (typeof company === 'string' && company.toLowerCase().includes(query))
         )
-        
+
         return titleMatch || domainMatch || tickerMatch
       })
       setDisplayedArticles(searchResults)
@@ -1046,87 +1084,209 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
   // Group filtered articles by date
   const groupedArticles = groupArticlesByDate(filteredArticles)
 
-  // Generate random color for icon
-  const getRandomColor = (seed) => {
-    // Use article title as seed for consistent colors
-    let hash = 0
-    for (let i = 0; i < seed.length; i++) {
-      hash = seed.charCodeAt(i) + ((hash << 5) - hash)
+
+
+  // Calculate analytics from articles
+  const calculateAnalytics = () => {
+    // Get unique companies and their mention counts
+    const companyMap = new Map()
+    const sectorMap = new Map()
+    const coOccurrenceMap = new Map()
+
+    // Time-based tracking
+    const now = new Date()
+    const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000)
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+
+    const recentCompanyMap = new Map() // Last 2 days
+    const recentSectorMap = new Map() // Last 7 days
+    const historicalSectorMap = new Map() // Everything before last 7 days
+
+    articles.forEach(article => {
+      const articleDate = article.timestamp ? new Date(article.timestamp) : new Date()
+      const isRecent = articleDate >= twoDaysAgo
+      const isThisWeek = articleDate >= oneWeekAgo
+
+      if (article.matches && article.matches.length > 0) {
+        // Track tickers in this article for co-occurrence
+        const tickersInArticle = []
+
+        article.matches.forEach(match => {
+          const ticker = match.ticker
+          const company = match.company || ticker
+          const sector = match.industry || match.sector || 'Other'
+
+          // Count company mentions (all time)
+          if (ticker) {
+            companyMap.set(ticker, {
+              ticker,
+              company,
+              count: (companyMap.get(ticker)?.count || 0) + 1
+            })
+            tickersInArticle.push(ticker)
+
+            // Track recent company activity (last 2 days)
+            if (isRecent) {
+              recentCompanyMap.set(ticker, (recentCompanyMap.get(ticker) || 0) + 1)
+            }
+          }
+
+          // Count sectors by time period
+          if (sector) {
+            sectorMap.set(sector, (sectorMap.get(sector) || 0) + 1)
+
+            if (isThisWeek) {
+              recentSectorMap.set(sector, (recentSectorMap.get(sector) || 0) + 1)
+            } else {
+              historicalSectorMap.set(sector, (historicalSectorMap.get(sector) || 0) + 1)
+            }
+          }
+        })
+
+        // Calculate co-occurrences (companies appearing together)
+        if (tickersInArticle.length > 1) {
+          tickersInArticle.sort() // Sort to ensure consistent pairs
+          for (let i = 0; i < tickersInArticle.length; i++) {
+            for (let j = i + 1; j < tickersInArticle.length; j++) {
+              const pair = `${tickersInArticle[i]} + ${tickersInArticle[j]}`
+              coOccurrenceMap.set(pair, (coOccurrenceMap.get(pair) || 0) + 1)
+            }
+          }
+        }
+      }
+    })
+
+    // Sort companies by mention count
+    const topCompanies = Array.from(companyMap.values())
+      .sort((a, b) => b.count - a.count)
+
+    // Sort sectors by count
+    const topSectors = Array.from(sectorMap.entries())
+      .map(([sector, count]) => ({ sector, count }))
+      .sort((a, b) => b.count - a.count)
+
+    // Calculate sector concentration (top sector percentage)
+    const totalSectorMentions = Array.from(sectorMap.values()).reduce((sum, count) => sum + count, 0)
+    const sectorConcentration = topSectors.length > 0
+      ? {
+          sector: topSectors[0].sector,
+          percentage: Math.round((topSectors[0].count / totalSectorMentions) * 100)
+        }
+      : null
+
+    // Calculate company concentration (top company vs next)
+    const companyConcentration = topCompanies.length > 0
+      ? {
+          topCompany: topCompanies[0].ticker,
+          topCount: topCompanies[0].count,
+          nextCount: topCompanies.length > 1 ? topCompanies[1].count : 0
+        }
+      : null
+
+    // Find top co-occurrences
+    const topCoOccurrences = Array.from(coOccurrenceMap.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([pair, count]) => ({ pair, count }))
+
+    // Calculate Trending Now (companies with burst activity in last 2 days)
+    let trendingCompany = null
+    if (recentCompanyMap.size > 0 && articles.length > 7) { // Need enough data
+      // Find company with highest recent activity that has historical baseline
+      const candidates = Array.from(recentCompanyMap.entries())
+        .map(([ticker, recentCount]) => {
+          const totalCount = companyMap.get(ticker)?.count || 0
+          const historicalCount = totalCount - recentCount
+          const daysOfHistory = Math.max(1, (articles.length - recentCount) / 3) // Rough estimate
+          const historicalAvg = historicalCount / daysOfHistory
+
+          // Calculate acceleration (avoid division by zero)
+          const acceleration = historicalAvg > 0 ? recentCount / historicalAvg : recentCount
+
+          return {
+            ticker,
+            recentCount,
+            historicalAvg: Math.round(historicalAvg * 10) / 10,
+            acceleration
+          }
+        })
+        .filter(c => c.acceleration > 2 && c.recentCount >= 2) // Significant acceleration
+        .sort((a, b) => b.acceleration - a.acceleration)
+
+      if (candidates.length > 0) {
+        trendingCompany = candidates[0]
+      }
     }
-    
-    const colors = [
-      'bg-blue-500',
-      'bg-green-500', 
-      'bg-purple-500',
-      'bg-pink-500',
-      'bg-yellow-500',
-      'bg-red-500',
-      'bg-indigo-500',
-      'bg-orange-500',
-      'bg-teal-500',
-      'bg-cyan-500'
-    ]
-    
-    return colors[Math.abs(hash) % colors.length]
+
+    // Calculate Focus Shift (sector changes this week vs historical)
+    let focusShift = null
+    if (recentSectorMap.size > 0 && historicalSectorMap.size > 0) {
+      const shifts = Array.from(recentSectorMap.entries())
+        .map(([sector, recentCount]) => {
+          const historicalCount = historicalSectorMap.get(sector) || 0
+          const totalHistorical = Array.from(historicalSectorMap.values()).reduce((sum, c) => sum + c, 0)
+          const totalRecent = Array.from(recentSectorMap.values()).reduce((sum, c) => sum + c, 0)
+
+          const historicalPct = totalHistorical > 0 ? (historicalCount / totalHistorical) * 100 : 0
+          const recentPct = totalRecent > 0 ? (recentCount / totalRecent) * 100 : 0
+          const change = recentPct - historicalPct
+
+          return {
+            sector,
+            change: Math.round(change),
+            recentPct: Math.round(recentPct)
+          }
+        })
+        .filter(s => Math.abs(s.change) > 20 && s.recentPct > 10) // Significant shifts only
+        .sort((a, b) => Math.abs(b.change) - Math.abs(a.change))
+
+      if (shifts.length > 0) {
+        focusShift = shifts[0]
+      }
+    }
+
+    return {
+      totalArticles: articles.length,
+      totalCompanies: companyMap.size,
+      sectorConcentration,
+      companyConcentration,
+      topCoOccurrences,
+      trendingCompany,
+      focusShift
+    }
   }
 
-  // Get full stock ticker
-  const getIconText = (article) => {
-    // Try to get ticker from matches array first
-    if (article.matches && article.matches.length > 0) {
-      const firstMatch = article.matches[0]
-      if (firstMatch.ticker) {
-        return firstMatch.ticker.toUpperCase()
-      }
-    }
-    
-    // Fallback to companies array
-    if (article.companies && article.companies.length > 0) {
-      const firstCompany = article.companies[0]
-      if (typeof firstCompany === 'string') {
-        return firstCompany.toUpperCase()
-      }
-    }
-    
-    // Final fallback to first letter of title
-    return article.title?.charAt(0)?.toUpperCase() || 'A'
-  }
+  const analytics = calculateAnalytics()
 
   // Render article as list item with Gmail-style design
-  const renderArticleItem = (article, isLast = false) => {
+  const renderArticleItem = (article) => {
     const handleCardClick = () => {
       onArticleClick?.(article)
     }
-    
+
     return (
-      <div 
+      <div
         className="relative cursor-pointer transition-all duration-200 group hover:bg-gray-50 hover:rounded-lg"
         onClick={handleCardClick}
       >
-        <div className="flex items-center gap-3 px-3 py-3">
-          {/* Ticker rounded square icon */}
-          <div className={cn(
-            "w-12 h-12 rounded-md flex items-center justify-center text-white font-medium text-[10px] flex-shrink-0",
-            getRandomColor(article.title || article.url || 'default')
-          )}>
-            {getIconText(article)}
-          </div>
-          
+        <div className="flex items-start gap-3 px-3 py-3">
+          {/* Company icon with dynamic color background */}
+          <CompanyIcon article={article} size="xs" />
+
           {/* Content */}
           <div className="flex-1 min-w-0">
             {/* Title */}
-            <h3 className="font-medium text-gray-900 mb-1 line-clamp-2 leading-tight">
+            <h3 className="text-[11px] font-medium text-gray-900 mb-1 line-clamp-1 leading-tight">
               {article.title}
             </h3>
 
-            {/* Meta info */}
-            <div className="space-y-0.5">
+            {/* Meta info - URL and timestamp on same line */}
+            <div className="flex items-center gap-2 text-[11px] text-gray-500">
               {article.url && (
-                <div className="text-gray-600">
-                  <span className="truncate text-xs">{extractDomain(article.url)}</span>
-                </div>
+                <span className="truncate text-gray-600">{extractDomain(article.url)}</span>
               )}
-              <div className="text-xs text-gray-500">{formatDate(article.timestamp)}</div>
+              <span className="flex-shrink-0">•</span>
+              <span className="flex-shrink-0">{formatDate(article.timestamp)}</span>
             </div>
           </div>
         </div>
@@ -1139,84 +1299,106 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
 
       {/* Actions Section - Combined Pipeline UI - Hide when searching */}
       {(!searchQuery || !searchQuery.trim()) && (
-        <div className="mb-3 ml-2 pr-1">
+        <div className="mb-3 px-1">
         {/* Stage-focused Pipeline Card */}
-        <div className="border border-gray-200 rounded-lg bg-white overflow-hidden">
-
-          {/* Header bar with title, help icon, and loading spinner */}
-          <div className="flex items-center justify-between px-3 py-3 border-b border-gray-100">
-            <div className="flex items-center gap-2">
-              <span className="px-1.5 py-0.5 text-[10px] font-medium text-white bg-gray-900 rounded-full">Beta</span>
-              <span className="text-sm font-medium text-gray-900">Discovery Engine</span>
-
-            </div>
-
-            {/* Loading spinner - shown when parsing or analyzing */}
-            {(extractionStages.parsing.status === 'active' || extractionStages.analysis.status === 'active') && (
-              <div className="w-3.5 h-3.5 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
-            )}
-          </div>
+        <div className="border border-gray-200/50 rounded-lg bg-white/70 backdrop-blur-sm overflow-hidden">
 
           {/* Stage Content - Only show current/relevant stage */}
           {/* STAGE 1: Extract - Show when on step 0 or parsing is active */}
           {currentStep === 0 && !extractionStages.parsing.status.match(/completed/) && (
             <>
-              <div className="px-4 pt-4 pb-2">
-                <div className="space-y-2">
-                  {/* Stage description with step indicator */}
-                  <div>
-                    <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">Step 1 of 2</span>
-                    <p className="font-medium text-gray-700 mt-0.5">Extract Content</p>
-                    <p className="text-xs text-gray-500">Pull article text from the current page, or enter your own</p>
+              <div className="text-center px-6 pt-7 pb-5">
+                <div className="flex items-center justify-center gap-2 mb-3">
+                  <span className="text-[11px] font-medium text-gray-500">Discovery Engine</span>
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-gray-400/20 rounded-full">
+                    <span className="text-[10px] font-medium text-gray-500">BETA</span>
+                    <div className="w-2.5 h-2.5 bg-gray-500 rounded-full flex items-center justify-center">
+                      <span className="text-[7px] text-white font-bold">i</span>
+                    </div>
                   </div>
+                  {/* Loading spinner - shown when parsing or analyzing */}
+                  {(extractionStages.parsing.status === 'active' || extractionStages.analysis.status === 'active') && (
+                    <div className="w-3 h-3 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+                  )}
+                </div>
+                <p className="text-sm font-medium text-gray-900 leading-normal">Map your reading to understand affected public companies</p>
+              </div>
+              
+              <div className="px-4 pb-2">
+                <div className="space-y-2">
                   {/* Current tab preview - display only */}
                   {currentBrowserTab && (
-                    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-md">
+                    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-md shadow-inner">
                       {currentBrowserTab.favicon && !faviconLoadErrors.has(`current-${currentBrowserTab.favicon}`) ? (
                         <img
                           src={currentBrowserTab.favicon}
                           alt=""
                           className="w-4 h-4 rounded-sm flex-shrink-0"
-                          onError={() => setFaviconLoadErrors(prev => new Set([...prev, `current-${currentBrowserTab.favicon}`]))}
+                          onError={(e) => {
+                            setFaviconLoadErrors(prev => new Set([...prev, `current-${currentBrowserTab.favicon}`]))
+                            // Try fallback favicon
+                            if (currentBrowserTab.domain && currentBrowserTab.domain !== 'Unknown') {
+                              const fallbackUrl = `https://www.google.com/s2/favicons?sz=16&domain=${currentBrowserTab.domain}`
+                              if (e.target.src !== fallbackUrl) {
+                                e.target.src = fallbackUrl
+                              }
+                            }
+                          }}
                         />
                       ) : (
                         <div className="w-4 h-4 bg-gray-300 rounded-sm flex-shrink-0" />
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-900 truncate">{currentBrowserTab.title || 'Current Tab'}</p>
-                        <p className="text-xs text-gray-500 truncate">{currentBrowserTab.url}</p>
+                        <p className="text-[11px] font-medium text-gray-900 truncate">{currentBrowserTab.title || 'Current Tab'}</p>
+                        <p className="text-[11px] text-gray-500 truncate">{currentBrowserTab.url}</p>
                       </div>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Full-width separator */}
-              <div className="border-t border-gray-100"></div>
-
               {/* Action buttons section */}
-              <div className="px-4 pt-2 pb-4">
-                <button
-                  onClick={extractionStages.parsing.status !== 'active' ? handleRunStep : undefined}
-                  disabled={extractionStages.parsing.status === 'active'}
-                  className="w-full py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:bg-gray-300 disabled:text-gray-500"
-                >
-                  {extractionStages.parsing.status === 'active' ? 'Extracting...' : 'Extract Tab'}
-                </button>
+              <div className="px-4 pt-2 pb-3">
+                <div className="space-y-2">
+                  <button
+                    onClick={extractionStages.parsing.status !== 'active' ? handleRunStep : undefined}
+                    disabled={extractionStages.parsing.status === 'active'}
+                    className="w-full py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:bg-gray-300 disabled:text-gray-500"
+                  >
+                    {extractionStages.parsing.status === 'active' ? 'Extracting...' : 'Current Tab'}
+                  </button>
+                  
+                  {extractionStages.parsing.status !== 'active' && (
+                    <button
+                      onClick={handleCustomEntry}
+                      className="w-full py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                    >
+                      Scenario Testing
+                    </button>
+                  )}
+                </div>
               </div>
             </>
           )}
 
           {/* STAGE 2: Run - Show after parsing is complete */}
           {(extractionStages.parsing.status === 'completed' && currentStep >= 1 && detectionState !== 'ready') && (
-            <div className="px-4 py-4">
-              <div className="space-y-2">
-                {/* Stage description with step indicator */}
-                <div>
-                  <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">Step 2 of 2</span>
-                  <p className="font-medium text-gray-700 mt-0.5">Identify Themes</p>
-                  <p className="text-xs text-gray-500">AI will detect companies, sectors and topics mentioned</p>
+            <div className="px-3 py-6 text-center">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <span className="text-[11px] font-medium text-gray-500">Discovery Engine</span>
+                <div className="flex items-center gap-1 px-1.5 py-0.5 bg-gray-400/20 rounded-full">
+                  <span className="text-[10px] font-medium text-gray-500">BETA</span>
+                  <div className="w-2.5 h-2.5 bg-gray-500 rounded-full flex items-center justify-center">
+                    <span className="text-[7px] text-white font-bold">i</span>
+                  </div>
                 </div>
+                {/* Loading spinner - shown when parsing or analyzing */}
+                {(extractionStages.parsing.status === 'active' || extractionStages.analysis.status === 'active') && (
+                  <div className="w-3 h-3 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+                )}
+              </div>
+              <p className="text-sm font-medium text-gray-900 leading-tight mb-4">Apply changes and add configurations for processing</p>
+              <div className="space-y-2">
 
                 {/* Template Picker - Show when user clicks Scenario Testing */}
                 {showTemplates ? (
@@ -1228,10 +1410,9 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                       {/* Custom option - first */}
                       <button
                         onClick={handleCustomScenario}
-                        className="w-full text-left p-3 bg-white hover:bg-gray-50 rounded-lg transition-colors border border-gray-100 hover:border-gray-200"
+                        className="w-full py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                       >
-                        <p className="text-xs font-medium text-gray-900 mb-0.5">Custom Scenario</p>
-                        <p className="text-xs text-gray-600">Write your own scenario from scratch</p>
+                        Custom Scenario
                       </button>
 
                       {/* Pre-built templates */}
@@ -1239,10 +1420,9 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                         <button
                           key={template.id}
                           onClick={() => handleTemplateSelect(template)}
-                          className="w-full text-left p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-100 hover:border-gray-200"
+                          className="w-full py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                         >
-                          <p className="text-xs font-medium text-gray-900 mb-0.5">{template.title}</p>
-                          <p className="text-xs text-gray-600">{template.description}</p>
+                          {template.title}
                         </button>
                       ))}
                     </div>
@@ -1251,23 +1431,23 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
 
                 {/* Scenario content editor - always editable for scenario testing */}
                 {identifiedArticle && !showTemplates && (
-                  <div className="space-y-3 p-3 bg-gray-50 rounded-md">
+                  <div className="space-y-3">
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Title</label>
                       <input
                         type="text"
                         value={editedTitle}
                         onChange={(e) => setEditedTitle(e.target.value)}
-                        className="w-full px-2.5 py-1.5 text-xs border border-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
+                        placeholder="Title"
+                        className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Content</label>
                       <textarea
                         value={editedContent}
                         onChange={(e) => setEditedContent(e.target.value)}
+                        placeholder="Content"
                         rows={8}
-                        className="w-full px-2.5 py-1.5 text-xs border border-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent resize-none"
+                        className="w-full px-2.5 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none resize-none"
                       />
                     </div>
                   </div>
@@ -1314,12 +1494,12 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
 
           {/* Filters Section - Collapsible */}
           {currentStep >= 1 && !showTemplates && identifiedArticle && detectionState !== 'ready' && detectionState !== 'error' && (
-            <div className="border-t border-b border-gray-100 px-4 py-3">
+            <div className="border-t border-b border-gray-100 px-4 py-3 mb-3">
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className="w-full flex items-center justify-between text-left hover:opacity-70 transition-opacity"
               >
-                <span className="text-xs font-medium text-gray-700">Apply Filters</span>
+                <span className="text-xs font-medium text-gray-700">Filters</span>
                 <svg
                   className={`w-3 h-3 text-gray-400 transition-transform ${showFilters ? 'rotate-180' : ''}`}
                   fill="none"
@@ -1335,7 +1515,28 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                   {/* Company Size Filter */}
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-2">Company Size</label>
-                    <div className="flex overflow-x-auto gap-2 pb-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                    <div 
+                      className="flex overflow-x-auto gap-2 pb-2 cursor-grab active:cursor-grabbing" 
+                      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                      onMouseDown={(e) => {
+                        const container = e.currentTarget;
+                        const startX = e.pageX - container.offsetLeft;
+                        const scrollLeft = container.scrollLeft;
+                        container.style.cursor = 'grabbing';
+                        const handleMouseMove = (e) => {
+                          const x = e.pageX - container.offsetLeft;
+                          const walk = (x - startX) * 2;
+                          container.scrollLeft = scrollLeft - walk;
+                        };
+                        const handleMouseUp = () => {
+                          container.style.cursor = 'grab';
+                          document.removeEventListener('mousemove', handleMouseMove);
+                          document.removeEventListener('mouseup', handleMouseUp);
+                        };
+                        document.addEventListener('mousemove', handleMouseMove);
+                        document.addEventListener('mouseup', handleMouseUp);
+                      }}
+                    >
                       <style jsx>{`
                         div::-webkit-scrollbar {
                           display: none;
@@ -1352,7 +1553,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                           className={cn(
                             "px-2.5 py-1.5 text-xs rounded-md border transition-colors flex-shrink-0",
                             filters.companySizes.includes(option.value)
-                              ? "bg-gray-900 text-white border-gray-900"
+                              ? "bg-gray-400/20 text-gray-600 border-gray-300"
                               : "bg-white text-gray-700 border-gray-100 hover:border-gray-200"
                           )}
                         >
@@ -1365,7 +1566,28 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                   {/* Sectors Filter */}
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-2">Sectors</label>
-                    <div className="flex overflow-x-auto gap-2 pb-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                    <div 
+                      className="flex overflow-x-auto gap-2 pb-2 cursor-grab active:cursor-grabbing" 
+                      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                      onMouseDown={(e) => {
+                        const container = e.currentTarget;
+                        const startX = e.pageX - container.offsetLeft;
+                        const scrollLeft = container.scrollLeft;
+                        container.style.cursor = 'grabbing';
+                        const handleMouseMove = (e) => {
+                          const x = e.pageX - container.offsetLeft;
+                          const walk = (x - startX) * 2;
+                          container.scrollLeft = scrollLeft - walk;
+                        };
+                        const handleMouseUp = () => {
+                          container.style.cursor = 'grab';
+                          document.removeEventListener('mousemove', handleMouseMove);
+                          document.removeEventListener('mouseup', handleMouseUp);
+                        };
+                        document.addEventListener('mousemove', handleMouseMove);
+                        document.addEventListener('mouseup', handleMouseUp);
+                      }}
+                    >
                       <style jsx>{`
                         div::-webkit-scrollbar {
                           display: none;
@@ -1390,7 +1612,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                           className={cn(
                             "px-2.5 py-1.5 text-xs rounded-md border transition-colors flex-shrink-0",
                             filters.sectors.includes(option.value)
-                              ? "bg-gray-900 text-white border-gray-900"
+                              ? "bg-gray-400/20 text-gray-600 border-gray-300"
                               : "bg-white text-gray-700 border-gray-100 hover:border-gray-200"
                           )}
                         >
@@ -1399,22 +1621,64 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                       ))}
                     </div>
                   </div>
+
+                  {/* Ignore Filter */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-2">Ignore</label>
+                    <div className="space-y-2">
+                      {/* Input field */}
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={blocklistInput}
+                          onChange={(e) => setBlocklistInput(e.target.value)}
+                          onKeyDown={handleBlocklistKeyDown}
+                          placeholder="Enter ticker (e.g., AAPL)"
+                          className="flex-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:border-gray-300"
+                        />
+                        <button
+                          onClick={handleAddToBlocklist}
+                          disabled={!blocklistInput.trim()}
+                          className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded-md hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          Add
+                        </button>
+                      </div>
+
+                      {/* Ignored tickers pills */}
+                      {filters.blocklist.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {filters.blocklist.map(ticker => (
+                            <div
+                              key={ticker}
+                              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-red-50 text-red-700 border border-red-200 rounded-md"
+                            >
+                              <span>{ticker}</span>
+                              <button
+                                onClick={() => handleRemoveFromBlocklist(ticker)}
+                                className="hover:text-red-900 transition-colors"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {filters.blocklist.length === 0 && (
+                        <p className="text-xs text-gray-400 italic">No companies ignored</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
           )}
 
           {/* Full-width action buttons at bottom */}
-          {detectionState !== 'ready' && detectionState !== 'error' && (
+          {detectionState !== 'ready' && detectionState !== 'error' && currentStep >= 1 && (
             <div className="px-3 pt-0 pb-3">
-              {currentStep === 0 && extractionStages.parsing.status !== 'active' ? (
-                <button
-                  onClick={handleCustomEntry}
-                  className="w-full py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                >
-                  Scenario Testing
-                </button>
-              ) : currentStep === 0 && extractionStages.parsing.status === 'active' ? (
+              {currentStep === 0 && extractionStages.parsing.status === 'active' ? (
                 <button
                   onClick={handleCancelParsing}
                   className="w-full py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
@@ -1468,13 +1732,79 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
           </span>
         )}
       </div>
-      
+
+      {/* Log-style Analytics - Below Recents, above article groups */}
+      {(!searchQuery || !searchQuery.trim()) && articles.length > 0 && (
+        <div className="mb-4 mx-1 bg-gray-50 rounded-lg p-3 space-y-1 font-mono text-[10px] leading-relaxed border border-gray-200">
+          {/* Total Articles and Companies */}
+          <div>
+            <span className="text-gray-500">total:</span>{' '}
+            <span className="text-gray-700">{analytics.totalArticles} articles, {analytics.totalCompanies} companies</span>
+          </div>
+
+          {/* Sector Concentration */}
+          <div>
+            <span className="text-gray-500">sectors:</span>{' '}
+            <span className="text-gray-700">
+              {analytics.sectorConcentration
+                ? `${analytics.sectorConcentration.sector} (${analytics.sectorConcentration.percentage}%)`
+                : 'N/A'}
+            </span>
+          </div>
+
+          {/* Company Concentration */}
+          <div>
+            <span className="text-gray-500">companies:</span>{' '}
+            <span className="text-gray-700">
+              {analytics.companyConcentration
+                ? `${analytics.companyConcentration.topCompany} (${analytics.companyConcentration.topCount} articles)${analytics.companyConcentration.nextCount > 0 ? `, next: ${analytics.companyConcentration.nextCount}` : ''}`
+                : 'N/A'}
+            </span>
+          </div>
+
+          {/* Co-occurrence */}
+          <div>
+            <span className="text-gray-500">co_occurrence:</span>{' '}
+            <span className="text-gray-700">
+              {analytics.topCoOccurrences.length > 0
+                ? analytics.topCoOccurrences.map(({ pair, count }, index) => (
+                    <span key={pair}>
+                      {index > 0 && ', '}
+                      {pair} ({count}x)
+                    </span>
+                  ))
+                : 'None'}
+            </span>
+          </div>
+
+          {/* Trending Now */}
+          <div>
+            <span className="text-gray-500">trending:</span>{' '}
+            <span className="text-gray-700">
+              {analytics.trendingCompany
+                ? `${analytics.trendingCompany.ticker} (${analytics.trendingCompany.recentCount} in 2 days, avg ${analytics.trendingCompany.historicalAvg}/day)`
+                : 'None'}
+            </span>
+          </div>
+
+          {/* Focus Shift */}
+          <div>
+            <span className="text-gray-500">focus_shift:</span>{' '}
+            <span className="text-gray-700">
+              {analytics.focusShift
+                ? `${analytics.focusShift.sector} ${analytics.focusShift.change > 0 ? '↑' : '↓'} ${Math.abs(analytics.focusShift.change)}% this week`
+                : 'None'}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Show empty state if no articles, otherwise show articles */}
       {displayedArticles.length === 0 && !isLoading ? (
         <EmptyState />
       ) : (
         <>
-          
+
           <div className={componentSpacing.cardGroupSpacing}>
       {/* Today */}
       {groupedArticles.today.length > 0 && (
@@ -1482,10 +1812,10 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
           <div className="mb-3 px-1">
             <h3 className="text-xs text-gray-600">Today</h3>
           </div>
-          <div className="bg-white ml-2">
-            {groupedArticles.today.map((article, index) => (
+          <div className="bg-white">
+            {groupedArticles.today.map((article) => (
               <div key={article.id || article.title}>
-                {renderArticleItem(article, index === groupedArticles.today.length - 1)}
+                {renderArticleItem(article)}
               </div>
             ))}
           </div>
@@ -1498,10 +1828,10 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
           <div className="mb-3 px-1">
             <h3 className="text-xs text-gray-600">Yesterday</h3>
           </div>
-          <div className="bg-white ml-2">
-            {groupedArticles.yesterday.map((article, index) => (
+          <div className="bg-white">
+            {groupedArticles.yesterday.map((article) => (
               <div key={article.id || article.title}>
-                {renderArticleItem(article, index === groupedArticles.yesterday.length - 1)}
+                {renderArticleItem(article)}
               </div>
             ))}
           </div>
@@ -1514,10 +1844,10 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
           <div className="mb-3 px-1">
             <h3 className="text-xs text-gray-600">Last Week</h3>
           </div>
-          <div className="bg-white ml-2">
-            {groupedArticles.lastWeek.map((article, index) => (
+          <div className="bg-white">
+            {groupedArticles.lastWeek.map((article) => (
               <div key={article.id || article.title}>
-                {renderArticleItem(article, index === groupedArticles.lastWeek.length - 1)}
+                {renderArticleItem(article)}
               </div>
             ))}
           </div>
@@ -1533,10 +1863,10 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
               <div className="mb-3 px-1">
                 <h3 className="text-xs text-gray-600">{monthKey}</h3>
               </div>
-              <div className="bg-white ml-2">
-                {monthArticles.map((article, index) => (
+              <div className="bg-white">
+                {monthArticles.map((article) => (
                   <div key={article.id || article.title}>
-                    {renderArticleItem(article, index === monthArticles.length - 1)}
+                    {renderArticleItem(article)}
                   </div>
                 ))}
               </div>
@@ -1544,7 +1874,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
           )
         ))}
       </div>
-      
+
       {/* Load More Button */}
       {(!searchQuery || !searchQuery.trim()) && displayedArticles.length < articles.length && (
         <div className="mt-4 mb-3 ml-2">

@@ -8,7 +8,6 @@ const NavigationHeader = memo(({ activeTab, onTabChange, searchQuery, onSearchCh
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 })
 
   const navigationTabs = [
-    { id: 'notes', label: 'Notes' },
     { id: 'articles', label: 'Discover' }
   ]
 
@@ -64,10 +63,10 @@ const NavigationHeader = memo(({ activeTab, onTabChange, searchQuery, onSearchCh
                     key={tab.id}
                     ref={(el) => tabRefs.current[tab.id] = el}
                     onClick={() => onTabChange(tab.id)}
-                    className={`relative px-2 py-1.5 text-sm font-medium transition-colors duration-200 ${
+                    className={`relative px-2 py-1.5 text-xs font-medium transition-colors duration-200 ${
                       isActive
                         ? 'text-gray-900'
-                        : 'text-gray-400 hover:text-gray-600'
+                        : 'text-gray-400'
                     }`}
                   >
                     {tab.label}
