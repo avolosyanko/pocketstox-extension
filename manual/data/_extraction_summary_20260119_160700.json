@@ -1,0 +1,10 @@
+{
+  "total": 451,
+  "successful": 450,
+  "failed": 1,
+  "failed_tickers": [
+    "TRML"
+  ],
+  "elapsed_minutes": 46.24973331689834,
+  "completed_at": "2026-01-19T16:07:00.619315"
+}

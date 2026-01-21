@@ -324,19 +324,19 @@ function AppContent() {
                 {selectedCount} selected
               </span>
               <div className="flex items-center gap-3">
-                <button 
+                <button
                   onClick={handleSelectAll}
                   className={`${semanticTypography.secondaryText} hover:text-gray-900 cursor-pointer select-none transition-colors`}
                 >
                   Select All
                 </button>
-                <button 
+                <button
                   onClick={handleCancelSelection}
                   className={`${semanticTypography.secondaryText} hover:text-gray-900 cursor-pointer select-none transition-colors`}
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={handleDeleteSelected}
                   className={`${semanticTypography.secondaryText} text-red-600 hover:text-red-700 cursor-pointer select-none transition-colors`}
                 >
@@ -350,7 +350,7 @@ function AppContent() {
       {/* Scrollable Content Area */}
       <div className="relative flex-1 overflow-x-hidden overflow-y-auto scroll-smooth scrollbar-hide">
         {/* Gradient Background - scrolls with content */}
-        <div className="absolute inset-x-0 top-0 h-80 bg-gradient-to-b from-gray-400/20 via-gray-300/12 via-gray-200/8 to-transparent pointer-events-none"></div>
+        <div className="absolute inset-x-0 top-0 h-80 bg-gradient-to-b from-[#f0f4f8] via-[#f0f4f8]/50 to-transparent pointer-events-none"></div>
 
         {/* Dynamic Tab Content */}
         <main className={`relative ${componentSpacing.contentPadding}`}>

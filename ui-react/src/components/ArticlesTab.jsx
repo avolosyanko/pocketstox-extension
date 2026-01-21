@@ -1086,178 +1086,6 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
 
 
 
-  // Calculate analytics from articles
-  const calculateAnalytics = () => {
-    // Get unique companies and their mention counts
-    const companyMap = new Map()
-    const sectorMap = new Map()
-    const coOccurrenceMap = new Map()
-
-    // Time-based tracking
-    const now = new Date()
-    const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000)
-    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-
-    const recentCompanyMap = new Map() // Last 2 days
-    const recentSectorMap = new Map() // Last 7 days
-    const historicalSectorMap = new Map() // Everything before last 7 days
-
-    articles.forEach(article => {
-      const articleDate = article.timestamp ? new Date(article.timestamp) : new Date()
-      const isRecent = articleDate >= twoDaysAgo
-      const isThisWeek = articleDate >= oneWeekAgo
-
-      if (article.matches && article.matches.length > 0) {
-        // Track tickers in this article for co-occurrence
-        const tickersInArticle = []
-
-        article.matches.forEach(match => {
-          const ticker = match.ticker
-          const company = match.company || ticker
-          const sector = match.industry || match.sector || 'Other'
-
-          // Count company mentions (all time)
-          if (ticker) {
-            companyMap.set(ticker, {
-              ticker,
-              company,
-              count: (companyMap.get(ticker)?.count || 0) + 1
-            })
-            tickersInArticle.push(ticker)
-
-            // Track recent company activity (last 2 days)
-            if (isRecent) {
-              recentCompanyMap.set(ticker, (recentCompanyMap.get(ticker) || 0) + 1)
-            }
-          }
-
-          // Count sectors by time period
-          if (sector) {
-            sectorMap.set(sector, (sectorMap.get(sector) || 0) + 1)
-
-            if (isThisWeek) {
-              recentSectorMap.set(sector, (recentSectorMap.get(sector) || 0) + 1)
-            } else {
-              historicalSectorMap.set(sector, (historicalSectorMap.get(sector) || 0) + 1)
-            }
-          }
-        })
-
-        // Calculate co-occurrences (companies appearing together)
-        if (tickersInArticle.length > 1) {
-          tickersInArticle.sort() // Sort to ensure consistent pairs
-          for (let i = 0; i < tickersInArticle.length; i++) {
-            for (let j = i + 1; j < tickersInArticle.length; j++) {
-              const pair = `${tickersInArticle[i]} + ${tickersInArticle[j]}`
-              coOccurrenceMap.set(pair, (coOccurrenceMap.get(pair) || 0) + 1)
-            }
-          }
-        }
-      }
-    })
-
-    // Sort companies by mention count
-    const topCompanies = Array.from(companyMap.values())
-      .sort((a, b) => b.count - a.count)
-
-    // Sort sectors by count
-    const topSectors = Array.from(sectorMap.entries())
-      .map(([sector, count]) => ({ sector, count }))
-      .sort((a, b) => b.count - a.count)
-
-    // Calculate sector concentration (top sector percentage)
-    const totalSectorMentions = Array.from(sectorMap.values()).reduce((sum, count) => sum + count, 0)
-    const sectorConcentration = topSectors.length > 0
-      ? {
-          sector: topSectors[0].sector,
-          percentage: Math.round((topSectors[0].count / totalSectorMentions) * 100)
-        }
-      : null
-
-    // Calculate company concentration (top company vs next)
-    const companyConcentration = topCompanies.length > 0
-      ? {
-          topCompany: topCompanies[0].ticker,
-          topCount: topCompanies[0].count,
-          nextCount: topCompanies.length > 1 ? topCompanies[1].count : 0
-        }
-      : null
-
-    // Find top co-occurrences
-    const topCoOccurrences = Array.from(coOccurrenceMap.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([pair, count]) => ({ pair, count }))
-
-    // Calculate Trending Now (companies with burst activity in last 2 days)
-    let trendingCompany = null
-    if (recentCompanyMap.size > 0 && articles.length > 7) { // Need enough data
-      // Find company with highest recent activity that has historical baseline
-      const candidates = Array.from(recentCompanyMap.entries())
-        .map(([ticker, recentCount]) => {
-          const totalCount = companyMap.get(ticker)?.count || 0
-          const historicalCount = totalCount - recentCount
-          const daysOfHistory = Math.max(1, (articles.length - recentCount) / 3) // Rough estimate
-          const historicalAvg = historicalCount / daysOfHistory
-
-          // Calculate acceleration (avoid division by zero)
-          const acceleration = historicalAvg > 0 ? recentCount / historicalAvg : recentCount
-
-          return {
-            ticker,
-            recentCount,
-            historicalAvg: Math.round(historicalAvg * 10) / 10,
-            acceleration
-          }
-        })
-        .filter(c => c.acceleration > 2 && c.recentCount >= 2) // Significant acceleration
-        .sort((a, b) => b.acceleration - a.acceleration)
-
-      if (candidates.length > 0) {
-        trendingCompany = candidates[0]
-      }
-    }
-
-    // Calculate Focus Shift (sector changes this week vs historical)
-    let focusShift = null
-    if (recentSectorMap.size > 0 && historicalSectorMap.size > 0) {
-      const shifts = Array.from(recentSectorMap.entries())
-        .map(([sector, recentCount]) => {
-          const historicalCount = historicalSectorMap.get(sector) || 0
-          const totalHistorical = Array.from(historicalSectorMap.values()).reduce((sum, c) => sum + c, 0)
-          const totalRecent = Array.from(recentSectorMap.values()).reduce((sum, c) => sum + c, 0)
-
-          const historicalPct = totalHistorical > 0 ? (historicalCount / totalHistorical) * 100 : 0
-          const recentPct = totalRecent > 0 ? (recentCount / totalRecent) * 100 : 0
-          const change = recentPct - historicalPct
-
-          return {
-            sector,
-            change: Math.round(change),
-            recentPct: Math.round(recentPct)
-          }
-        })
-        .filter(s => Math.abs(s.change) > 20 && s.recentPct > 10) // Significant shifts only
-        .sort((a, b) => Math.abs(b.change) - Math.abs(a.change))
-
-      if (shifts.length > 0) {
-        focusShift = shifts[0]
-      }
-    }
-
-    return {
-      totalArticles: articles.length,
-      totalCompanies: companyMap.size,
-      sectorConcentration,
-      companyConcentration,
-      topCoOccurrences,
-      trendingCompany,
-      focusShift
-    }
-  }
-
-  const analytics = calculateAnalytics()
-
   // Render article as list item with Gmail-style design
   const renderArticleItem = (article) => {
     const handleCardClick = () => {
@@ -1310,7 +1138,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
               <div className="text-center px-6 pt-7 pb-5">
                 <div className="flex items-center justify-center gap-2 mb-3">
                   <span className="text-[11px] font-medium text-gray-500">Discovery Engine</span>
-                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-gray-400/20 rounded-full">
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-[#f0f4f8] rounded-full">
                     <span className="text-[10px] font-medium text-gray-500">BETA</span>
                     <div className="w-2.5 h-2.5 bg-gray-500 rounded-full flex items-center justify-center">
                       <span className="text-[7px] text-white font-bold">i</span>
@@ -1363,15 +1191,15 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                   <button
                     onClick={extractionStages.parsing.status !== 'active' ? handleRunStep : undefined}
                     disabled={extractionStages.parsing.status === 'active'}
-                    className="w-full py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:bg-gray-300 disabled:text-gray-500"
+                    className="w-full py-2.5 text-xs text-gray-600 bg-[#f0f4f8] hover:bg-[#e5edf5] rounded-lg transition-colors disabled:bg-gray-300 disabled:text-gray-500"
                   >
                     {extractionStages.parsing.status === 'active' ? 'Extracting...' : 'Current Tab'}
                   </button>
-                  
+
                   {extractionStages.parsing.status !== 'active' && (
                     <button
                       onClick={handleCustomEntry}
-                      className="w-full py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                      className="w-full py-2.5 text-xs text-gray-600 bg-[#f0f4f8] hover:bg-[#e5edf5] rounded-lg transition-colors"
                     >
                       Scenario Testing
                     </button>
@@ -1410,7 +1238,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                       {/* Custom option - first */}
                       <button
                         onClick={handleCustomScenario}
-                        className="w-full py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                        className="w-full py-2.5 text-xs text-gray-600 bg-[#f0f4f8] hover:bg-[#e5edf5] rounded-lg transition-colors"
                       >
                         Custom Scenario
                       </button>
@@ -1420,7 +1248,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                         <button
                           key={template.id}
                           onClick={() => handleTemplateSelect(template)}
-                          className="w-full py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                          className="w-full py-2.5 text-xs text-gray-600 bg-[#f0f4f8] hover:bg-[#e5edf5] rounded-lg transition-colors"
                         >
                           {template.title}
                         </button>
@@ -1681,21 +1509,21 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
               {currentStep === 0 && extractionStages.parsing.status === 'active' ? (
                 <button
                   onClick={handleCancelParsing}
-                  className="w-full py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  className="w-full py-2.5 text-xs text-gray-600 bg-[#f0f4f8] hover:bg-[#e5edf5] rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
               ) : showTemplates ? (
                 <button
                   onClick={handleReset}
-                  className="w-full py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  className="w-full py-2.5 text-xs text-gray-600 bg-[#f0f4f8] hover:bg-[#e5edf5] rounded-lg transition-colors"
                 >
                   Back
                 </button>
               ) : extractionStages.analysis.status === 'active' ? (
                 <button
                   onClick={handleCancelAnalysis}
-                  className="w-full py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  className="w-full py-2.5 text-xs text-gray-600 bg-[#f0f4f8] hover:bg-[#e5edf5] rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
@@ -1709,7 +1537,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                   </button>
                   <button
                     onClick={handleReset}
-                    className="w-full py-2.5 text-xs text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                    className="w-full py-2.5 text-xs text-gray-600 bg-[#f0f4f8] hover:bg-[#e5edf5] rounded-lg transition-colors"
                   >
                     Cancel
                   </button>
@@ -1733,68 +1561,85 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
         )}
       </div>
 
-      {/* Log-style Analytics - Below Recents, above article groups */}
-      {(!searchQuery || !searchQuery.trim()) && articles.length > 0 && (
-        <div className="mb-4 mx-1 bg-gray-50 rounded-lg p-3 space-y-1 font-mono text-[10px] leading-relaxed border border-gray-200">
-          {/* Total Articles and Companies */}
-          <div>
-            <span className="text-gray-500">total:</span>{' '}
-            <span className="text-gray-700">{analytics.totalArticles} articles, {analytics.totalCompanies} companies</span>
+      {/* Gamified Progress Tracker - Below Recents, above article groups */}
+      {(!searchQuery || !searchQuery.trim()) && (
+        <div className="mb-4 mx-1 bg-[#f0f4f8] rounded-xl py-4 px-6 relative overflow-hidden">
+          {/* Decorative stars that appear as milestones are reached */}
+          {articles.length >= 3 && (
+            <>
+              <div className="absolute top-4 right-12 text-gray-400/20 text-xl transform rotate-12 transition-opacity duration-500">✦</div>
+              <div className="absolute top-8 right-20 text-gray-400/20 text-xs transition-opacity duration-500">✦</div>
+            </>
+          )}
+          {articles.length >= 5 && (
+            <>
+              <div className="absolute top-6 left-12 text-gray-400/20 text-lg transform -rotate-12 transition-opacity duration-500">✦</div>
+              <div className="absolute bottom-6 right-16 text-gray-400/20 text-sm transform rotate-45 transition-opacity duration-500">✦</div>
+            </>
+          )}
+
+          {/* Header Text */}
+          <div className="text-center mb-2 px-4">
+            <p className="text-xs text-gray-600 font-medium leading-relaxed">
+              Run Discovery Engine to Unlock Analytics
+            </p>
           </div>
 
-          {/* Sector Concentration */}
-          <div>
-            <span className="text-gray-500">sectors:</span>{' '}
-            <span className="text-gray-700">
-              {analytics.sectorConcentration
-                ? `${analytics.sectorConcentration.sector} (${analytics.sectorConcentration.percentage}%)`
-                : 'N/A'}
-            </span>
-          </div>
+          {/* Progress Bar with 5 Nodes */}
+          <div className="relative pt-2 pb-4 px-4">
+            {/* 5 Nodes - sit on the line, layered on top */}
+            <div className="relative flex justify-between items-start">
+              {[1, 2, 3, 4, 5].map((milestone) => {
+                const isCompleted = articles.length >= milestone
+                const isFirstThree = milestone <= 3
 
-          {/* Company Concentration */}
-          <div>
-            <span className="text-gray-500">companies:</span>{' '}
-            <span className="text-gray-700">
-              {analytics.companyConcentration
-                ? `${analytics.companyConcentration.topCompany} (${analytics.companyConcentration.topCount} articles)${analytics.companyConcentration.nextCount > 0 ? `, next: ${analytics.companyConcentration.nextCount}` : ''}`
-                : 'N/A'}
-            </span>
-          </div>
+                return (
+                  <div key={milestone} className="flex flex-col items-center" style={{ zIndex: 10 }}>
+                    {/* Node Circle */}
+                    <div
+                      className={cn(
+                        "w-7 h-7 rounded-full flex items-center justify-center transition-all duration-500 shadow-md",
+                        isCompleted && isFirstThree && "bg-[#4A4458]",
+                        isCompleted && !isFirstThree && "bg-[#D1D5DB]",
+                        !isCompleted && "bg-gray-300"
+                      )}
+                    >
+                      {/* Star icon - always visible */}
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-white">
+                        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
+                          fill="currentColor"/>
+                      </svg>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
 
-          {/* Co-occurrence */}
-          <div>
-            <span className="text-gray-500">co_occurrence:</span>{' '}
-            <span className="text-gray-700">
-              {analytics.topCoOccurrences.length > 0
-                ? analytics.topCoOccurrences.map(({ pair, count }, index) => (
-                    <span key={pair}>
-                      {index > 0 && ', '}
-                      {pair} ({count}x)
-                    </span>
-                  ))
-                : 'None'}
-            </span>
-          </div>
+            {/* Background Line - runs through middle of nodes, from first to last node */}
+            <div className="absolute top-[19px] left-7 right-7 h-1.5 bg-gray-300 rounded-full" style={{ zIndex: 1 }}></div>
 
-          {/* Trending Now */}
-          <div>
-            <span className="text-gray-500">trending:</span>{' '}
-            <span className="text-gray-700">
-              {analytics.trendingCompany
-                ? `${analytics.trendingCompany.ticker} (${analytics.trendingCompany.recentCount} in 2 days, avg ${analytics.trendingCompany.historicalAvg}/day)`
-                : 'None'}
-            </span>
-          </div>
+            {/* Progress Fill Line - Purple from start to center of 3rd node */}
+            {articles.length >= 1 && (
+              <div
+                className="absolute top-[19px] left-7 h-1.5 bg-[#4A4458] rounded-full transition-all duration-700 ease-out"
+                style={{
+                  width: `calc((100% - 56px) * ${(Math.min(articles.length, 3) - 1) / 4})`,
+                  zIndex: 1
+                }}
+              ></div>
+            )}
 
-          {/* Focus Shift */}
-          <div>
-            <span className="text-gray-500">focus_shift:</span>{' '}
-            <span className="text-gray-700">
-              {analytics.focusShift
-                ? `${analytics.focusShift.sector} ${analytics.focusShift.change > 0 ? '↑' : '↓'} ${Math.abs(analytics.focusShift.change)}% this week`
-                : 'None'}
-            </span>
+            {/* Progress Fill Line - Gray from center of 3rd node to 5th node */}
+            {articles.length > 3 && (
+              <div
+                className="absolute top-[19px] h-1.5 bg-[#D1D5DB] rounded-full transition-all duration-700 ease-out"
+                style={{
+                  left: `calc(28px + (100% - 56px) * ${2 / 4})`,
+                  width: `calc((100% - 56px) * ${(Math.min(articles.length, 5) - 3) / 4})`,
+                  zIndex: 1
+                }}
+              ></div>
+            )}
           </div>
         </div>
       )}
@@ -1881,7 +1726,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
           <button
             onClick={handleLoadMore}
             disabled={isLoadingMore}
-            className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs text-gray-600 leading-4 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+            className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs text-gray-600 leading-4 bg-[#f0f4f8] hover:bg-[#e5edf5] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
           >
             {isLoadingMore ? (
               <>
