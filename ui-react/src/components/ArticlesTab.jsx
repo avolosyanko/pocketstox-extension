@@ -932,7 +932,8 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
       companySizes: [],
       sectors: [],
       regions: [],
-      industries: []
+      industries: [],
+      blocklist: []
     })
 
     // Reset extraction stages to initial state
@@ -1467,7 +1468,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                         <button
                           onClick={handleAddToBlocklist}
                           disabled={!blocklistInput.trim()}
-                          className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded-md hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          className="px-3 py-1.5 text-xs bg-[#4A4458] text-white rounded-md hover:bg-[#3d3a4a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                           Add
                         </button>
@@ -1531,7 +1532,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                 <div className="space-y-2">
                   <button
                     onClick={handleRunStep}
-                    className="w-full py-2.5 text-xs font-medium text-white bg-gray-900 hover:bg-gray-800 rounded-lg transition-colors"
+                    className="w-full py-2.5 text-xs font-medium text-white bg-[#4A4458] hover:bg-[#3d3a4a] rounded-lg transition-colors"
                   >
                     Run
                   </button>
@@ -1561,86 +1562,139 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
         )}
       </div>
 
-      {/* Gamified Progress Tracker - Below Recents, above article groups */}
+      {/* Progress Tracker / Analytics - Below Recents, above article groups */}
       {(!searchQuery || !searchQuery.trim()) && (
-        <div className="mb-4 mx-1 bg-[#f0f4f8] rounded-xl py-4 px-6 relative overflow-hidden">
-          {/* Decorative stars that appear as milestones are reached */}
-          {articles.length >= 3 && (
+        <div className="mb-4 mx-1 bg-purple-50 rounded-xl py-4 px-6 relative overflow-hidden">
+          {/* Decorative stars - always visible */}
+          <div className="absolute top-4 right-12 text-purple-300/35 text-xl transform rotate-12 transition-opacity duration-500">✦</div>
+          <div className="absolute top-8 right-20 text-purple-400/30 text-xs transition-opacity duration-500">✦</div>
+          <div className="absolute top-6 left-12 text-purple-300/40 text-lg transform -rotate-12 transition-opacity duration-500">✦</div>
+          <div className="absolute bottom-6 right-16 text-purple-400/35 text-sm transform rotate-45 transition-opacity duration-500">✦</div>
+
+          {/* Show Progress Tracker when <5 articles */}
+          {articles.length < 5 ? (
             <>
-              <div className="absolute top-4 right-12 text-gray-400/20 text-xl transform rotate-12 transition-opacity duration-500">✦</div>
-              <div className="absolute top-8 right-20 text-gray-400/20 text-xs transition-opacity duration-500">✦</div>
+              {/* Header Text */}
+              <div className="text-center mb-2 px-4">
+                <p className="text-xs text-gray-600 font-medium leading-relaxed">
+                  Run Discovery Engine to Unlock Analytics
+                </p>
+              </div>
+
+              {/* Progress Bar with 5 Nodes */}
+              <div className="relative pt-2 pb-4 px-4">
+                {/* 5 Nodes - sit on the line, layered on top */}
+                <div className="relative flex justify-between items-start">
+                  {[1, 2, 3, 4, 5].map((milestone) => {
+                    const isCompleted = articles.length >= milestone
+                    const isFirstThree = milestone <= 3
+
+                    return (
+                      <div key={milestone} className="flex flex-col items-center" style={{ zIndex: 10 }}>
+                        {/* Node Circle */}
+                        <div
+                          className={cn(
+                            "w-7 h-7 rounded-full flex items-center justify-center transition-all duration-500 shadow-md",
+                            isCompleted && isFirstThree && "bg-[#4A4458]",
+                            isCompleted && !isFirstThree && "bg-[#D1D5DB]",
+                            !isCompleted && "bg-gray-300"
+                          )}
+                        >
+                          {/* Star icon - always visible */}
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-white">
+                            <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
+                              fill="currentColor"/>
+                          </svg>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* Background Line - runs through middle of nodes, from first to last node */}
+                <div className="absolute top-[19px] left-7 right-7 h-1.5 bg-gray-300 rounded-full" style={{ zIndex: 1 }}></div>
+
+                {/* Progress Fill Line - Purple from start to center of 3rd node */}
+                {articles.length >= 1 && (
+                  <div
+                    className="absolute top-[19px] left-7 h-1.5 bg-[#4A4458] rounded-full transition-all duration-700 ease-out"
+                    style={{
+                      width: `calc((100% - 56px) * ${(Math.min(articles.length, 3) - 1) / 4})`,
+                      zIndex: 2
+                    }}
+                  ></div>
+                )}
+
+                {/* Progress Fill Line - Gray from center of 3rd node to 5th node */}
+                {articles.length > 3 && (
+                  <div
+                    className="absolute top-[19px] h-1.5 bg-[#D1D5DB] rounded-full transition-all duration-700 ease-out"
+                    style={{
+                      left: `calc(28px + (100% - 56px) * ${2 / 4})`,
+                      width: `calc((100% - 56px) * ${(Math.min(articles.length, 5) - 3) / 4})`,
+                      zIndex: 2
+                    }}
+                  ></div>
+                )}
+              </div>
             </>
-          )}
-          {articles.length >= 5 && (
-            <>
-              <div className="absolute top-6 left-12 text-gray-400/20 text-lg transform -rotate-12 transition-opacity duration-500">✦</div>
-              <div className="absolute bottom-6 right-16 text-gray-400/20 text-sm transform rotate-45 transition-opacity duration-500">✦</div>
-            </>
-          )}
+          ) : (
+            /* Analytics View - Show when >=5 articles */
+            <div className="space-y-4">
+              {/* Header */}
+              <div className="text-center">
+                <h3 className="text-xs font-medium text-gray-700 mb-1">History Analytics</h3>
+                <p className="text-[11px] text-gray-500">Signals across {articles.length} articles</p>
+              </div>
 
-          {/* Header Text */}
-          <div className="text-center mb-2 px-4">
-            <p className="text-xs text-gray-600 font-medium leading-relaxed">
-              Run Discovery Engine to Unlock Analytics
-            </p>
-          </div>
+              {/* Analytics Grid */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Total Articles Analyzed */}
+                <div className="bg-white/60 rounded-lg p-3 border border-gray-200/50">
+                  <p className="text-[10px] text-gray-500 mb-1">Total Analyzed</p>
+                  <p className="text-xl font-semibold text-gray-900">{articles.length}</p>
+                </div>
 
-          {/* Progress Bar with 5 Nodes */}
-          <div className="relative pt-2 pb-4 px-4">
-            {/* 5 Nodes - sit on the line, layered on top */}
-            <div className="relative flex justify-between items-start">
-              {[1, 2, 3, 4, 5].map((milestone) => {
-                const isCompleted = articles.length >= milestone
-                const isFirstThree = milestone <= 3
+                {/* Unique Companies */}
+                <div className="bg-white/60 rounded-lg p-3 border border-gray-200/50">
+                  <p className="text-[10px] text-gray-500 mb-1">Companies Found</p>
+                  <p className="text-xl font-semibold text-gray-900">
+                    {(() => {
+                      const uniqueTickers = new Set()
+                      articles.forEach(article => {
+                        if (article.matches) {
+                          article.matches.forEach(match => {
+                            if (match.ticker) uniqueTickers.add(match.ticker)
+                          })
+                        }
+                      })
+                      return uniqueTickers.size
+                    })()}
+                  </p>
+                </div>
 
-                return (
-                  <div key={milestone} className="flex flex-col items-center" style={{ zIndex: 10 }}>
-                    {/* Node Circle */}
-                    <div
-                      className={cn(
-                        "w-7 h-7 rounded-full flex items-center justify-center transition-all duration-500 shadow-md",
-                        isCompleted && isFirstThree && "bg-[#4A4458]",
-                        isCompleted && !isFirstThree && "bg-[#D1D5DB]",
-                        !isCompleted && "bg-gray-300"
-                      )}
-                    >
-                      {/* Star icon - always visible */}
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-white">
-                        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
-                          fill="currentColor"/>
-                      </svg>
-                    </div>
-                  </div>
-                )
-              })}
+                {/* Top Sector */}
+                <div className="bg-white/60 rounded-lg p-3 border border-gray-200/50">
+                  <p className="text-[10px] text-gray-500 mb-1">Top Sector</p>
+                  <p className="text-sm font-medium text-gray-900">Technology</p>
+                </div>
+
+                {/* Avg. Articles per Day */}
+                <div className="bg-white/60 rounded-lg p-3 border border-gray-200/50">
+                  <p className="text-[10px] text-gray-500 mb-1">Avg. per Day</p>
+                  <p className="text-xl font-semibold text-gray-900">
+                    {(() => {
+                      if (articles.length === 0) return 0
+                      const now = new Date()
+                      const oldest = new Date(Math.min(...articles.map(a => new Date(a.timestamp))))
+                      const daysDiff = Math.max(1, Math.ceil((now - oldest) / (1000 * 60 * 60 * 24)))
+                      return (articles.length / daysDiff).toFixed(1)
+                    })()}
+                  </p>
+                </div>
+              </div>
             </div>
-
-            {/* Background Line - runs through middle of nodes, from first to last node */}
-            <div className="absolute top-[19px] left-7 right-7 h-1.5 bg-gray-300 rounded-full" style={{ zIndex: 1 }}></div>
-
-            {/* Progress Fill Line - Purple from start to center of 3rd node */}
-            {articles.length >= 1 && (
-              <div
-                className="absolute top-[19px] left-7 h-1.5 bg-[#4A4458] rounded-full transition-all duration-700 ease-out"
-                style={{
-                  width: `calc((100% - 56px) * ${(Math.min(articles.length, 3) - 1) / 4})`,
-                  zIndex: 1
-                }}
-              ></div>
-            )}
-
-            {/* Progress Fill Line - Gray from center of 3rd node to 5th node */}
-            {articles.length > 3 && (
-              <div
-                className="absolute top-[19px] h-1.5 bg-[#D1D5DB] rounded-full transition-all duration-700 ease-out"
-                style={{
-                  left: `calc(28px + (100% - 56px) * ${2 / 4})`,
-                  width: `calc((100% - 56px) * ${(Math.min(articles.length, 5) - 3) / 4})`,
-                  zIndex: 1
-                }}
-              ></div>
-            )}
-          </div>
+          )}
         </div>
       )}
 

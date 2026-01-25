@@ -1,489 +1,249 @@
+"""
+10-K chunking script
+"""
+
 import json
 import re
-import hashlib
-from typing import List, Dict, Tuple, Optional
-from dataclasses import dataclass, asdict
-import logging
-from collections import defaultdict
-import nltk
-from nltk.tokenize import sent_tokenize
-import os
+import glob
+from pathlib import Path
+from datetime import datetime
+import tiktoken
 
-# Robust NLTK data setup
-def ensure_nltk_data():
+SCRIPT_DIR = Path(__file__).parent
+INPUT_DIR = SCRIPT_DIR / "data" / "extracted_10k"
+OUTPUT_FILE = SCRIPT_DIR / "data" / "10k_chunks.jsonl"
+ERROR_LOG = SCRIPT_DIR / "data" / "_chunking_errors.json"
+
+MAX_TOKENS = 1000
+OVERLAP_TOKENS = 100
+MIN_PARAGRAPH_LENGTH = 50
+
+encoding = tiktoken.get_encoding("cl100k_base") # Initialise tokeniser (Voyage Finance-2 uses cl100k_base encoding)
+
+
+def count_tokens(text: str) -> int:
+    """Count tokens using tiktoken"""
+    return len(encoding.encode(text))
+
+
+def normalize_text(text: str) -> str:
+    """Normalize newlines and whitespace"""
+    # Windows → Unix
+    text = text.replace('\r\n', '\n')
+    # Multiple newlines → double
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
+
+
+def split_paragraphs(text: str) -> list[str]:
     """
-    Ensure NLTK required data is available.
-    This handles the case where download() may have failed silently.
+    Split text into paragraphs on double newlines
+    Filter out very short paragraphs (headers-only)
     """
-    try:
-        # Try to tokenize a test sentence to verify punkt is available
-        sent_tokenize("Test sentence.")
-    except LookupError:
-        # If it fails, attempt download
-        print("Downloading NLTK data...")
-        try:
-            nltk.download('punkt_tab', quiet=False)
-        except Exception as e:
-            print(f"⚠️ NLTK download failed: {e}")
-            print("Attempting to use fallback tokenization...")
-            raise
+    paragraphs = text.split('\n\n')
+    # Filter: keep paragraphs with at least MIN_PARAGRAPH_LENGTH chars
+    paragraphs = [p.strip() for p in paragraphs if len(p.strip()) >= MIN_PARAGRAPH_LENGTH]
+    return paragraphs
 
-# Call this before any tokenization happens
-ensure_nltk_data()
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-@dataclass
-class Chunk:
-    """Data class for a text chunk ready for embedding"""
-    chunk_id: str
-    text: str
-    metadata: Dict
-    token_count: int
-    chunk_index: int
-    total_chunks: int
-    content_hash: str
-    
-    def to_dict(self):
-        return asdict(self)
-
-class TenKChunker:
+def create_chunks(paragraphs: list[str], 
+                  max_tokens: int = MAX_TOKENS,
+                  overlap_tokens: int = OVERLAP_TOKENS) -> list[str]:
     """
-    Robust chunker for 10-K sections optimized for retrieval accuracy.
-    Handles both Item 1 (Business) and Item 1A (Risk Factors).
+    Combine paragraphs into chunks until hitting token limit
+    Add overlap between chunks for context continuity
     """
+    chunks = []
+    current_chunk = []
+    current_tokens = 0
     
-    def __init__(self, 
-                 item1_chunk_size: int = 1200,
-                 item1a_chunk_size: int = 800,
-                 overlap_tokens: int = 100,
-                 min_chunk_size: int = 200):
-        """
-        Initialize chunker with configurable parameters.
+    for para in paragraphs:
+        para_tokens = count_tokens(para)
         
-        Args:
-            item1_chunk_size: Target tokens for Item 1 chunks (business descriptions need more context)
-            item1a_chunk_size: Target tokens for Item 1A chunks (risks are more atomic)
-            overlap_tokens: Number of tokens to overlap between chunks
-            min_chunk_size: Minimum tokens to create a chunk (filters out headers-only)
-        """
-        self.item1_chunk_size = item1_chunk_size
-        self.item1a_chunk_size = item1a_chunk_size
-        self.overlap_tokens = overlap_tokens
-        self.min_chunk_size = min_chunk_size
-        
-        # Patterns for structure detection
-        self.header_patterns = [
-            re.compile(r'^[A-Z][A-Za-z\s&,]+:(?:\s|$)', re.MULTILINE),  # "Overview:", "Our Business:"
-            re.compile(r'^(?:[A-Z][a-z]+\s){1,5}[A-Z][a-z]+$', re.MULTILINE),  # Title Case Headers
-            re.compile(r'^[A-Z][A-Z\s&]+$', re.MULTILINE),  # "BUSINESS OVERVIEW"
-            re.compile(r'^\d+\.\s+[A-Z][a-z]', re.MULTILINE),  # "1. Business Description"
-        ]
-        
-        # Risk factor patterns for Item 1A
-        self.risk_patterns = [
-            re.compile(r'^(?:We|Our|The Company|If|Failure|Any|Significant|Material)\s+[\w\s]+(?:may|might|could|would|will)', re.MULTILINE),
-            re.compile(r'^[•·▪]\s*(?:We|Our|The)', re.MULTILINE),  # Bullet points
-            re.compile(r'^(?:Risk[s]?\s+(?:Related|Relating|Factor[s]?)|Risks?\s+(?:from|of|to))', re.MULTILINE),
-        ]
-        
-    def estimate_tokens(self, text: str) -> int:
-        """
-        Estimate token count (roughly 1 token per 4 chars for financial text).
-        For production, replace with actual tokenizer for voyage-finance-2.
-        """
-        return len(text) // 4
-    
-    def detect_headers(self, text: str) -> List[Tuple[int, int, str]]:
-        """
-        Detect potential headers and their positions.
-        Returns list of (start_pos, end_pos, header_text).
-        """
-        headers = []
-        for pattern in self.header_patterns:
-            for match in pattern.finditer(text):
-                headers.append((match.start(), match.end(), match.group().strip()))
-        
-        # Sort by position
-        headers.sort(key=lambda x: x[0])
-        return headers
-    
-    def split_into_paragraphs(self, text: str) -> List[str]:
-        """Split text into paragraphs, handling various formatting."""
-        # Normalize line breaks
-        text = re.sub(r'\r\n', '\n', text)
-        text = re.sub(r'\n{3,}', '\n\n', text)
-        
-        # Split on double newlines
-        paragraphs = text.split('\n\n')
-        
-        # Filter out empty paragraphs and clean
-        paragraphs = [p.strip() for p in paragraphs if p.strip()]
-        
-        return paragraphs
-    
-    def smart_sentence_split(self, text: str, max_tokens: int) -> List[str]:
-        """
-        Split a large paragraph into sentence-based chunks.
-        Preserves semantic coherence by keeping related sentences together.
-        """
-        try:
-            sentences = sent_tokenize(text)
-        except LookupError as e:
-            logger.warning(f"NLTK tokenizer failed: {e}. Using fallback tokenization.")
-            # Fallback: simple sentence splitting on periods, question marks, exclamation marks
-            sentences = re.split(r'(?<=[.!?])\s+', text)
-            sentences = [s.strip() for s in sentences if s.strip()]
-        
-        chunks = []
-        current_chunk = []
-        current_size = 0
-        
-        for sentence in sentences:
-            sent_tokens = self.estimate_tokens(sentence)
+        # Would adding this paragraph exceed the limit?
+        if current_tokens + para_tokens > max_tokens and current_chunk:
+            # Save current chunk
+            chunks.append('\n\n'.join(current_chunk))
             
-            if current_size + sent_tokens > max_tokens and current_chunk:
-                chunks.append(' '.join(current_chunk))
-                current_chunk = [sentence]
-                current_size = sent_tokens
+            # Start new chunk with overlap from last paragraph
+            overlap_text = current_chunk[-1]
+            overlap_size = count_tokens(overlap_text)
+            
+            if overlap_size < overlap_tokens:
+                # Use last paragraph as overlap
+                current_chunk = [overlap_text, para]
+                current_tokens = overlap_size + para_tokens
             else:
-                current_chunk.append(sentence)
-                current_size += sent_tokens
-        
-        if current_chunk:
-            chunks.append(' '.join(current_chunk))
-        
-        return chunks
+                # Last paragraph too big for overlap, start fresh
+                current_chunk = [para]
+                current_tokens = para_tokens
+        else:
+            # Add paragraph to current chunk
+            current_chunk.append(para)
+            current_tokens += para_tokens
     
-    def create_chunks_for_section(self, 
-                                  text: str, 
-                                  section_type: str,
-                                  company_info: Dict) -> List[Chunk]:
-        """
-        Create chunks for a specific section (item1 or item1a).
-        """
-        chunks = []
-        chunk_size = self.item1_chunk_size if section_type == 'item1' else self.item1a_chunk_size
-        
-        # Detect structure
-        headers = self.detect_headers(text)
-        paragraphs = self.split_into_paragraphs(text)
-        
-        # Track current context
-        current_header = None
-        current_chunks = []
-        current_text = []
-        current_tokens = 0
-        last_paragraph = None  # For overlap
-        
-        # Process paragraphs
-        for i, para in enumerate(paragraphs):
-            # Check if this paragraph is a header
-            is_header = any(
-                para.strip() == h[2] or para.strip().startswith(h[2]) 
-                for h in headers
-            )
-            
-            # For Item 1A, check if this starts a new risk
-            is_new_risk = False
-            if section_type == 'item1a':
-                is_new_risk = any(pattern.match(para) for pattern in self.risk_patterns)
-            
-            # Should we start a new chunk?
-            start_new_chunk = False
-            
-            if is_header and current_tokens > 0:
-                start_new_chunk = True
-                current_header = para.strip()
-                continue  # Don't include standalone headers
-            elif is_new_risk and current_tokens > self.min_chunk_size:
-                start_new_chunk = True
-            elif current_tokens + self.estimate_tokens(para) > chunk_size and current_tokens > 0:
-                start_new_chunk = True
-            
-            if start_new_chunk:
-                # Save current chunk
-                chunk_text = '\n\n'.join(current_text)
-                if self.estimate_tokens(chunk_text) >= self.min_chunk_size:
-                    chunks.append(self._create_chunk(
-                        chunk_text,
-                        section_type,
-                        company_info,
-                        current_header,
-                        len(chunks)
-                    ))
-                
-                # Start new chunk with overlap
-                current_text = []
-                current_tokens = 0
-                
-                # Add overlap from last paragraph if it exists and isn't too large
-                if last_paragraph and self.estimate_tokens(last_paragraph) < self.overlap_tokens * 2:
-                    current_text.append(last_paragraph)
-                    current_tokens = self.estimate_tokens(last_paragraph)
-            
-            # Handle oversized paragraphs
-            para_tokens = self.estimate_tokens(para)
-            if para_tokens > chunk_size:
-                # Split into sentences
-                sentence_chunks = self.smart_sentence_split(para, chunk_size)
-                for sent_chunk in sentence_chunks:
-                    if current_text and current_tokens + self.estimate_tokens(sent_chunk) > chunk_size:
-                        # Save current and start new
-                        chunk_text = '\n\n'.join(current_text)
-                        if self.estimate_tokens(chunk_text) >= self.min_chunk_size:
-                            chunks.append(self._create_chunk(
-                                chunk_text,
-                                section_type,
-                                company_info,
-                                current_header,
-                                len(chunks)
-                            ))
-                        current_text = [sent_chunk]
-                        current_tokens = self.estimate_tokens(sent_chunk)
-                    else:
-                        current_text.append(sent_chunk)
-                        current_tokens += self.estimate_tokens(sent_chunk)
-            else:
-                # Add normal paragraph
-                current_text.append(para)
-                current_tokens += para_tokens
-            
-            last_paragraph = para
-        
-        # Don't forget the last chunk
-        if current_text:
-            chunk_text = '\n\n'.join(current_text)
-            if self.estimate_tokens(chunk_text) >= self.min_chunk_size:
-                chunks.append(self._create_chunk(
-                    chunk_text,
-                    section_type,
-                    company_info,
-                    current_header,
-                    len(chunks)
-                ))
-        
-        # Update total chunks count
-        total_chunks = len(chunks)
-        for chunk in chunks:
-            chunk.total_chunks = total_chunks
-        
-        return chunks
+    # Don't forget the last chunk
+    if current_chunk:
+        chunks.append('\n\n'.join(current_chunk))
     
-    def _create_chunk(self, 
-                     text: str, 
-                     section_type: str,
-                     company_info: Dict,
-                     header: Optional[str],
-                     index: int) -> Chunk:
-        """Create a single chunk with metadata."""
-        # Generate unique ID
-        chunk_id = f"{company_info['ticker']}_{section_type}_{company_info['fiscal_year']}_chunk_{index}"
-        
-        # Create content hash for deduplication
-        normalized_text = re.sub(r'\s+', ' ', text.lower().strip())
-        content_hash = hashlib.md5(normalized_text.encode()).hexdigest()[:16]
-        
-        # Build metadata
-        metadata = {
-            'company_name': company_info['company_name'],
-            'ticker': company_info['ticker'],
-            'cik': company_info['cik'],
-            'section': section_type,
-            'subsection': header,
-            'filing_date': company_info['filing_date'],
-            'fiscal_year': company_info['fiscal_year'],
-            'form_type': company_info['form_type'],
-            'industry': company_info.get('industry', 'Unknown'),
-            'sic_code': company_info.get('sic_code', 'Unknown')
-        }
-        
-        # Add section-specific metadata
-        if section_type == 'item1a':
-            # Classify risk type
-            risk_type = self._classify_risk_type(text)
-            metadata['risk_type'] = risk_type
-        
-        return Chunk(
-            chunk_id=chunk_id,
-            text=text,
-            metadata=metadata,
-            token_count=self.estimate_tokens(text),
-            chunk_index=index,
-            total_chunks=0,  # Will be updated after all chunks created
-            content_hash=content_hash
-        )
-    
-    def _classify_risk_type(self, text: str) -> str:
-        """Classify risk factor into categories for better retrieval."""
-        text_lower = text.lower()
-        
-        risk_categories = {
-            'operational': ['operation', 'satellite', 'launch', 'manufacture', 'supply', 'production'],
-            'financial': ['financial', 'liquidity', 'cash', 'revenue', 'profit', 'cost', 'expense'],
-            'regulatory': ['regulation', 'compliance', 'legal', 'law', 'government', 'license'],
-            'competitive': ['competition', 'competitor', 'market share', 'pricing'],
-            'cybersecurity': ['cyber', 'security', 'breach', 'hack', 'data', 'privacy'],
-            'technological': ['technology', 'obsolete', 'innovation', 'development'],
-            'reputational': ['reputation', 'brand', 'public', 'media']
-        }
-        
-        # Count category matches
-        category_scores = defaultdict(int)
-        for category, keywords in risk_categories.items():
-            for keyword in keywords:
-                category_scores[category] += text_lower.count(keyword)
-        
-        # Return highest scoring category
-        if category_scores:
-            return max(category_scores, key=category_scores.get)
-        return 'general'
-    
-    def process_company(self, company_data: Dict) -> Dict[str, List[Chunk]]:
-        """
-        Process a single company's 10-K data.
-        
-        Args:
-            company_data: Dictionary with company info and sections
-        
-        Returns:
-            Dictionary with 'item1' and 'item1a' chunk lists
-        """
-        results = {}
-        
-        # Extract company info
-        company_info = {
-            'company_name': company_data['company_name'],
-            'ticker': company_data['ticker'],
-            'cik': company_data['cik'],
-            'filing_date': company_data['filing_date'],
-            'fiscal_year': company_data['fiscal_year'],
-            'form_type': company_data['form_type'],
-            'industry': company_data.get('industry', 'Unknown'),
-            'sic_code': company_data.get('sic_code', 'Unknown')
-        }
-        
-        # Process Item 1
-        if 'item1' in company_data['sections']:
-            item1_text = company_data['sections']['item1']['text']
-            results['item1'] = self.create_chunks_for_section(
-                item1_text, 
-                'item1', 
-                company_info
-            )
-            logger.info(f"Created {len(results['item1'])} chunks for {company_info['ticker']} Item 1")
-        
-        # Process Item 1A
-        if 'item1a' in company_data['sections']:
-            item1a_text = company_data['sections']['item1a']['text']
-            results['item1a'] = self.create_chunks_for_section(
-                item1a_text, 
-                'item1a', 
-                company_info
-            )
-            logger.info(f"Created {len(results['item1a'])} chunks for {company_info['ticker']} Item 1A")
-        
-        return results
+    return chunks
 
 
-def process_batch(json_files: List[str], 
-                  output_file: str = 'chunks_for_embedding.jsonl',
-                  batch_size: int = 10) -> Dict:
+def create_chunk_dict(chunk_text: str,
+                     company_data: dict,
+                     section: str,
+                     chunk_index: int,
+                     total_chunks: int) -> dict:
+    """Package chunk with metadata"""
+    return {
+        'chunk_id': f"{company_data['ticker']}_{section}_{company_data['fiscal_year']}_chunk_{chunk_index}",
+        'text': chunk_text,
+        'ticker': company_data['ticker'],
+        'company_name': company_data['company_name'],
+        'cik': company_data['cik'],
+        'section': section,
+        'filing_date': company_data['filing_date'],
+        'fiscal_year': company_data['fiscal_year'],
+        'source_url': company_data['source_url'],
+        'chunk_index': chunk_index,
+        'total_chunks': total_chunks,
+        'token_count': count_tokens(chunk_text)
+    }
+
+
+def process_company(data: dict) -> dict:
     """
-    Process multiple company JSON files in batches.
-    
-    Args:
-        json_files: List of paths to JSON files
-        output_file: Output JSONL file for chunks
-        batch_size: Number of companies to process before writing
-    
-    Returns:
-        Statistics about the chunking process
+    Process a single company's 10-K data
+    Returns dict with chunk counts and any errors
     """
-    chunker = TenKChunker()
-    stats = {
-        'total_companies': 0,
-        'total_chunks': 0,
-        'chunks_by_section': defaultdict(int),
+    result = {
+        'ticker': data['ticker'],
+        'item1_chunks': 0,
+        'item1a_chunks': 0,
         'errors': []
     }
     
-    # Create output directory if it doesn't exist
-    output_dir = os.path.dirname(output_file)
-    if output_dir and not os.path.exists(output_dir):
-        os.makedirs(output_dir, exist_ok=True)
+    chunks_created = []
     
-    with open(output_file, 'w') as out_f:
-        batch_chunks = []
-        
-        for i, json_file in enumerate(json_files):
+    # Process Item 1 (Business)
+    if data['sections']['item1']['text']:
+        try:
+            item1_text = normalize_text(data['sections']['item1']['text'])
+            paragraphs = split_paragraphs(item1_text)
+            chunks = create_chunks(paragraphs)
+            
+            for i, chunk in enumerate(chunks):
+                chunk_dict = create_chunk_dict(
+                    chunk, data, 'item1', i, len(chunks)
+                )
+                chunks_created.append(chunk_dict)
+            
+            result['item1_chunks'] = len(chunks)
+        except Exception as e:
+            result['errors'].append(f"Item 1 error: {str(e)}")
+    
+    # Process Item 1A (Risk Factors)
+    if data['sections']['item1a']['text']:
+        try:
+            item1a_text = normalize_text(data['sections']['item1a']['text'])
+            paragraphs = split_paragraphs(item1a_text)
+            chunks = create_chunks(paragraphs)
+            
+            for i, chunk in enumerate(chunks):
+                chunk_dict = create_chunk_dict(
+                    chunk, data, 'item1a', i, len(chunks)
+                )
+                chunks_created.append(chunk_dict)
+            
+            result['item1a_chunks'] = len(chunks)
+        except Exception as e:
+            result['errors'].append(f"Item 1A error: {str(e)}")
+    
+    result['chunks'] = chunks_created
+    return result
+
+
+def process_all_files():
+    json_files = sorted(glob.glob(str(INPUT_DIR / "*.json")))
+    
+    if not json_files:
+        print(f"No JSON files found in {INPUT_DIR}.")
+        return
+    
+    print(f"Found {len(json_files)} files to process")
+    print(f"Output: {OUTPUT_FILE}\n")
+    
+    # Create output directory if needed
+    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    
+    total_chunks = 0
+    successful = 0
+    errors = []
+    
+    with open(OUTPUT_FILE, 'w') as f:
+        for i, json_file in enumerate(json_files, 1):
             try:
                 # Load company data
-                with open(json_file, 'r') as f:
-                    company_data = json.load(f)
+                with open(json_file, 'r') as jf:
+                    data = json.load(jf)
                 
                 # Process company
-                chunks_by_section = chunker.process_company(company_data)
+                result = process_company(data)
                 
-                # Collect chunks
-                for section, chunks in chunks_by_section.items():
-                    for chunk in chunks:
-                        batch_chunks.append(chunk.to_dict())
-                        stats['chunks_by_section'][section] += 1
+                # Write chunks to JSONL
+                for chunk in result['chunks']:
+                    f.write(json.dumps(chunk) + '\n')
+                    total_chunks += 1
                 
-                stats['total_companies'] += 1
+                # Track results
+                chunk_count = result['item1_chunks'] + result['item1a_chunks']
+                print(f"[{i}/{len(json_files)}] {data['ticker']}: {chunk_count} chunks")
                 
-                # Write batch to file
-                if (i + 1) % batch_size == 0:
-                    for chunk_dict in batch_chunks:
-                        out_f.write(json.dumps(chunk_dict) + '\n')
-                    stats['total_chunks'] += len(batch_chunks)
-                    logger.info(f"Processed {i+1}/{len(json_files)} companies, {stats['total_chunks']} chunks")
-                    batch_chunks = []
+                if result['errors']:
+                    errors.append({
+                        'ticker': data['ticker'],
+                        'file': json_file,
+                        'errors': result['errors']
+                    })
+                else:
+                    successful += 1
                     
             except Exception as e:
-                logger.error(f"Error processing {json_file}: {str(e)}")
-                stats['errors'].append({'file': json_file, 'error': str(e)})
-        
-        # Write remaining chunks
-        if batch_chunks:
-            for chunk_dict in batch_chunks:
-                out_f.write(json.dumps(chunk_dict) + '\n')
-            stats['total_chunks'] += len(batch_chunks)
+                print(f"[{i}/{len(json_files)}] {Path(json_file).stem}: FAILED - {str(e)}")
+                errors.append({
+                    'file': json_file,
+                    'error': str(e)
+                })
     
-    return stats
+    # Print summary
+    print(f"\n{'='*60}")
+    print("CHUNKING COMPLETE")
+    print(f"{'='*60}")
+    print(f"Successful: {successful}/{len(json_files)}")
+    print(f"Total chunks: {total_chunks}")
+    print(f"Failed: {len(errors)}")
+    print(f"\nOutput: {OUTPUT_FILE}")
+    
+    # Save error log if any errors
+    if errors:
+        with open(ERROR_LOG, 'w') as f:
+            json.dump(errors, f, indent=2)
+        print(f"Error log: {ERROR_LOG}")
+    
+    print(f"{'='*60}\n")
 
 
-# Example usage
+def main():
+    print(f"Max tokens per chunk: {MAX_TOKENS}")
+    print(f"Overlap tokens: {OVERLAP_TOKENS}")
+    print(f"Input directory: {INPUT_DIR}\n")
+    
+    start_time = datetime.now()
+    process_all_files()
+    elapsed = (datetime.now() - start_time).total_seconds()
+    
+    print(f"Total time: {elapsed:.1f} seconds\n")
+
+
 if __name__ == "__main__":
-    import glob
-
-    json_files = glob.glob("/Users/andres/Documents/Projects/Pocketstox/Extension/data/extracted_10k/*.json")
-
-    if not json_files:
-        print("No JSON files found in data/extract/. Check your path.")
-        exit()
-
-    print(f"Found {len(json_files)} filings to process.")
-
-    # Define output path
-    output_path = "/Users/andres/Documents/Projects/Pocketstox/Extension/data/10k_chunks.jsonl"
-
-    # Run the batch processor
-    stats = process_batch(
-        json_files=json_files,
-        output_file=output_path,
-        batch_size=10
-    )
-
-    print("\nDone chunking all 10-Ks!")
-    print(f"Companies processed: {stats['total_companies']}")
-    print(f"Total chunks created: {stats['total_chunks']}")
-    print("Chunks by section:", dict(stats['chunks_by_section']))
-    print(f"Output saved to: {output_path}")
-
-    if stats["errors"]:
-        print("\nErrors:")
-        for e in stats["errors"]:
-            print(f"  - {e['file']}: {e['error']}")
+    main()
