@@ -184,16 +184,26 @@ const CompanyIcon = React.memo(({ article, size = 'md', className = '' }) => {
   }
   
   if (imagePath) {
+    // Convert rgb() to rgba() with opacity
+    const getTransparentColor = (rgbColor) => {
+      if (!rgbColor) return 'rgba(59,130,246,0.5)'
+      // Extract rgb values: rgb(r,g,b) -> rgba(r,g,b,0.5)
+      const match = rgbColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/)
+      if (match) {
+        return `rgba(${match[1]},${match[2]},${match[3]},0.5)`
+      }
+      return rgbColor
+    }
+
     return (
-      <div 
+      <div
         className={cn(
-          sizeClasses[size], 
-          "rounded-md flex items-center justify-center flex-shrink-0 overflow-hidden relative",
+          sizeClasses[size],
+          "rounded-md flex items-center justify-center flex-shrink-0 overflow-hidden relative border border-gray-200/50",
           className
         )}
-        style={{ 
-          backgroundColor: dominantColor || 'rgb(59,130,246)',
-          border: 'none',
+        style={{
+          backgroundColor: getTransparentColor(dominantColor),
           outline: 'none'
         }}
       >
@@ -227,7 +237,7 @@ const CompanyIcon = React.memo(({ article, size = 'md', className = '' }) => {
   return (
     <div className={cn(
       sizeClasses[size],
-      "rounded-md flex items-center justify-center flex-shrink-0 text-white font-medium opacity-90",
+      "rounded-md flex items-center justify-center flex-shrink-0 text-white font-medium opacity-70 border border-gray-200/50",
       textSizes[size],
       fallbackColor,
       className

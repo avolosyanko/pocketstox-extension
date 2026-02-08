@@ -74,18 +74,6 @@ def lambda_handler(event, context):
         matches = []
         for hit in search_results:
             matches.append({
-                "score": round(hit.score, 4),
-                "ticker": hit.payload.get("ticker", ""),
-                "company": hit.payload.get("company_name", ""),
-                "exchange": hit.payload.get("exchange", ""),
-                "cik": hit.payload.get("cik", ""),
-                "section": hit.payload.get("section", ""),
-                "subsection": hit.payload.get("subsection"),
-                "filing_date": hit.payload.get("filing_date", ""),
-                "fiscal_year": hit.payload.get("fiscal_year", ""),
-                "industry": hit.payload.get("industry", ""),
-                "sic_code": hit.payload.get("sic_code", ""),
-                "chunk_id": hit.payload.get("chunk_id", ""),
             })
 
         logger.info(f"Found {len(matches)} matches for article")

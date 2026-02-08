@@ -34,6 +34,8 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
   const [faviconLoadErrors, setFaviconLoadErrors] = useState(new Set())
   const [showTemplates, setShowTemplates] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
+  const [isCurrentTabMode, setIsCurrentTabMode] = useState(false) // Track if "Current Tab" was clicked
+  const [dismissedNotifications, setDismissedNotifications] = useState([]) // Track dismissed notification IDs
 
   // Filter state - extensible for future filter types
   const [filters, setFilters] = useState({
@@ -58,12 +60,6 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
       title: 'Oil Price Volatility',
       description: 'Oil prices spike/crash',
       content: 'Global oil markets experience extreme volatility as prices [spike/crash] to $[X] per barrel. The shift is driven by [geopolitical tensions/supply glut/demand shock]. Energy companies, airlines, and transportation sectors face immediate impacts. Consumer spending patterns may shift as gasoline prices [rise/fall], affecting retail and automotive industries. Alternative energy investments could see [increased/decreased] interest.'
-    },
-    {
-      id: 'ev-adoption',
-      title: 'EV Market Acceleration',
-      description: 'EV adoption accelerates',
-      content: 'Electric vehicle adoption accelerates beyond expectations as [new regulations/technology breakthroughs/consumer preference] drive unprecedented demand. Traditional automakers face pressure to transition faster while EV manufacturers ramp up production. Battery and charging infrastructure companies see increased investment. Oil demand projections are revised downward. Automotive supply chains are being restructured to prioritize EV components.'
     },
     {
       id: 'ai-bubble',
@@ -92,6 +88,49 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
           : [...currentValues, value]
       }
     })
+  }
+
+  // Notification cards - user insights
+  const notificationCards = [
+    {
+      id: 'tracking-companies',
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-gray-600">
+          <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      ),
+      title: "You're tracking 15 companies",
+      description: "Your reading history shows strong interest in Technology and Healthcare sectors. AAPL, TSLA, and NVDA appear most frequently."
+    },
+    {
+      id: 'reading-streak',
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-gray-600">
+          <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      ),
+      title: "5-day reading streak",
+      description: "You've analyzed articles for 5 consecutive days. Keep it up to discover more investment opportunities!"
+    },
+    {
+      id: 'sector-diversity',
+      icon: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-gray-600">
+          <path d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      ),
+      title: "Diversify your research",
+      description: "You've been focusing heavily on Technology. Consider exploring Energy and Financials for a balanced portfolio view."
+    }
+  ]
+
+  // Filter out dismissed notifications
+  const activeNotifications = notificationCards.filter(card => !dismissedNotifications.includes(card.id))
+
+  // Handler to dismiss notification
+  const handleDismissNotification = (id) => {
+    setDismissedNotifications(prev => [...prev, id])
   }
 
   // Blocklist handlers
@@ -245,7 +284,8 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
   }
 
   const handleCustomEntry = () => {
-    // Show template picker first
+    // Advanced Search mode - show template picker and go to step 1
+    setIsCurrentTabMode(false)
     setShowTemplates(true)
     setCurrentStep(1)
     setExtractionStages(prev => ({
@@ -569,6 +609,135 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
     }
   }, [parsingTimeoutId])
 
+  // Run analysis - extracted to be reusable
+  const runAnalysis = useCallback(async (contentToUse = null) => {
+    setDetectionState('scanning')
+    setAnalysisCancelled(false)
+    setExtractionStages(prev => ({
+      ...prev,
+      analysis: { ...prev.analysis, status: 'active' }
+    }))
+
+    // Ensure minimum 3-second loading duration for consistent UX
+    const startTime = Date.now()
+
+    try {
+      const content = contentToUse || extractedContent
+      if (content || (editedTitle && editedContent)) {
+        console.log('Starting analysis generation...')
+        // Use edited values if available (scenario testing), otherwise use extracted content
+        const titleToAnalyze = editedTitle || content?.title || ''
+        const contentToAnalyze = editedContent || content?.content || ''
+
+        // Pass filters to API
+        const result = await api.analyzeArticle(titleToAnalyze, contentToAnalyze, filters)
+
+        console.log('Analysis result:', result)
+
+        // Calculate remaining time to ensure 2-second minimum
+        const elapsedTime = Date.now() - startTime
+        const remainingTime = Math.max(0, 2000 - elapsedTime)
+
+        // Wait for remaining time if needed
+        if (remainingTime > 0) {
+          await new Promise(resolve => setTimeout(resolve, remainingTime))
+        }
+
+        // Check if analysis was cancelled during the wait
+        if (analysisCancelled) {
+          return
+        }
+
+        if (result) {
+          // Update article with analysis results - use edited values for scenario testing
+          const analyzedArticle = {
+            ...identifiedArticle,
+            title: titleToAnalyze,
+            content: contentToAnalyze,
+            text: contentToAnalyze,
+            matches: result.matches || [],
+            entities: result.matches ? result.matches.map(m => m.company || m.ticker) : []
+          }
+
+          // Cache the content for this article
+          const cacheKey = `${analyzedArticle.title}-${analyzedArticle.url}`
+          setContentCache(prev => new Map(prev.set(cacheKey, {
+            content: analyzedArticle.content,
+            text: analyzedArticle.text
+          })))
+
+          // Log activity
+          const tickers = result.matches ? result.matches.map(m => m.ticker).filter(Boolean) : []
+          await storage.logActivity({
+            type: 'article_analyzed',
+            description: `Analysed article: ${analyzedArticle.title}`,
+            metadata: {
+              articleTitle: analyzedArticle.title,
+              articleUrl: analyzedArticle.url,
+              ticker: tickers[0], // Use first ticker if available
+              companiesFound: tickers.length
+            },
+            relatedEntities: tickers
+          })
+
+          setExtractionStages(prev => ({
+            ...prev,
+            analysis: { ...prev.analysis, status: 'completed' }
+          }))
+          setDetectionState('ready')
+          setIdentifiedArticle(analyzedArticle)
+          setCurrentStep(2)
+
+          // Refresh articles list to show new analysis
+          const updatedArticles = await storage.getArticles()
+
+          // Restore content for all articles from cache
+          const articlesWithContent = (updatedArticles || []).map(article => {
+            const cacheKey = `${article.title}-${article.url}`
+            const cachedContent = contentCache.get(cacheKey)
+
+            // If article is missing content but we have it cached, restore it
+            if ((!article.content || !article.text) && cachedContent) {
+              return {
+                ...article,
+                content: cachedContent.content,
+                text: cachedContent.text
+              }
+            }
+            return article
+          })
+
+          setArticles(articlesWithContent)
+          setDisplayedArticles(articlesWithContent?.slice(0, loadMoreCount) || [])
+        } else {
+          throw new Error('No analysis results returned')
+        }
+      } else {
+        throw new Error('Extension services not available or no extracted content')
+      }
+    } catch (error) {
+      console.error('Analysis generation failed:', error)
+
+      // Ensure minimum 2-second loading duration even on error
+      const elapsedTime = Date.now() - startTime
+      const remainingTime = Math.max(0, 2000 - elapsedTime)
+
+      if (remainingTime > 0) {
+        await new Promise(resolve => setTimeout(resolve, remainingTime))
+      }
+
+      // Show error state
+      setExtractionStages(prev => ({
+        ...prev,
+        analysis: { ...prev.analysis, status: 'error' }
+      }))
+      setDetectionState('error')
+
+      // Show error message to user
+      alert(`Analysis generation failed: ${error.message}`)
+    }
+  }, [api, storage, extractedContent, editedTitle, editedContent, filters, analysisCancelled, identifiedArticle, contentCache, loadMoreCount])
+
   // Handle manual step progression
   const handleRunStep = useCallback(async () => {
     if (currentStep === 0) {
@@ -579,28 +748,28 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
         ...prev,
         parsing: { ...prev.parsing, status: 'active' }
       }))
-      
+
       // Start the 3-second loading animation
       const timeoutId = setTimeout(async () => {
         // Check if parsing was cancelled during the timeout
         if (parsingCancelled) {
           return
         }
-        
+
         // Extract content only (no API call, no token usage)
         try {
           console.log('Starting content extraction...')
           const result = await api.extractContent()
-            
+
             console.log('Content extracted:', result)
-            
+
             if (result && result.title) {
               // Store extracted content for later analysis
               setExtractedContent(result)
-              
+
               // Save current tab info for sticky pill
               setParsedTabInfo(currentBrowserTab)
-              
+
               // Create article preview from extracted content
               const currentUrl = currentBrowserTab?.url || result.url || ""
               const previewArticle = {
@@ -618,21 +787,32 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                 identified: true,
                 matches: []
               }
-              
+
               setExtractionStages(prev => ({
                 ...prev,
                 parsing: { ...prev.parsing, status: 'completed' }
               }))
-              setDetectionState('hold')
               setIdentifiedArticle(previewArticle)
-              setCurrentStep(1)
               setParsingTimeoutId(null)
+
+              // If Current Tab mode, automatically run analysis
+              if (isCurrentTabMode) {
+                setCurrentStep(1)
+                // Immediately trigger analysis without waiting for user input
+                setTimeout(() => {
+                  runAnalysis(result)
+                }, 100)
+              } else {
+                // Advanced Search mode - go to step 1 and wait
+                setDetectionState('hold')
+                setCurrentStep(1)
+              }
             } else {
               throw new Error('No content extracted')
             }
         } catch (error) {
           console.error('Content extraction failed:', error)
-          
+
           // Show error state
           setExtractionStages(prev => ({
             ...prev,
@@ -640,141 +820,18 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
           }))
           setDetectionState('error')
           setParsingTimeoutId(null)
-          
+
           // Show error message to user
           alert(`Content extraction failed: ${error.message}`)
         }
       }, 2000) // 2 second delay
-      
+
       setParsingTimeoutId(timeoutId)
     } else if (currentStep === 1) {
       // Run actual analysis with extracted content (this will use a token)
-      setDetectionState('scanning')
-      setAnalysisCancelled(false)
-      setExtractionStages(prev => ({
-        ...prev,
-        analysis: { ...prev.analysis, status: 'active' }
-      }))
-      
-      // Ensure minimum 3-second loading duration for consistent UX
-      const startTime = Date.now()
-      
-      try {
-        if (extractedContent || (editedTitle && editedContent)) {
-          console.log('Starting analysis generation...')
-          // Use edited values if available (scenario testing), otherwise use extracted content
-          const titleToAnalyze = editedTitle || extractedContent?.title || ''
-          const contentToAnalyze = editedContent || extractedContent?.content || ''
-
-          // Pass filters to API
-          const result = await api.analyzeArticle(titleToAnalyze, contentToAnalyze, filters)
-          
-          console.log('Analysis result:', result)
-          
-          // Calculate remaining time to ensure 2-second minimum
-          const elapsedTime = Date.now() - startTime
-          const remainingTime = Math.max(0, 2000 - elapsedTime)
-          
-          // Wait for remaining time if needed
-          if (remainingTime > 0) {
-            await new Promise(resolve => setTimeout(resolve, remainingTime))
-          }
-          
-          // Check if analysis was cancelled during the wait
-          if (analysisCancelled) {
-            return
-          }
-          
-          if (result) {
-            // Update article with analysis results - use edited values for scenario testing
-            const analyzedArticle = {
-              ...identifiedArticle,
-              title: titleToAnalyze,
-              content: contentToAnalyze,
-              text: contentToAnalyze,
-              matches: result.matches || [],
-              entities: result.matches ? result.matches.map(m => m.company || m.ticker) : []
-            }
-
-            // Cache the content for this article
-            const cacheKey = `${analyzedArticle.title}-${analyzedArticle.url}`
-            setContentCache(prev => new Map(prev.set(cacheKey, {
-              content: analyzedArticle.content,
-              text: analyzedArticle.text
-            })))
-
-            // Log activity
-            const tickers = result.matches ? result.matches.map(m => m.ticker).filter(Boolean) : []
-            await storage.logActivity({
-              type: 'article_analyzed',
-              description: `Analysed article: ${analyzedArticle.title}`,
-              metadata: {
-                articleTitle: analyzedArticle.title,
-                articleUrl: analyzedArticle.url,
-                ticker: tickers[0], // Use first ticker if available
-                companiesFound: tickers.length
-              },
-              relatedEntities: tickers
-            })
-
-            setExtractionStages(prev => ({
-              ...prev,
-              analysis: { ...prev.analysis, status: 'completed' }
-            }))
-            setDetectionState('ready')
-            setIdentifiedArticle(analyzedArticle)
-            setCurrentStep(2)
-
-            // Refresh articles list to show new analysis
-            const updatedArticles = await storage.getArticles()
-            
-            // Restore content for all articles from cache
-            const articlesWithContent = (updatedArticles || []).map(article => {
-              const cacheKey = `${article.title}-${article.url}`
-              const cachedContent = contentCache.get(cacheKey)
-              
-              // If article is missing content but we have it cached, restore it
-              if ((!article.content || !article.text) && cachedContent) {
-                return {
-                  ...article,
-                  content: cachedContent.content,
-                  text: cachedContent.text
-                }
-              }
-              return article
-            })
-            
-            setArticles(articlesWithContent)
-            setDisplayedArticles(articlesWithContent?.slice(0, loadMoreCount) || [])
-          } else {
-            throw new Error('No analysis results returned')
-          }
-        } else {
-          throw new Error('Extension services not available or no extracted content')
-        }
-      } catch (error) {
-        console.error('Analysis generation failed:', error)
-        
-        // Ensure minimum 2-second loading duration even on error
-        const elapsedTime = Date.now() - startTime
-        const remainingTime = Math.max(0, 2000 - elapsedTime)
-        
-        if (remainingTime > 0) {
-          await new Promise(resolve => setTimeout(resolve, remainingTime))
-        }
-        
-        // Show error state
-        setExtractionStages(prev => ({
-          ...prev,
-          analysis: { ...prev.analysis, status: 'error' }
-        }))
-        setDetectionState('error')
-        
-        // Show error message to user
-        alert(`Analysis generation failed: ${error.message}`)
-      }
+      await runAnalysis()
     }
-  }, [api, storage, currentStep, parsingCancelled, extractedContent, analysisCancelled, currentBrowserTab, contentCache, loadMoreCount])
+  }, [api, currentStep, parsingCancelled, currentBrowserTab, isCurrentTabMode, runAnalysis])
 
 
   // Initialize pipeline on component mount
@@ -912,10 +969,10 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
       clearTimeout(parsingTimeoutId)
       setParsingTimeoutId(null)
     }
-    
+
     // Clear sessionStorage
     sessionStorage.removeItem('pipelineState')
-    
+
     // Reset all states to initial values
     setCurrentStep(0)
     setDetectionState('hold')
@@ -928,6 +985,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
     setParsedTabInfo(null)
     setShowTemplates(false)
     setShowFilters(false)
+    setIsCurrentTabMode(false)
     setFilters({
       companySizes: [],
       sectors: [],
@@ -1130,7 +1188,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
       {(!searchQuery || !searchQuery.trim()) && (
         <div className="mb-3 px-1">
         {/* Stage-focused Pipeline Card */}
-        <div className="border border-gray-200/50 rounded-lg bg-white/70 backdrop-blur-sm overflow-hidden">
+        <div className="border border-gray-200/50 rounded-lg bg-white/90 backdrop-blur-sm overflow-hidden">
 
           {/* Stage Content - Only show current/relevant stage */}
           {/* STAGE 1: Extract - Show when on step 0 or parsing is active */}
@@ -1190,7 +1248,10 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
               <div className="px-4 pt-2 pb-3">
                 <div className="space-y-2">
                   <button
-                    onClick={extractionStages.parsing.status !== 'active' ? handleRunStep : undefined}
+                    onClick={extractionStages.parsing.status !== 'active' ? () => {
+                      setIsCurrentTabMode(true)
+                      handleRunStep()
+                    } : undefined}
                     disabled={extractionStages.parsing.status === 'active'}
                     className="w-full py-2.5 text-xs text-gray-600 bg-[#f0f4f8] hover:bg-[#e5edf5] rounded-lg transition-colors disabled:bg-gray-300 disabled:text-gray-500"
                   >
@@ -1202,7 +1263,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                       onClick={handleCustomEntry}
                       className="w-full py-2.5 text-xs text-gray-600 bg-[#f0f4f8] hover:bg-[#e5edf5] rounded-lg transition-colors"
                     >
-                      Scenario Testing
+                      Advanced Search
                     </button>
                   )}
                 </div>
@@ -1210,8 +1271,8 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
             </>
           )}
 
-          {/* STAGE 2: Run - Show after parsing is complete */}
-          {(extractionStages.parsing.status === 'completed' && currentStep >= 1 && detectionState !== 'ready') && (
+          {/* STAGE 2: Run - Show after parsing is complete (only for Advanced Search, not Current Tab) */}
+          {(extractionStages.parsing.status === 'completed' && currentStep >= 1 && detectionState !== 'ready' && !isCurrentTabMode) && (
             <div className="px-3 py-6 text-center">
               <div className="flex items-center justify-center gap-2 mb-2">
                 <span className="text-[11px] font-medium text-gray-500">Discovery Engine</span>
@@ -1229,10 +1290,10 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
               <p className="text-sm font-medium text-gray-900 leading-tight mb-4">Apply changes and add configurations for processing</p>
               <div className="space-y-2">
 
-                {/* Template Picker - Show when user clicks Scenario Testing */}
+                {/* Template Picker - Show when user clicks Advanced Search */}
                 {showTemplates ? (
                   <div className="space-y-3">
-                    <p className="text-xs font-medium text-gray-700">Choose a scenario template or create your own:</p>
+                    <p className="text-[11px] text-gray-500">Choose a scenario template or create your own:</p>
 
                     {/* Template Grid */}
                     <div className="space-y-2">
@@ -1243,6 +1304,13 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                       >
                         Custom Scenario
                       </button>
+
+                      {/* Separator */}
+                      <div className="flex items-center gap-3 py-2">
+                        <div className="flex-1 h-px bg-gray-100"></div>
+                        <span className="text-[11px] text-gray-500">Templates</span>
+                        <div className="flex-1 h-px bg-gray-100"></div>
+                      </div>
 
                       {/* Pre-built templates */}
                       {scenarioTemplates.map((template) => (
@@ -1321,8 +1389,8 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
               </div>
             )}
 
-          {/* Filters Section - Collapsible */}
-          {currentStep >= 1 && !showTemplates && identifiedArticle && detectionState !== 'ready' && detectionState !== 'error' && (
+          {/* Filters Section - Collapsible (only for Advanced Search, not Current Tab) */}
+          {currentStep >= 1 && !showTemplates && identifiedArticle && detectionState !== 'ready' && detectionState !== 'error' && !isCurrentTabMode && (
             <div className="border-t border-b border-gray-100 px-4 py-3 mb-3">
               <button
                 onClick={() => setShowFilters(!showFilters)}
@@ -1504,8 +1572,8 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
             </div>
           )}
 
-          {/* Full-width action buttons at bottom */}
-          {detectionState !== 'ready' && detectionState !== 'error' && currentStep >= 1 && (
+          {/* Full-width action buttons at bottom (only for Advanced Search, not Current Tab) */}
+          {detectionState !== 'ready' && detectionState !== 'error' && currentStep >= 1 && !isCurrentTabMode && (
             <div className="px-3 pt-0 pb-3">
               {currentStep === 0 && extractionStages.parsing.status === 'active' ? (
                 <button
@@ -1515,12 +1583,14 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                   Cancel
                 </button>
               ) : showTemplates ? (
-                <button
-                  onClick={handleReset}
-                  className="w-full py-2.5 text-xs text-gray-600 bg-[#f0f4f8] hover:bg-[#e5edf5] rounded-lg transition-colors"
-                >
-                  Back
-                </button>
+                <div className="border-t border-gray-100 pt-3">
+                  <button
+                    onClick={handleReset}
+                    className="w-full py-2.5 text-xs text-gray-600 bg-[#f0f4f8] hover:bg-[#e5edf5] rounded-lg transition-colors"
+                  >
+                    Back
+                  </button>
+                </div>
               ) : extractionStages.analysis.status === 'active' ? (
                 <button
                   onClick={handleCancelAnalysis}
@@ -1564,16 +1634,16 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
 
       {/* Progress Tracker / Analytics - Below Recents, above article groups */}
       {(!searchQuery || !searchQuery.trim()) && (
-        <div className="mb-4 mx-1 bg-purple-50 rounded-xl py-4 px-6 relative overflow-hidden">
-          {/* Decorative stars - always visible */}
-          <div className="absolute top-4 right-12 text-purple-300/35 text-xl transform rotate-12 transition-opacity duration-500">✦</div>
-          <div className="absolute top-8 right-20 text-purple-400/30 text-xs transition-opacity duration-500">✦</div>
-          <div className="absolute top-6 left-12 text-purple-300/40 text-lg transform -rotate-12 transition-opacity duration-500">✦</div>
-          <div className="absolute bottom-6 right-16 text-purple-400/35 text-sm transform rotate-45 transition-opacity duration-500">✦</div>
-
+        <>
           {/* Show Progress Tracker when <5 articles */}
           {articles.length < 5 ? (
-            <>
+            <div className="mb-4 mx-1 border border-gray-200/50 rounded-lg bg-white/70 backdrop-blur-sm py-4 px-6 relative overflow-hidden">
+              {/* Decorative stars */}
+              <div className="absolute top-4 right-12 text-gray-300/35 text-xl transform rotate-12 transition-opacity duration-500">✦</div>
+              <div className="absolute top-8 right-20 text-gray-400/30 text-xs transition-opacity duration-500">✦</div>
+              <div className="absolute top-6 left-12 text-gray-300/40 text-lg transform -rotate-12 transition-opacity duration-500">✦</div>
+              <div className="absolute bottom-6 right-16 text-gray-400/35 text-sm transform rotate-45 transition-opacity duration-500">✦</div>
+
               {/* Header Text */}
               <div className="text-center mb-2 px-4">
                 <p className="text-xs text-gray-600 font-medium leading-relaxed">
@@ -1637,65 +1707,78 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                   ></div>
                 )}
               </div>
-            </>
-          ) : (
-            /* Analytics View - Show when >=5 articles */
-            <div className="space-y-4">
-              {/* Header */}
-              <div className="text-center">
-                <h3 className="text-xs font-medium text-gray-700 mb-1">History Analytics</h3>
-                <p className="text-[11px] text-gray-500">Signals across {articles.length} articles</p>
-              </div>
-
-              {/* Analytics Grid */}
-              <div className="grid grid-cols-2 gap-3">
-                {/* Total Articles Analyzed */}
-                <div className="bg-white/60 rounded-lg p-3 border border-gray-200/50">
-                  <p className="text-[10px] text-gray-500 mb-1">Total Analyzed</p>
-                  <p className="text-xl font-semibold text-gray-900">{articles.length}</p>
-                </div>
-
-                {/* Unique Companies */}
-                <div className="bg-white/60 rounded-lg p-3 border border-gray-200/50">
-                  <p className="text-[10px] text-gray-500 mb-1">Companies Found</p>
-                  <p className="text-xl font-semibold text-gray-900">
-                    {(() => {
-                      const uniqueTickers = new Set()
-                      articles.forEach(article => {
-                        if (article.matches) {
-                          article.matches.forEach(match => {
-                            if (match.ticker) uniqueTickers.add(match.ticker)
-                          })
-                        }
-                      })
-                      return uniqueTickers.size
-                    })()}
-                  </p>
-                </div>
-
-                {/* Top Sector */}
-                <div className="bg-white/60 rounded-lg p-3 border border-gray-200/50">
-                  <p className="text-[10px] text-gray-500 mb-1">Top Sector</p>
-                  <p className="text-sm font-medium text-gray-900">Technology</p>
-                </div>
-
-                {/* Avg. Articles per Day */}
-                <div className="bg-white/60 rounded-lg p-3 border border-gray-200/50">
-                  <p className="text-[10px] text-gray-500 mb-1">Avg. per Day</p>
-                  <p className="text-xl font-semibold text-gray-900">
-                    {(() => {
-                      if (articles.length === 0) return 0
-                      const now = new Date()
-                      const oldest = new Date(Math.min(...articles.map(a => new Date(a.timestamp))))
-                      const daysDiff = Math.max(1, Math.ceil((now - oldest) / (1000 * 60 * 60 * 24)))
-                      return (articles.length / daysDiff).toFixed(1)
-                    })()}
-                  </p>
-                </div>
-              </div>
             </div>
+          ) : (
+            /* Robinhood-style Stacked Notification Cards - Show when >=5 articles */
+            activeNotifications.length > 0 && (
+              <div className="mb-4 mx-1 relative">
+                {/* Background shadow cards to show stack depth */}
+                {activeNotifications.length > 1 && (
+                  <>
+                    {/* Second card shadow */}
+                    <div
+                      className="absolute inset-0 bg-[#f0f4f8] rounded-lg border border-gray-200/50"
+                      style={{
+                        transform: 'translateY(6px) scaleX(0.98)',
+                        transformOrigin: 'center top',
+                        zIndex: 0
+                      }}
+                    />
+                    {/* Third card shadow (if exists) */}
+                    {activeNotifications.length > 2 && (
+                      <div
+                        className="absolute inset-0 bg-[#f0f4f8] rounded-lg border border-gray-200/50"
+                        style={{
+                          transform: 'translateY(12px) scaleX(0.96)',
+                          transformOrigin: 'center top',
+                          zIndex: -1
+                        }}
+                      />
+                    )}
+                  </>
+                )}
+
+                {/* Top card */}
+                <div className="relative bg-white border border-gray-200/50 rounded-lg p-4" style={{ zIndex: 10 }}>
+                  <div className="flex items-start gap-3">
+                    {/* Icon */}
+                    <div className="flex-shrink-0 w-8 h-8 bg-[#f0f4f8] rounded-lg flex items-center justify-center">
+                      {activeNotifications[0].icon}
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-xs font-semibold text-gray-900 mb-1">
+                        {activeNotifications[0].title}
+                      </h3>
+                      <p className="text-xs text-gray-600 leading-relaxed line-clamp-3">
+                        {activeNotifications[0].description}
+                      </p>
+                    </div>
+
+                    {/* Close button */}
+                    <button
+                      onClick={() => handleDismissNotification(activeNotifications[0].id)}
+                      className="flex-shrink-0 w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                        <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Counter in bottom right */}
+                  <div className="absolute bottom-3 right-3 text-[11px] text-gray-400">
+                    {dismissedNotifications.length + 1}/{notificationCards.length}
+                  </div>
+                </div>
+
+                {/* Spacer to maintain layout height - accounts for stacked cards */}
+                <div style={{ height: activeNotifications.length > 2 ? '12px' : activeNotifications.length > 1 ? '6px' : '0' }} />
+              </div>
+            )
           )}
-        </div>
+        </>
       )}
 
       {/* Show empty state if no articles, otherwise show articles */}

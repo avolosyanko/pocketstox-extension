@@ -349,8 +349,10 @@ function AppContent() {
 
       {/* Scrollable Content Area */}
       <div className="relative flex-1 overflow-x-hidden overflow-y-auto scroll-smooth scrollbar-hide">
-        {/* Gradient Background - scrolls with content */}
-        <div className="absolute inset-x-0 top-0 h-96 bg-gradient-to-b from-[#f0f4f8] via-[#f0f4f8]/50 to-transparent pointer-events-none"></div>
+        {/* Colorful Mesh Gradient Background - scrolls with content */}
+        <div className="absolute inset-x-0 top-0 h-[500px] pointer-events-none overflow-hidden">
+          <div className="mesh-gradient"></div>
+        </div>
 
         {/* Dynamic Tab Content */}
         <main className={`relative ${componentSpacing.contentPadding}`}>
