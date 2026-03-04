@@ -154,76 +154,27 @@ const getIconText = (article) => {
   return article.title?.charAt(0)?.toUpperCase() || 'A'
 }
 
-// Company Icon Component with local images and dynamic colors
+// Company Icon Component - shows ticker text only
 const CompanyIcon = React.memo(({ article, size = 'md', className = '' }) => {
   const ticker = getIconText(article)
-  const imagePath = getCompanyImage(ticker)
-  const dominantColor = useDominantColor(imagePath)
   const fallbackColor = getRandomColor(article.title || article.url || 'default')
-  
+
   // Size variants
   const sizeClasses = {
     xs: 'w-8 h-8',
     sm: 'w-10 h-10',
-    md: 'w-12 h-12', 
+    md: 'w-12 h-12',
     lg: 'w-16 h-16'
   }
-  
-  const iconSizes = {
-    xs: 'w-4 h-4',
-    sm: 'w-5 h-5',
-    md: 'w-6 h-6',
-    lg: 'w-8 h-8'
-  }
-  
+
   const textSizes = {
     xs: 'text-[7px]',
     sm: 'text-[8px]',
     md: 'text-[10px]',
     lg: 'text-lg'
   }
-  
-  if (imagePath) {
-    return (
-      <div 
-        className={cn(
-          sizeClasses[size], 
-          "rounded-md flex items-center justify-center flex-shrink-0 overflow-hidden relative",
-          className
-        )}
-        style={{ 
-          backgroundColor: dominantColor || 'rgb(59,130,246)',
-          border: 'none',
-          outline: 'none'
-        }}
-      >
-        <img
-          src={imagePath}
-          alt={`${ticker} logo`}
-          className={cn(iconSizes[size], "object-contain drop-shadow-sm")}
-          style={{
-            filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.2)) brightness(1.1)'
-          }}
-          onError={(e) => {
-            // Hide image and show ticker if it fails to load
-            e.target.style.display = 'none'
-            // Show the ticker fallback
-            const fallback = e.target.parentElement.querySelector('.ticker-fallback')
-            if (fallback) fallback.style.opacity = '1'
-          }}
-        />
-        {/* Show ticker as fallback if image doesn't load */}
-        <div className={cn(
-          "ticker-fallback absolute inset-0 flex items-center justify-center text-white font-medium opacity-0 transition-opacity",
-          textSizes[size]
-        )}>
-          {ticker}
-        </div>
-      </div>
-    )
-  }
-  
-  // Fallback to colored ticker box for companies without images
+
+  // Always show colored ticker box
   return (
     <div className={cn(
       sizeClasses[size],

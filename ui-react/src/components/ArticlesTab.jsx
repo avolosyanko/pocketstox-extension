@@ -34,6 +34,9 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
   const [faviconLoadErrors, setFaviconLoadErrors] = useState(new Set())
   const [showTemplates, setShowTemplates] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
+  const [selectedPromptMode, setSelectedPromptMode] = useState(null) // 'discovery' or 'challenge'
+  const [allBrowserTabs, setAllBrowserTabs] = useState([])
+  const [selectedTabs, setSelectedTabs] = useState(new Set())
 
   // Filter state - extensible for future filter types
   const [filters, setFilters] = useState({
@@ -129,14 +132,14 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
           if (tab) {
             const domain = tab.url ? new URL(tab.url).hostname.replace('www.', '') : 'Unknown'
             let faviconUrl = null
-            
+
             // Use tab's favicon if available, otherwise construct Google favicon URL
             if (tab.favIconUrl && tab.favIconUrl.startsWith('http')) {
               faviconUrl = tab.favIconUrl
             } else if (domain && domain !== 'Unknown') {
               faviconUrl = `https://www.google.com/s2/favicons?sz=16&domain=${domain}`
             }
-            
+
             const newTabInfo = {
               title: tab.title,
               url: tab.url,
@@ -158,34 +161,34 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
         }
       } catch (error) {
         console.error('Failed to get current tab:', error)
-        setCurrentBrowserTab({ 
-          title: 'Active Tab', 
+        setCurrentBrowserTab({
+          title: 'Active Tab',
           domain: 'Unknown',
           favicon: null
         })
       }
     }
-    
+
     // Get initial tab info
     getCurrentTab()
-    
+
     // Listen for tab changes
     const handleTabUpdate = (tabId, changeInfo, tab) => {
       if (changeInfo.status === 'complete' && tab.active) {
         getCurrentTab()
       }
     }
-    
+
     const handleTabActivated = () => {
       getCurrentTab()
     }
-    
+
     // Add listeners
     if (chrome && chrome.tabs) {
       chrome.tabs.onUpdated.addListener(handleTabUpdate)
       chrome.tabs.onActivated.addListener(handleTabActivated)
     }
-    
+
     // Cleanup listeners
     return () => {
       if (chrome && chrome.tabs) {
@@ -193,6 +196,40 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
         chrome.tabs.onActivated.removeListener(handleTabActivated)
       }
     }
+  }, [])
+
+  // Get all browser tabs
+  useEffect(() => {
+    const getAllTabs = async () => {
+      try {
+        if (chrome && chrome.tabs) {
+          const tabs = await chrome.tabs.query({ currentWindow: true })
+          const formattedTabs = tabs.map(tab => {
+            const domain = tab.url ? new URL(tab.url).hostname.replace('www.', '') : 'Unknown'
+            let faviconUrl = null
+
+            if (tab.favIconUrl && tab.favIconUrl.startsWith('http')) {
+              faviconUrl = tab.favIconUrl
+            } else if (domain && domain !== 'Unknown') {
+              faviconUrl = `https://www.google.com/s2/favicons?sz=16&domain=${domain}`
+            }
+
+            return {
+              id: tab.id,
+              title: tab.title,
+              url: tab.url,
+              domain: domain,
+              favicon: faviconUrl
+            }
+          })
+          setAllBrowserTabs(formattedTabs)
+        }
+      } catch (error) {
+        console.error('Failed to get all tabs:', error)
+      }
+    }
+
+    getAllTabs()
   }, [])
   
   // Persistent cache for article content
@@ -367,10 +404,47 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
               url: 'https://finance.yahoo.com/news/apple-earnings-q4-2024',
               content: 'Apple Inc. reported record-breaking fourth quarter earnings today, surpassing analyst expectations with revenue of $123.5 billion...',
               timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
-              companies: ['AAPL'],
+              companies: ['AMKR'],
               matches: [
-                { ticker: 'AAPL', company: 'Apple Inc.', score: 0.95 }
-              ]
+                {
+                  ticker: 'AMKR',
+                  company: 'Amkor Technology',
+                  score: 0.91,
+                  exposureType: 'Direct',
+                  chunkCount: 7,
+                  section: 'Risk Factors',
+                  filing: '2023 Annual Report',
+                  excerpt: 'Our operations increasingly depend on advanced packaging capabilities and US-based manufacturing facilities as domestic semiconductor production expands under the CHIPS Act. We have invested significantly in cleanroom infrastructure and substrate supply partnerships to meet anticipated demand.',
+                  highlightPhrases: ['advanced packaging capabilities', 'CHIPS Act', 'cleanroom infrastructure']
+                },
+                {
+                  ticker: 'IPGP',
+                  company: 'IPG Photonics',
+                  score: 0.79,
+                  exposureType: '2nd Order',
+                  chunkCount: 4,
+                  section: 'Business Overview',
+                  filing: '2023 Annual Report',
+                  inference1: 'Advanced packaging fabs require precision laser systems',
+                  excerpt: 'Laser systems for advanced packaging applications represent the fastest growing segment of our semiconductor division, driven by increasing adoption of chiplet architectures requiring high-precision interconnect formation.',
+                  highlightPhrases: ['advanced packaging applications', 'semiconductor division', 'chiplet architectures']
+                },
+                {
+                  ticker: 'ENTG',
+                  company: 'Entegris',
+                  score: 0.64,
+                  exposureType: '3rd Order',
+                  chunkCount: 3,
+                  section: 'MD&A',
+                  filing: '2023 Annual Report',
+                  inference1: 'Domestic fab construction accelerates',
+                  inference2: 'Demand for specialty process materials rises',
+                  excerpt: 'We supply critical materials and solutions to semiconductor manufacturers establishing domestic production, including advanced process chemicals, filtration systems, and contamination control products for cleanroom environments.',
+                  highlightPhrases: ['domestic production', 'advanced process chemicals', 'cleanroom environments']
+                }
+              ],
+              thesis: 'Reshoring of semiconductor packaging will accelerate after CHIPS Act implementation',
+              keywords: ['advanced packaging materials', 'cleanroom construction', 'US-based substrate suppliers']
             },
             {
               id: 'placeholder-2',
@@ -380,8 +454,45 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
               timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(), // 5 hours ago
               companies: ['TSLA'],
               matches: [
-                { ticker: 'TSLA', company: 'Tesla, Inc.', score: 0.92 }
-              ]
+                {
+                  ticker: 'TSLA',
+                  company: 'Tesla, Inc.',
+                  score: 0.92,
+                  exposureType: 'Direct',
+                  chunkCount: 5,
+                  section: 'Business Overview',
+                  filing: '2024 Q3 10-Q',
+                  excerpt: 'Our AI-powered manufacturing systems have reduced production cycle times by 30% while improving quality metrics. Machine learning algorithms optimize robotic assembly operations in real-time, enabling unprecedented efficiency gains.',
+                  highlightPhrases: ['AI-powered manufacturing', 'Machine learning algorithms', 'robotic assembly operations']
+                },
+                {
+                  ticker: 'FANUC',
+                  company: 'FANUC Corporation',
+                  score: 0.79,
+                  exposureType: '2nd Order',
+                  chunkCount: 4,
+                  section: 'Business Overview',
+                  filing: '2023 Annual Report',
+                  inference1: 'EV factories require advanced robotics systems',
+                  excerpt: 'Our industrial robotics division continues to see strong demand from automotive manufacturers, particularly in precision assembly and welding applications for electric vehicle production lines.',
+                  highlightPhrases: ['industrial robotics', 'automotive manufacturers', 'electric vehicle production']
+                },
+                {
+                  ticker: 'ROK',
+                  company: 'Rockwell Automation',
+                  score: 0.67,
+                  exposureType: '3rd Order',
+                  chunkCount: 3,
+                  section: 'MD&A',
+                  filing: '2023 10-K',
+                  inference1: 'Automated EV assembly lines expand',
+                  inference2: 'Demand for industrial control systems grows',
+                  excerpt: 'We provide comprehensive factory automation solutions including programmable logic controllers, industrial networking equipment, and manufacturing execution systems that enable smart factory operations.',
+                  highlightPhrases: ['factory automation', 'programmable logic controllers', 'smart factory operations']
+                }
+              ],
+              thesis: 'AI automation will drive margin expansion in EV manufacturing',
+              keywords: ['manufacturing automation', 'robotics integration', 'production efficiency']
             },
             {
               id: 'placeholder-3',
@@ -391,8 +502,45 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
               timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(), // 8 hours ago
               companies: ['GOOGL'],
               matches: [
-                { ticker: 'GOOGL', company: 'Alphabet Inc.', score: 0.93 }
-              ]
+                {
+                  ticker: 'GOOGL',
+                  company: 'Alphabet Inc.',
+                  score: 0.93,
+                  exposureType: 'Direct',
+                  chunkCount: 12,
+                  section: 'Management Discussion & Analysis',
+                  filing: '2023 10-K',
+                  excerpt: 'Our quantum computing research division achieved major breakthroughs in error correction, positioning us for enterprise cloud service leadership. We expect quantum processing capabilities to become commercially viable within the next 3-5 years.',
+                  highlightPhrases: ['quantum computing research', 'error correction', 'enterprise cloud service']
+                },
+                {
+                  ticker: 'RGTI',
+                  company: 'Rigetti Computing',
+                  score: 0.81,
+                  exposureType: '2nd Order',
+                  chunkCount: 5,
+                  section: 'Business Overview',
+                  filing: '2023 10-K',
+                  inference1: 'Quantum cloud services require specialized hardware providers',
+                  excerpt: 'Our quantum processors are designed for cloud deployment, enabling enterprise customers to access quantum computing resources through standard cloud interfaces. We partner with major cloud providers to deliver quantum-as-a-service capabilities.',
+                  highlightPhrases: ['quantum processors', 'cloud deployment', 'quantum-as-a-service']
+                },
+                {
+                  ticker: 'FORM',
+                  company: 'FormFactor',
+                  score: 0.68,
+                  exposureType: '3rd Order',
+                  chunkCount: 4,
+                  section: 'Risk Factors',
+                  filing: '2023 Annual Report',
+                  inference1: 'Quantum hardware deployment accelerates',
+                  inference2: 'Need for specialized testing equipment grows',
+                  excerpt: 'Our advanced probe card technologies are increasingly critical for testing next-generation semiconductor devices, including cryogenic testing solutions required for quantum computing applications and high-performance computing chips.',
+                  highlightPhrases: ['cryogenic testing solutions', 'quantum computing applications', 'high-performance computing']
+                }
+              ],
+              thesis: 'Quantum computing breakthroughs will position early leaders for enterprise cloud dominance',
+              keywords: ['quantum error correction', 'cloud computing', 'enterprise solutions']
             },
             
             // YESTERDAY
@@ -1136,8 +1284,8 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
           {/* STAGE 1: Extract - Show when on step 0 or parsing is active */}
           {currentStep === 0 && !extractionStages.parsing.status.match(/completed/) && (
             <>
-              <div className="text-center px-6 pt-7 pb-5">
-                <div className="flex items-center justify-center gap-2 mb-3">
+              <div className="text-center px-6 pt-5 pb-2">
+                <div className="flex items-center justify-center gap-2">
                   <span className="text-[11px] font-medium text-gray-500">Discovery Engine</span>
                   <div className="flex items-center gap-1 px-1.5 py-0.5 bg-[#f0f4f8] rounded-full">
                     <span className="text-[10px] font-medium text-gray-500">BETA</span>
@@ -1150,60 +1298,302 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                     <div className="w-3 h-3 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
                   )}
                 </div>
-                <p className="text-sm font-medium text-gray-900 leading-normal">Map your reading to understand affected public companies</p>
-              </div>
-              
-              <div className="px-4 pb-2">
-                <div className="space-y-2">
-                  {/* Current tab preview - display only */}
-                  {currentBrowserTab && (
-                    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-md shadow-inner">
-                      {currentBrowserTab.favicon && !faviconLoadErrors.has(`current-${currentBrowserTab.favicon}`) ? (
-                        <img
-                          src={currentBrowserTab.favicon}
-                          alt=""
-                          className="w-4 h-4 rounded-sm flex-shrink-0"
-                          onError={(e) => {
-                            setFaviconLoadErrors(prev => new Set([...prev, `current-${currentBrowserTab.favicon}`]))
-                            // Try fallback favicon
-                            if (currentBrowserTab.domain && currentBrowserTab.domain !== 'Unknown') {
-                              const fallbackUrl = `https://www.google.com/s2/favicons?sz=16&domain=${currentBrowserTab.domain}`
-                              if (e.target.src !== fallbackUrl) {
-                                e.target.src = fallbackUrl
-                              }
-                            }
-                          }}
-                        />
-                      ) : (
-                        <div className="w-4 h-4 bg-gray-300 rounded-sm flex-shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-medium text-gray-900 truncate">{currentBrowserTab.title || 'Current Tab'}</p>
-                        <p className="text-[11px] text-gray-500 truncate">{currentBrowserTab.url}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
               </div>
 
-              {/* Action buttons section */}
+              {/* Chat history and input section */}
               <div className="px-4 pt-2 pb-3">
                 <div className="space-y-2">
-                  <button
-                    onClick={extractionStages.parsing.status !== 'active' ? handleRunStep : undefined}
-                    disabled={extractionStages.parsing.status === 'active'}
-                    className="w-full py-2.5 text-xs text-gray-600 bg-[#f0f4f8] hover:bg-[#e5edf5] rounded-lg transition-colors disabled:bg-gray-300 disabled:text-gray-500"
-                  >
-                    {extractionStages.parsing.status === 'active' ? 'Extracting...' : 'Current Tab'}
-                  </button>
+                  {/* Chat history window */}
+                  <div className="bg-white rounded-lg min-h-[200px] overflow-y-auto">
+                    {!selectedPromptMode ? (
+                      /* Starter prompts */
+                      <div className="space-y-3">
+                        {/* Option 1 - Help with discovery (original styling) */}
+                        <button
+                          onClick={() => setSelectedPromptMode('discovery')}
+                          className="w-full text-left p-2.5 bg-[#f0f4f8] hover:bg-[#e5edf5] rounded-lg transition-colors"
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-1.5">
+                            <span className="text-[10px] text-gray-500">Extract thesis</span>
+                          </div>
+                          <p className="text-xs leading-relaxed">
+                            <span className="text-purple-600 font-medium">Help with discovery</span>
+                            <span className="text-gray-900"> by reading my current active tab.</span>
+                          </p>
+                        </button>
 
-                  {extractionStages.parsing.status !== 'active' && (
-                    <button
-                      onClick={handleCustomEntry}
-                      className="w-full py-2.5 text-xs text-gray-600 bg-[#f0f4f8] hover:bg-[#e5edf5] rounded-lg transition-colors"
-                    >
-                      Scenario Testing
-                    </button>
+                        {/* OR divider */}
+                        <div className="text-center">
+                          <span className="text-[10px] text-gray-400 uppercase tracking-wider">OR</span>
+                        </div>
+
+                        {/* Enter Thesis section */}
+                        <div className="space-y-2">
+                          <label className="block text-[10px] text-gray-500 pl-2.5">Enter thesis</label>
+                          <textarea
+                            placeholder="e.g. Pentagon drone budget increase will accelerate US UAV supply chain reshoring."
+                            rows={4}
+                            className="w-full px-3 py-2.5 text-xs text-gray-900 placeholder:text-gray-400 bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-gray-300 resize-none"
+                          />
+
+                          {/* Filters Section - Collapsible */}
+                          <div className="border-t border-b border-gray-100 px-2 py-3">
+                            <button
+                              onClick={() => setShowFilters(!showFilters)}
+                              className="w-full flex items-center justify-between text-left hover:opacity-70 transition-opacity"
+                            >
+                              <span className="text-xs font-medium text-gray-700">Filters</span>
+                              <svg
+                                className={`w-3 h-3 text-gray-400 transition-transform ${showFilters ? 'rotate-180' : ''}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </button>
+
+                            {showFilters && (
+                              <div className="mt-3 space-y-3">
+                                {/* Company Size Filter */}
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-600 mb-2">Company Size</label>
+                                  <div
+                                    className="flex overflow-x-auto gap-2 pb-2 cursor-grab active:cursor-grabbing"
+                                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                                    onMouseDown={(e) => {
+                                      const container = e.currentTarget;
+                                      const startX = e.pageX - container.offsetLeft;
+                                      const scrollLeft = container.scrollLeft;
+                                      container.style.cursor = 'grabbing';
+                                      const handleMouseMove = (e) => {
+                                        const x = e.pageX - container.offsetLeft;
+                                        const walk = (x - startX) * 2;
+                                        container.scrollLeft = scrollLeft - walk;
+                                      };
+                                      const handleMouseUp = () => {
+                                        container.style.cursor = 'grab';
+                                        document.removeEventListener('mousemove', handleMouseMove);
+                                        document.removeEventListener('mouseup', handleMouseUp);
+                                      };
+                                      document.addEventListener('mousemove', handleMouseMove);
+                                      document.addEventListener('mouseup', handleMouseUp);
+                                    }}
+                                  >
+                                    {[
+                                      { value: 'small', label: 'Small (<$2B)' },
+                                      { value: 'mid', label: 'Mid ($2-10B)' },
+                                      { value: 'large', label: 'Large (>$10B)' }
+                                    ].map(option => (
+                                      <button
+                                        key={option.value}
+                                        onClick={() => toggleFilter('companySizes', option.value)}
+                                        className={cn(
+                                          "px-2.5 py-1.5 text-xs rounded-md border transition-colors flex-shrink-0",
+                                          filters.companySizes.includes(option.value)
+                                            ? "bg-gray-400/20 text-gray-600 border-gray-300"
+                                            : "bg-white text-gray-700 border-gray-100 hover:border-gray-200"
+                                        )}
+                                      >
+                                        {option.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Sectors Filter */}
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-600 mb-2">Sectors</label>
+                                  <div
+                                    className="flex overflow-x-auto gap-2 pb-2 cursor-grab active:cursor-grabbing"
+                                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                                    onMouseDown={(e) => {
+                                      const container = e.currentTarget;
+                                      const startX = e.pageX - container.offsetLeft;
+                                      const scrollLeft = container.scrollLeft;
+                                      container.style.cursor = 'grabbing';
+                                      const handleMouseMove = (e) => {
+                                        const x = e.pageX - container.offsetLeft;
+                                        const walk = (x - startX) * 2;
+                                        container.scrollLeft = scrollLeft - walk;
+                                      };
+                                      const handleMouseUp = () => {
+                                        container.style.cursor = 'grab';
+                                        document.removeEventListener('mousemove', handleMouseMove);
+                                        document.removeEventListener('mouseup', handleMouseUp);
+                                      };
+                                      document.addEventListener('mousemove', handleMouseMove);
+                                      document.addEventListener('mouseup', handleMouseUp);
+                                    }}
+                                  >
+                                    {[
+                                      { value: 'technology', label: 'Technology' },
+                                      { value: 'healthcare', label: 'Healthcare' },
+                                      { value: 'financials', label: 'Financials' },
+                                      { value: 'energy', label: 'Energy' },
+                                      { value: 'industrials', label: 'Industrials' },
+                                      { value: 'consumer-discretionary', label: 'Consumer Disc.' },
+                                      { value: 'consumer-staples', label: 'Consumer Staples' },
+                                      { value: 'utilities', label: 'Utilities' },
+                                      { value: 'materials', label: 'Materials' },
+                                      { value: 'real-estate', label: 'Real Estate' },
+                                      { value: 'communication', label: 'Communication' }
+                                    ].map(option => (
+                                      <button
+                                        key={option.value}
+                                        onClick={() => toggleFilter('sectors', option.value)}
+                                        className={cn(
+                                          "px-2.5 py-1.5 text-xs rounded-md border transition-colors flex-shrink-0",
+                                          filters.sectors.includes(option.value)
+                                            ? "bg-gray-400/20 text-gray-600 border-gray-300"
+                                            : "bg-white text-gray-700 border-gray-100 hover:border-gray-200"
+                                        )}
+                                      >
+                                        {option.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Ignore Filter */}
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-600 mb-2">Ignore</label>
+                                  <div className="space-y-2">
+                                    {/* Input field */}
+                                    <div className="flex gap-2">
+                                      <input
+                                        type="text"
+                                        value={blocklistInput}
+                                        onChange={(e) => setBlocklistInput(e.target.value)}
+                                        onKeyDown={handleBlocklistKeyDown}
+                                        placeholder="Enter ticker (e.g., AAPL)"
+                                        className="flex-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:border-gray-300"
+                                      />
+                                      <button
+                                        onClick={handleAddToBlocklist}
+                                        disabled={!blocklistInput.trim()}
+                                        className="px-3 py-1.5 text-xs bg-[#4A4458] text-white rounded-md hover:bg-[#3d3a4a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                      >
+                                        Add
+                                      </button>
+                                    </div>
+
+                                    {/* Ignored tickers pills */}
+                                    {filters.blocklist.length > 0 && (
+                                      <div className="flex flex-wrap gap-2">
+                                        {filters.blocklist.map(ticker => (
+                                          <div
+                                            key={ticker}
+                                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-red-50 text-red-700 border border-red-200 rounded-md"
+                                          >
+                                            <span>{ticker}</span>
+                                            <button
+                                              onClick={() => handleRemoveFromBlocklist(ticker)}
+                                              className="hover:text-red-900 transition-colors"
+                                            >
+                                              ×
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {filters.blocklist.length === 0 && (
+                                      <p className="text-xs text-gray-400 italic">No companies ignored</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          <button className="w-full px-4 py-2.5 text-xs text-gray-600 leading-4 bg-[#f0f4f8] hover:bg-[#e5edf5] rounded-lg transition-colors">
+                            Find Exposure →
+                          </button>
+                        </div>
+                      </div>
+                    ) : selectedPromptMode === 'discovery' ? (
+                      /* Tab selection for discovery */
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-gray-700">Select tabs to analyze</span>
+                          <button
+                            onClick={() => {
+                              setSelectedPromptMode(null)
+                              setSelectedTabs(new Set())
+                            }}
+                            className="text-[10px] text-gray-500 hover:text-gray-700"
+                          >
+                            Back
+                          </button>
+                        </div>
+                        <div className="space-y-0.5 max-h-[250px] overflow-y-auto">
+                          {allBrowserTabs.map(tab => (
+                            <button
+                              key={tab.id}
+                              onClick={() => {
+                                setSelectedTabs(prev => {
+                                  const newSet = new Set(prev)
+                                  if (newSet.has(tab.id)) {
+                                    newSet.delete(tab.id)
+                                  } else {
+                                    newSet.add(tab.id)
+                                  }
+                                  return newSet
+                                })
+                              }}
+                              className={cn(
+                                "w-full text-left p-2 rounded-md transition-colors",
+                                selectedTabs.has(tab.id) && "bg-purple-100"
+                              )}
+                            >
+                              <div className="flex items-center gap-2">
+                                {tab.favicon && !faviconLoadErrors.has(`select-${tab.favicon}`) ? (
+                                  <img
+                                    src={tab.favicon}
+                                    alt=""
+                                    className="w-4 h-4 rounded-sm flex-shrink-0"
+                                    onError={(e) => {
+                                      setFaviconLoadErrors(prev => new Set([...prev, `select-${tab.favicon}`]))
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="w-4 h-4 bg-gray-200 rounded-sm flex-shrink-0" />
+                                )}
+                                <p className="text-xs font-normal text-gray-900 truncate flex-1">{tab.title || 'Untitled'}</p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* Gemini-style chatbox - only show for Challenge mode */}
+                  {extractionStages.parsing.status !== 'active' && selectedPromptMode === 'challenge' && (
+                    <div className="pt-1">
+                      <div className="bg-[#f0f4f8] rounded-lg px-3.5 py-3.5">
+                        {/* Top section with placeholder */}
+                        <div className="flex items-center gap-2 mb-3 min-h-[32px]">
+                          <span className="text-gray-500 text-[13px]">Enter a prompt</span>
+                        </div>
+
+                        {/* Bottom section with controls */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <button className="flex items-center gap-1.5 text-gray-600 hover:bg-gray-200 px-2 py-1 rounded-full transition-colors">
+                              <span className="text-lg font-light">+</span>
+                              <span className="text-xs">Tabs</span>
+                            </button>
+                          </div>
+                          <button className="w-7 h-7 flex items-center justify-center text-gray-600 hover:bg-gray-200 rounded-full transition-colors">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1563,7 +1953,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
       </div>
 
       {/* Progress Tracker / Analytics - Below Recents, above article groups */}
-      {(!searchQuery || !searchQuery.trim()) && (
+      {(!searchQuery || !searchQuery.trim()) && articles.length < 5 && (
         <div className="mb-4 mx-1 bg-purple-50 rounded-xl py-4 px-6 relative overflow-hidden">
           {/* Decorative stars - always visible */}
           <div className="absolute top-4 right-12 text-purple-300/35 text-xl transform rotate-12 transition-opacity duration-500">✦</div>
@@ -1572,7 +1962,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
           <div className="absolute bottom-6 right-16 text-purple-400/35 text-sm transform rotate-45 transition-opacity duration-500">✦</div>
 
           {/* Show Progress Tracker when <5 articles */}
-          {articles.length < 5 ? (
+          {articles.length < 5 && (
             <>
               {/* Header Text */}
               <div className="text-center mb-2 px-4">
@@ -1638,62 +2028,6 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                 )}
               </div>
             </>
-          ) : (
-            /* Analytics View - Show when >=5 articles */
-            <div className="space-y-4">
-              {/* Header */}
-              <div className="text-center">
-                <h3 className="text-xs font-medium text-gray-700 mb-1">History Analytics</h3>
-                <p className="text-[11px] text-gray-500">Signals across {articles.length} articles</p>
-              </div>
-
-              {/* Analytics Grid */}
-              <div className="grid grid-cols-2 gap-3">
-                {/* Total Articles Analyzed */}
-                <div className="bg-white/60 rounded-lg p-3 border border-gray-200/50">
-                  <p className="text-[10px] text-gray-500 mb-1">Total Analyzed</p>
-                  <p className="text-xl font-semibold text-gray-900">{articles.length}</p>
-                </div>
-
-                {/* Unique Companies */}
-                <div className="bg-white/60 rounded-lg p-3 border border-gray-200/50">
-                  <p className="text-[10px] text-gray-500 mb-1">Companies Found</p>
-                  <p className="text-xl font-semibold text-gray-900">
-                    {(() => {
-                      const uniqueTickers = new Set()
-                      articles.forEach(article => {
-                        if (article.matches) {
-                          article.matches.forEach(match => {
-                            if (match.ticker) uniqueTickers.add(match.ticker)
-                          })
-                        }
-                      })
-                      return uniqueTickers.size
-                    })()}
-                  </p>
-                </div>
-
-                {/* Top Sector */}
-                <div className="bg-white/60 rounded-lg p-3 border border-gray-200/50">
-                  <p className="text-[10px] text-gray-500 mb-1">Top Sector</p>
-                  <p className="text-sm font-medium text-gray-900">Technology</p>
-                </div>
-
-                {/* Avg. Articles per Day */}
-                <div className="bg-white/60 rounded-lg p-3 border border-gray-200/50">
-                  <p className="text-[10px] text-gray-500 mb-1">Avg. per Day</p>
-                  <p className="text-xl font-semibold text-gray-900">
-                    {(() => {
-                      if (articles.length === 0) return 0
-                      const now = new Date()
-                      const oldest = new Date(Math.min(...articles.map(a => new Date(a.timestamp))))
-                      const daysDiff = Math.max(1, Math.ceil((now - oldest) / (1000 * 60 * 60 * 24)))
-                      return (articles.length / daysDiff).toFixed(1)
-                    })()}
-                  </p>
-                </div>
-              </div>
-            </div>
           )}
         </div>
       )}
