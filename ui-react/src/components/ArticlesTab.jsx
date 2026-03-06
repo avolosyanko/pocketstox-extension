@@ -6,7 +6,7 @@ import CompanyIcon from './CompanyIcon'
 import { semanticTypography, componentSpacing, spacing } from '@/styles/typography'
 import { useAPI, useStorage } from '@/contexts/ServiceContext'
 
-const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, searchQuery }, ref) => {
+const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, searchQuery, onFiltersChange }, ref) => {
   // Modern service hooks
   const api = useAPI()
   const storage = useStorage()
@@ -47,6 +47,13 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
     blocklist: []     // ['AAPL', 'TSLA', etc.] - companies to exclude from recommendations
   })
   const [blocklistInput, setBlocklistInput] = useState('')
+
+  // Notify parent when filters change
+  useEffect(() => {
+    if (onFiltersChange) {
+      onFiltersChange(filters)
+    }
+  }, [filters, onFiltersChange])
 
   // Scenario templates
   const scenarioTemplates = [
@@ -1342,7 +1349,20 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                               onClick={() => setShowFilters(!showFilters)}
                               className="w-full flex items-center justify-between text-left hover:opacity-70 transition-opacity"
                             >
-                              <span className="text-xs font-medium text-gray-700">Filters</span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-medium text-gray-700">Filters</span>
+                                {(() => {
+                                  const activeFilterCount =
+                                    (filters.companySizes.length > 0 ? 1 : 0) +
+                                    (filters.sectors.length > 0 ? 1 : 0) +
+                                    (filters.blocklist.length > 0 ? 1 : 0);
+                                  return (
+                                    <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1.5 bg-purple-600 text-white text-[10px] font-semibold rounded-full">
+                                      {activeFilterCount}
+                                    </span>
+                                  );
+                                })()}
+                              </div>
                               <svg
                                 className={`w-3 h-3 text-gray-400 transition-transform ${showFilters ? 'rotate-180' : ''}`}
                                 fill="none"
@@ -1507,7 +1527,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                             )}
                           </div>
 
-                          <button className="w-full px-4 py-2.5 text-xs text-gray-600 leading-4 bg-[#f0f4f8] hover:bg-[#e5edf5] rounded-lg transition-colors">
+                          <button className="w-full px-4 py-2.5 text-xs text-white leading-4 bg-gray-800 hover:bg-purple-600 rounded-lg transition-colors">
                             Find Exposure →
                           </button>
                         </div>
@@ -1718,7 +1738,20 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                 onClick={() => setShowFilters(!showFilters)}
                 className="w-full flex items-center justify-between text-left hover:opacity-70 transition-opacity"
               >
-                <span className="text-xs font-medium text-gray-700">Filters</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-700">Filters</span>
+                  {(() => {
+                    const activeFilterCount =
+                      (filters.companySizes.length > 0 ? 1 : 0) +
+                      (filters.sectors.length > 0 ? 1 : 0) +
+                      (filters.blocklist.length > 0 ? 1 : 0);
+                    return (
+                      <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1.5 bg-purple-600 text-white text-[10px] font-semibold rounded-full">
+                        {activeFilterCount}
+                      </span>
+                    );
+                  })()}
+                </div>
                 <svg
                   className={`w-3 h-3 text-gray-400 transition-transform ${showFilters ? 'rotate-180' : ''}`}
                   fill="none"
