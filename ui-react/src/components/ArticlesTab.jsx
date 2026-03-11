@@ -1315,33 +1315,32 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                     {!selectedPromptMode ? (
                       /* Starter prompts */
                       <div className="space-y-3">
-                        {/* Option 1 - Help with discovery (original styling) */}
-                        <button
-                          onClick={() => setSelectedPromptMode('discovery')}
-                          className="w-full text-left p-2.5 bg-[#f0f4f8] hover:bg-[#e5edf5] rounded-lg transition-colors"
-                        >
-                          <div className="flex items-start justify-between gap-2 mb-1.5">
-                            <span className="text-[10px] text-gray-500">Extract thesis</span>
-                          </div>
-                          <p className="text-xs leading-relaxed">
-                            <span className="text-purple-600 font-medium">Help with discovery</span>
-                            <span className="text-gray-900"> by reading my current active tab.</span>
-                          </p>
-                        </button>
-
-                        {/* OR divider */}
-                        <div className="text-center">
-                          <span className="text-[10px] text-gray-400 uppercase tracking-wider">OR</span>
-                        </div>
-
                         {/* Enter Thesis section */}
                         <div className="space-y-2">
-                          <label className="block text-[10px] text-gray-500 pl-2.5">Enter thesis</label>
-                          <textarea
-                            placeholder="e.g. Pentagon drone budget increase will accelerate US UAV supply chain reshoring."
-                            rows={4}
-                            className="w-full px-3 py-2.5 text-xs text-gray-900 placeholder:text-gray-400 bg-white border border-gray-200 rounded-lg focus:outline-none focus:border-gray-300 resize-none"
-                          />
+                          <div className="pl-2.5 mb-3">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <img src="/assets/images/128x128.png" alt="PocketStox" className="w-3.5 h-3.5" />
+                              <span className="text-sm font-medium text-gray-700">Hi Andres,</span>
+                            </div>
+                            <div className="text-sm font-medium text-gray-900">What's your investment thesis?</div>
+                          </div>
+                          <div className="relative">
+                            <textarea
+                              placeholder="e.g. Pentagon drone budget increase will accelerate US UAV supply chain reshoring."
+                              rows={4}
+                              className="w-full px-3 py-2.5 pb-12 text-xs text-gray-900 placeholder:text-gray-400 bg-white border border-gray-200 hover:border-gray-300 rounded-lg focus:outline-none focus:border-gray-300 resize-none"
+                            />
+                            <button
+                              onClick={() => setSelectedPromptMode('discovery')}
+                              className="absolute bottom-3.5 left-3 px-3 py-1.5 text-[10px] font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-full transition-colors flex items-center gap-1.5"
+                            >
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                                <line x1="3" y1="9" x2="21" y2="9" />
+                              </svg>
+                              Extract From Tab
+                            </button>
+                          </div>
 
                           {/* Filters Section - Collapsible */}
                           <div className="border-t border-b border-gray-100 px-2 py-3">
@@ -1354,8 +1353,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                                 {(() => {
                                   const activeFilterCount =
                                     (filters.companySizes.length > 0 ? 1 : 0) +
-                                    (filters.sectors.length > 0 ? 1 : 0) +
-                                    (filters.blocklist.length > 0 ? 1 : 0);
+                                    (filters.sectors.length > 0 ? 1 : 0);
                                   return (
                                     <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1.5 bg-purple-600 text-white text-[10px] font-semibold rounded-full">
                                       {activeFilterCount}
@@ -1374,53 +1372,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                             </button>
 
                             {showFilters && (
-                              <div className="mt-3 space-y-3">
-                                {/* Company Size Filter */}
-                                <div>
-                                  <label className="block text-xs font-medium text-gray-600 mb-2">Company Size</label>
-                                  <div
-                                    className="flex overflow-x-auto gap-2 pb-2 cursor-grab active:cursor-grabbing"
-                                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                                    onMouseDown={(e) => {
-                                      const container = e.currentTarget;
-                                      const startX = e.pageX - container.offsetLeft;
-                                      const scrollLeft = container.scrollLeft;
-                                      container.style.cursor = 'grabbing';
-                                      const handleMouseMove = (e) => {
-                                        const x = e.pageX - container.offsetLeft;
-                                        const walk = (x - startX) * 2;
-                                        container.scrollLeft = scrollLeft - walk;
-                                      };
-                                      const handleMouseUp = () => {
-                                        container.style.cursor = 'grab';
-                                        document.removeEventListener('mousemove', handleMouseMove);
-                                        document.removeEventListener('mouseup', handleMouseUp);
-                                      };
-                                      document.addEventListener('mousemove', handleMouseMove);
-                                      document.addEventListener('mouseup', handleMouseUp);
-                                    }}
-                                  >
-                                    {[
-                                      { value: 'small', label: 'Small (<$2B)' },
-                                      { value: 'mid', label: 'Mid ($2-10B)' },
-                                      { value: 'large', label: 'Large (>$10B)' }
-                                    ].map(option => (
-                                      <button
-                                        key={option.value}
-                                        onClick={() => toggleFilter('companySizes', option.value)}
-                                        className={cn(
-                                          "px-2.5 py-1.5 text-xs rounded-md border transition-colors flex-shrink-0",
-                                          filters.companySizes.includes(option.value)
-                                            ? "bg-gray-400/20 text-gray-600 border-gray-300"
-                                            : "bg-white text-gray-700 border-gray-100 hover:border-gray-200"
-                                        )}
-                                      >
-                                        {option.label}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-
+                              <div className="mt-4 space-y-3">
                                 {/* Sectors Filter */}
                                 <div>
                                   <label className="block text-xs font-medium text-gray-600 mb-2">Sectors</label>
@@ -1475,52 +1427,49 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                                   </div>
                                 </div>
 
-                                {/* Ignore Filter */}
+                                {/* Company Size Filter */}
                                 <div>
-                                  <label className="block text-xs font-medium text-gray-600 mb-2">Ignore</label>
-                                  <div className="space-y-2">
-                                    {/* Input field */}
-                                    <div className="flex gap-2">
-                                      <input
-                                        type="text"
-                                        value={blocklistInput}
-                                        onChange={(e) => setBlocklistInput(e.target.value)}
-                                        onKeyDown={handleBlocklistKeyDown}
-                                        placeholder="Enter ticker (e.g., AAPL)"
-                                        className="flex-1 px-2.5 py-1.5 text-xs border border-gray-200 rounded-md focus:outline-none focus:border-gray-300"
-                                      />
+                                  <label className="block text-xs font-medium text-gray-600 mb-2">Company Size</label>
+                                  <div
+                                    className="flex overflow-x-auto gap-2 pb-2 cursor-grab active:cursor-grabbing"
+                                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                                    onMouseDown={(e) => {
+                                      const container = e.currentTarget;
+                                      const startX = e.pageX - container.offsetLeft;
+                                      const scrollLeft = container.scrollLeft;
+                                      container.style.cursor = 'grabbing';
+                                      const handleMouseMove = (e) => {
+                                        const x = e.pageX - container.offsetLeft;
+                                        const walk = (x - startX) * 2;
+                                        container.scrollLeft = scrollLeft - walk;
+                                      };
+                                      const handleMouseUp = () => {
+                                        container.style.cursor = 'grab';
+                                        document.removeEventListener('mousemove', handleMouseMove);
+                                        document.removeEventListener('mouseup', handleMouseUp);
+                                      };
+                                      document.addEventListener('mousemove', handleMouseMove);
+                                      document.addEventListener('mouseup', handleMouseUp);
+                                    }}
+                                  >
+                                    {[
+                                      { value: 'small', label: 'Small (<$2B)' },
+                                      { value: 'mid', label: 'Mid ($2-10B)' },
+                                      { value: 'large', label: 'Large (>$10B)' }
+                                    ].map(option => (
                                       <button
-                                        onClick={handleAddToBlocklist}
-                                        disabled={!blocklistInput.trim()}
-                                        className="px-3 py-1.5 text-xs bg-[#4A4458] text-white rounded-md hover:bg-[#3d3a4a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        key={option.value}
+                                        onClick={() => toggleFilter('companySizes', option.value)}
+                                        className={cn(
+                                          "px-2.5 py-1.5 text-xs rounded-md border transition-colors flex-shrink-0",
+                                          filters.companySizes.includes(option.value)
+                                            ? "bg-gray-400/20 text-gray-600 border-gray-300"
+                                            : "bg-white text-gray-700 border-gray-100 hover:border-gray-200"
+                                        )}
                                       >
-                                        Add
+                                        {option.label}
                                       </button>
-                                    </div>
-
-                                    {/* Ignored tickers pills */}
-                                    {filters.blocklist.length > 0 && (
-                                      <div className="flex flex-wrap gap-2">
-                                        {filters.blocklist.map(ticker => (
-                                          <div
-                                            key={ticker}
-                                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-red-50 text-red-700 border border-red-200 rounded-md"
-                                          >
-                                            <span>{ticker}</span>
-                                            <button
-                                              onClick={() => handleRemoveFromBlocklist(ticker)}
-                                              className="hover:text-red-900 transition-colors"
-                                            >
-                                              ×
-                                            </button>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-
-                                    {filters.blocklist.length === 0 && (
-                                      <p className="text-xs text-gray-400 italic">No companies ignored</p>
-                                    )}
+                                    ))}
                                   </div>
                                 </div>
                               </div>
