@@ -1253,9 +1253,9 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
         className="relative cursor-pointer transition-all duration-200 group hover:bg-gray-50 hover:rounded-lg"
         onClick={handleCardClick}
       >
-        <div className="flex items-start gap-3 px-3 py-3">
+        <div className="flex items-end gap-3 px-3 py-3">
           {/* Company icon with dynamic color background */}
-          <CompanyIcon article={article} size="xs" />
+          <CompanyIcon article={article} size="xs" className="!w-9 !h-9" />
 
           {/* Content */}
           <div className="flex-1 min-w-0">
@@ -1264,11 +1264,20 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
               {article.title}
             </h3>
 
-            {/* Meta info - URL and timestamp on same line */}
+            {/* Meta info - Order tag and timestamp on same line */}
             <div className="flex items-center gap-2 text-[11px] text-gray-500">
-              {article.url && (
-                <span className="truncate text-gray-600">{extractDomain(article.url)}</span>
-              )}
+              {(() => {
+                const orders = ['Direct', '1st Order', '2nd Order'];
+                // Use article ID/URL to deterministically assign an order (placeholder)
+                const hash = (article.id || article.url || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                const orderIndex = hash % orders.length;
+                const order = orders[orderIndex];
+                return (
+                  <span className="px-2 py-0.5 bg-[#f0f4f8] rounded-full text-[10px] font-medium text-gray-500">
+                    {order}
+                  </span>
+                );
+              })()}
               <span className="flex-shrink-0">•</span>
               <span className="flex-shrink-0">{formatDate(article.timestamp)}</span>
             </div>
@@ -1318,7 +1327,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                         {/* Enter Thesis section */}
                         <div className="space-y-2">
                           <div className="pl-2.5 mb-3">
-                            <div className="flex items-center gap-2 mb-0.5">
+                            <div className="flex items-center gap-2 mb-0">
                               <img src="/assets/images/128x128.png" alt="PocketStox" className="w-3.5 h-3.5" />
                               <span className="text-sm font-medium text-gray-700">Hi Andres,</span>
                             </div>
@@ -1332,7 +1341,7 @@ const ArticlesTab = memo(forwardRef(({ onArticleClick, onGenerate, activeTab, se
                             />
                             <button
                               onClick={() => setSelectedPromptMode('discovery')}
-                              className="absolute bottom-3.5 left-3 px-3 py-1.5 text-[10px] font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-full transition-colors flex items-center gap-1.5"
+                              className="absolute bottom-3.5 left-3 px-3 py-1.5 text-[10px] font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-md transition-colors flex items-center gap-1.5"
                             >
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />

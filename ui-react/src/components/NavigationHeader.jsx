@@ -1,5 +1,5 @@
 import React, { memo, useRef, useEffect, useState } from 'react'
-import { Search, X, Info } from 'lucide-react'
+import { Search, X, Info, User } from 'lucide-react'
 import { componentSpacing } from '@/styles/typography'
 
 const NavigationHeader = memo(({ activeTab, onTabChange, searchQuery, onSearchChange, showSearch, onToggleSearch }) => {
@@ -86,7 +86,19 @@ const NavigationHeader = memo(({ activeTab, onTabChange, searchQuery, onSearchCh
                   <Search size={16} strokeWidth={1.75} />
                 </button>
               )}
-              
+
+              {/* Profile Icon */}
+              <button
+                onClick={() => {
+                  // TODO: Add profile functionality
+                  console.log('Profile clicked')
+                }}
+                className="flex items-center justify-center w-8 h-8 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors duration-200"
+                aria-label="Profile"
+              >
+                <User size={16} strokeWidth={1.75} />
+              </button>
+
               {/* How to use PocketStox help icon - always visible and rightmost */}
               <button
                 onClick={() => {
